@@ -115,11 +115,13 @@ export default function ImportExportPage() {
             'Ders Kodu': c.code,
             'Ders Adı': c.name,
             'Fakülte': c.faculty,
+            'Öğretmen ID': c.teacher_id,
             'Öğretmen': c.teacher?.name || '',
             'Seviye': c.level,
             'Kategori': c.category,
             'Dönem': c.semester,
             'AKTS': c.ects,
+            'Haftalık Saat': c.total_hours || c.sessions?.reduce((sum: number, s: { hours: number }) => sum + s.hours, 0) || 0,
             'Aktif': c.is_active ? 'Evet' : 'Hayır',
           }));
           break;
@@ -227,6 +229,26 @@ export default function ImportExportPage() {
                     working_hours: '{}',
                   });
                   break;
+                case 'courses':
+                  const teacherId = parseInt((row as any)['Öğretmen ID']);
+                  const weeklyHours = parseInt((row as any)['Haftalık Saat']) || 3;
+                  await coursesApi.create({
+                    code: (row as any)['Ders Kodu'] || '',
+                    name: (row as any)['Ders Adı'] || '',
+                    faculty: (row as any)['Fakülte'] || '',
+                    teacher_id: isNaN(teacherId) ? 1 : teacherId,
+                    level: (row as any)['Seviye'] || 'lisans',
+                    category: ((row as any)['Kategori'] === 'seçmeli' || (row as any)['Kategori'] === 'secmeli') ? 'secmeli' : 'zorunlu',
+                    semester: (row as any)['Dönem'] || 'güz',
+                    ects: parseInt((row as any)['AKTS']) || 5,
+                    is_active: (row as any)['Aktif'] !== 'Hayır',
+                    sessions: [{
+                      type: 'teorik' as const,
+                      hours: weeklyHours,
+                    }],
+                    departments: [],
+                  });
+                  break;
                 case 'classrooms':
                   await classroomsApi.create({
                     name: (row as any)['Derslik Adı'] || '',
@@ -268,7 +290,7 @@ export default function ImportExportPage() {
         filename = 'ogretmen_sablonu';
         break;
       case 'courses':
-        headers = ['Ders Kodu', 'Ders Adı', 'Fakülte', 'Seviye', 'Kategori', 'Dönem', 'AKTS'];
+        headers = ['Ders Kodu', 'Ders Adı', 'Fakülte', 'Öğretmen ID', 'Seviye', 'Kategori', 'Dönem', 'AKTS', 'Haftalık Saat', 'Aktif'];
         filename = 'ders_sablonu';
         break;
       case 'classrooms':
@@ -362,7 +384,7 @@ export default function ImportExportPage() {
           </Alert>
 
           <div className="grid gap-4 md:grid-cols-3">
-            {['teachers', 'classrooms'].map((type) => {
+            {['teachers', 'courses', 'classrooms'].map((type) => {
               const option = exportOptions.find(o => o.id === type)!;
               const Icon = option.icon;
               return (
