@@ -12,18 +12,20 @@ import {
   Calendar,
   Download,
   FileSpreadsheet,
-  Loader2,
   Clock,
   AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/auth-context';
 import { statisticsApi, schedulerApi } from '@/lib/api';
+import { styles } from '@/lib/design-tokens';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PageHeader } from '@/components/ui/page-header';
+import { CardSkeleton } from '@/components/ui/skeleton';
 import type { Statistics, SchedulerStatus } from '@/types';
 
 export default function ReportsPage() {
@@ -62,8 +64,18 @@ export default function ReportsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className={styles.pageContainer}>
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="h-8 w-48 bg-muted rounded-lg animate-pulse" />
+            <div className="h-4 w-64 bg-muted rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <CardSkeleton key={i} />
+          ))}
+        </div>
       </div>
     );
   }
@@ -71,17 +83,19 @@ export default function ReportsPage() {
   const totalResources = (stats?.teacherCount || 0) + (stats?.courseCount || 0) + (stats?.classroomCount || 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Raporlar</h1>
-          <p className="text-muted-foreground">Sistem istatistikleri ve raporları</p>
-        </div>
-        <Button>
-          <Download className="mr-2 h-4 w-4" />
-          Rapor İndir
-        </Button>
-      </div>
+    <div className={styles.pageContainer}>
+      <PageHeader
+        title="Raporlar"
+        description="Sistem istatistikleri ve raporları"
+        icon={BarChart3}
+        entity="reports"
+        action={
+          <Button className={styles.buttonPrimary}>
+            <Download className="mr-2 h-4 w-4" />
+            Rapor İndir
+          </Button>
+        }
+      />
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>

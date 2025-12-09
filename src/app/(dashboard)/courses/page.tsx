@@ -2,14 +2,17 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Plus, Search, ChevronRight, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { Plus, ChevronRight, Pencil, Trash2, BookOpen, Building2, GraduationCap } from 'lucide-react';
 import { useCourses } from '@/hooks/use-courses';
 import { useAuth } from '@/contexts/auth-context';
 import { getFacultyName, getDepartmentName } from '@/constants/faculties';
+import { styles } from '@/lib/design-tokens';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { TableSkeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/ui/page-header';
+import { SearchBar } from '@/components/ui/search-bar';
 import {
   Table,
   TableBody,
@@ -140,76 +143,83 @@ export default function CoursesPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className={styles.pageContainer}>
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="h-8 w-48 bg-muted rounded-lg animate-pulse" />
+            <div className="h-4 w-64 bg-muted rounded animate-pulse" />
+          </div>
+        </div>
+        <TableSkeleton />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className={styles.pageContainer}>
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Dersler</h1>
-          <p className="text-muted-foreground">
-            Fakülte ve bölümlere göre dersleri görüntüleyin
-          </p>
-        </div>
-        {isAdmin && (
+      <PageHeader
+        title="Dersler"
+        description={`${courses.length} ders kayıtlı`}
+        icon={BookOpen}
+        entity="courses"
+        action={isAdmin ? (
           <Link href="/courses/new">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
+            <Button size="lg" className={styles.buttonPrimary}>
+              <Plus className="mr-2 h-5 w-5" />
               Yeni Ders
             </Button>
           </Link>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm">
-        <button
-          onClick={() => {
-            setSelectedFaculty(null);
-            setSelectedDepartment(null);
-            setSearchTerm('');
-          }}
-          className={`hover:text-primary ${!selectedFaculty ? 'font-semibold text-primary' : 'text-muted-foreground'}`}
-        >
-          Fakülteler
-        </button>
-        {selectedFaculty && (
-          <>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <button
-              onClick={() => {
-                setSelectedDepartment(null);
-                setSearchTerm('');
-              }}
-              className={`hover:text-primary ${!selectedDepartment ? 'font-semibold text-primary' : 'text-muted-foreground'}`}
-            >
-              {selectedFaculty}
-            </button>
-          </>
-        )}
-        {selectedDepartment && (
-          <>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <span className="font-semibold text-primary">{selectedDepartment}</span>
-          </>
-        )}
-      </div>
+      <Card className="p-4">
+        <div className={styles.breadcrumb}>
+          <button
+            onClick={() => {
+              setSelectedFaculty(null);
+              setSelectedDepartment(null);
+              setSearchTerm('');
+            }}
+            className={`${styles.breadcrumbItem} ${!selectedFaculty ? styles.breadcrumbItemActive : styles.breadcrumbItemInactive}`}
+          >
+            <GraduationCap className="h-4 w-4" />
+            Fakülteler
+          </button>
+          {selectedFaculty && (
+            <>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <button
+                onClick={() => {
+                  setSelectedDepartment(null);
+                  setSearchTerm('');
+                }}
+                className={`${styles.breadcrumbItem} ${!selectedDepartment ? styles.breadcrumbItemActive : styles.breadcrumbItemInactive}`}
+              >
+                <Building2 className="h-4 w-4" />
+                {selectedFaculty}
+              </button>
+            </>
+          )}
+          {selectedDepartment && (
+            <>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <span className={`${styles.breadcrumbItem} ${styles.breadcrumbItemActive}`}>
+                <BookOpen className="h-4 w-4" />
+                {selectedDepartment}
+              </span>
+            </>
+          )}
+        </div>
+      </Card>
 
       {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder={getPlaceholder()}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      <SearchBar
+        value={searchTerm}
+        onChange={setSearchTerm}
+        placeholder={getPlaceholder()}
+      />
 
       {/* Content */}
       {viewLevel === 'faculties' && (

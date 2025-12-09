@@ -20,11 +20,13 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { useAuth } from '@/contexts/auth-context';
 import { teachersApi, coursesApi, classroomsApi, schedulesApi } from '@/lib/api';
+import { styles } from '@/lib/design-tokens';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { PageHeader } from '@/components/ui/page-header';
 import {
   Dialog,
   DialogContent,
@@ -281,11 +283,13 @@ export default function ImportExportPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">İçe/Dışa Aktar</h1>
-        <p className="text-muted-foreground">Excel dosyaları ile veri aktarımı yapın</p>
-      </div>
+    <div className={styles.pageContainer}>
+      <PageHeader
+        title="İçe/Dışa Aktar"
+        description="Excel dosyaları ile veri aktarımı yapın"
+        icon={FileSpreadsheet}
+        entity="import"
+      />
 
       <Tabs defaultValue="export" className="space-y-6">
         <TabsList>

@@ -2,15 +2,17 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Plus, Search, ChevronRight, Loader2, Pencil, Trash2, Users, Building2, GraduationCap } from 'lucide-react';
+import { Plus, ChevronRight, Pencil, Trash2, Users, Building2, GraduationCap } from 'lucide-react';
 import { useTeachers } from '@/hooks/use-teachers';
 import { useAuth } from '@/contexts/auth-context';
-import { FACULTIES, getDepartmentsByFaculty, getFacultyName, getDepartmentName } from '@/constants/faculties';
+import { getFacultyName, getDepartmentName } from '@/constants/faculties';
+import { styles } from '@/lib/design-tokens';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TableSkeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/ui/page-header';
+import { SearchBar } from '@/components/ui/search-bar';
 import {
   Table,
   TableBody,
@@ -123,7 +125,7 @@ export default function TeachersPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 animate-fade-in">
+      <div className={styles.pageContainer}>
         <div className="flex items-center justify-between">
           <div className="space-y-2">
             <div className="h-8 w-48 bg-muted rounded-lg animate-pulse" />
@@ -136,44 +138,33 @@ export default function TeachersPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className={styles.pageContainer}>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="p-3 rounded-2xl bg-blue-100 dark:bg-blue-900/30">
-            <Users className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Öğretmenler</h1>
-            <p className="text-muted-foreground">
-              {teachers.length} öğretmen kayıtlı
-            </p>
-          </div>
-        </div>
-        {isAdmin && (
+      <PageHeader
+        title="Öğretmenler"
+        description={`${teachers.length} öğretmen kayıtlı`}
+        icon={Users}
+        entity="teachers"
+        action={isAdmin ? (
           <Link href="/teachers/new">
-            <Button size="lg" className="shadow-lg">
+            <Button size="lg" className={styles.buttonPrimary}>
               <Plus className="mr-2 h-5 w-5" />
               Yeni Öğretmen
             </Button>
           </Link>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       {/* Breadcrumb */}
       <Card className="p-4">
-        <div className="flex flex-wrap items-center gap-2 text-sm">
+        <div className={styles.breadcrumb}>
           <button
             onClick={() => {
               setSelectedFaculty(null);
               setSelectedDepartment(null);
               setSearchTerm('');
             }}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${
-              !selectedFaculty 
-                ? 'bg-primary text-primary-foreground font-medium' 
-                : 'text-muted-foreground hover:bg-muted'
-            }`}
+            className={`${styles.breadcrumbItem} ${!selectedFaculty ? styles.breadcrumbItemActive : styles.breadcrumbItemInactive}`}
           >
             <GraduationCap className="h-4 w-4" />
             Fakülteler
@@ -186,11 +177,7 @@ export default function TeachersPage() {
                   setSelectedDepartment(null);
                   setSearchTerm('');
                 }}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${
-                  !selectedDepartment 
-                    ? 'bg-primary text-primary-foreground font-medium' 
-                    : 'text-muted-foreground hover:bg-muted'
-                }`}
+                className={`${styles.breadcrumbItem} ${!selectedDepartment ? styles.breadcrumbItemActive : styles.breadcrumbItemInactive}`}
               >
                 <Building2 className="h-4 w-4" />
                 {selectedFaculty}
@@ -200,7 +187,7 @@ export default function TeachersPage() {
           {selectedDepartment && (
             <>
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              <span className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-medium">
+              <span className={`${styles.breadcrumbItem} ${styles.breadcrumbItemActive}`}>
                 <Users className="h-4 w-4" />
                 {selectedDepartment}
               </span>
@@ -210,15 +197,11 @@ export default function TeachersPage() {
       </Card>
 
       {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder={getPlaceholder()}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-12 h-12 text-base"
-        />
-      </div>
+      <SearchBar
+        value={searchTerm}
+        onChange={setSearchTerm}
+        placeholder={getPlaceholder()}
+      />
 
       {/* Content */}
       {viewLevel === 'faculties' && (

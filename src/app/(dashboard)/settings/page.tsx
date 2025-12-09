@@ -2,10 +2,13 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { styles } from '@/lib/design-tokens';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { PageHeader } from '@/components/ui/page-header';
 
 export default function SettingsPage() {
   const { user, isAdmin } = useAuth();
@@ -22,11 +25,13 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Ayarlar</h1>
-        <p className="text-muted-foreground">Sistem ayarlarını görüntüleyin</p>
-      </div>
+    <div className={styles.pageContainer}>
+      <PageHeader
+        title="Ayarlar"
+        description="Sistem ayarlarını görüntüleyin"
+        icon={Settings}
+        entity="settings"
+      />
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>

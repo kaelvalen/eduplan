@@ -2,10 +2,12 @@
 
 import { use } from 'react';
 import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, UserCog } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { styles } from '@/lib/design-tokens';
 import { Button } from '@/components/ui/button';
 import { TeacherForm } from '@/components/teachers/teacher-form';
+import { PageHeader } from '@/components/ui/page-header';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
@@ -29,17 +31,19 @@ export default function EditTeacherPage({ params }: EditTeacherPageProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={styles.pageContainer}>
       <div className="flex items-center gap-4">
         <Link href="/teachers">
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" className="rounded-xl">
             <ChevronLeft className="h-5 w-5" />
           </Button>
         </Link>
-        <div>
-          <h1 className="text-3xl font-bold">Öğretmen Düzenle</h1>
-          <p className="text-muted-foreground">Öğretmen bilgilerini güncelleyin</p>
-        </div>
+        <PageHeader
+          title="Öğretmen Düzenle"
+          description="Öğretmen bilgilerini güncelleyin"
+          icon={UserCog}
+          entity="teachers"
+        />
       </div>
 
       <TeacherForm teacherId={parseInt(id)} />

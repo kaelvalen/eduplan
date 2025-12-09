@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, ChevronRight } from 'lucide-react';
+import { ChevronRight, GraduationCap, Building2 } from 'lucide-react';
 import { FACULTIES, getDepartmentsByFaculty } from '@/constants/faculties';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { styles } from '@/lib/design-tokens';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
+import { SearchBar } from '@/components/ui/search-bar';
 import {
   Table,
   TableBody,
@@ -29,46 +31,46 @@ export default function FacultiesPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className={styles.pageContainer}>
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Fakülteler & Programlar</h1>
-        <p className="text-muted-foreground">
-          Fakülte ve bölüm listesini görüntüleyin
-        </p>
-      </div>
+      <PageHeader
+        title="Fakülteler & Programlar"
+        description="Fakülte ve bölüm listesini görüntüleyin"
+        icon={GraduationCap}
+        entity="teachers"
+      />
 
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm">
-        <button
-          onClick={() => {
-            setSelectedFaculty(null);
-            setSearchTerm('');
-          }}
-          className={`hover:text-primary ${!selectedFaculty ? 'font-semibold text-primary' : 'text-muted-foreground'}`}
-        >
-          Fakülteler
-        </button>
-        {selectedFaculty && (
-          <>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <span className="font-semibold text-primary">
-              {FACULTIES.find((f) => f.id === selectedFaculty)?.name}
-            </span>
-          </>
-        )}
-      </div>
+      <Card className="p-4">
+        <div className={styles.breadcrumb}>
+          <button
+            onClick={() => {
+              setSelectedFaculty(null);
+              setSearchTerm('');
+            }}
+            className={`${styles.breadcrumbItem} ${!selectedFaculty ? styles.breadcrumbItemActive : styles.breadcrumbItemInactive}`}
+          >
+            <GraduationCap className="h-4 w-4" />
+            Fakülteler
+          </button>
+          {selectedFaculty && (
+            <>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <span className={`${styles.breadcrumbItem} ${styles.breadcrumbItemActive}`}>
+                <Building2 className="h-4 w-4" />
+                {FACULTIES.find((f) => f.id === selectedFaculty)?.name}
+              </span>
+            </>
+          )}
+        </div>
+      </Card>
 
       {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder={selectedFaculty ? 'Bölüm ara...' : 'Fakülte ara...'}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      <SearchBar
+        value={searchTerm}
+        onChange={setSearchTerm}
+        placeholder={selectedFaculty ? 'Bölüm ara...' : 'Fakülte ara...'}
+      />
 
       {/* Content */}
       {!selectedFaculty ? (

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { User, Mail, Shield, Key, Save, Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/auth-context';
+import { styles } from '@/lib/design-tokens';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { UserAvatar } from '@/components/ui/avatar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { PageHeader } from '@/components/ui/page-header';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -54,11 +56,13 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-bold">Profil</h1>
-        <p className="text-muted-foreground">Hesap bilgilerinizi görüntüleyin ve yönetin</p>
-      </div>
+    <div className={`${styles.pageContainer} max-w-4xl mx-auto`}>
+      <PageHeader
+        title="Profil"
+        description="Hesap bilgilerinizi görüntüleyin ve yönetin"
+        icon={User}
+        entity="settings"
+      />
 
       <div className="grid gap-6 md:grid-cols-3">
         {/* Profile Card */}

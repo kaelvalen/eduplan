@@ -53,8 +53,12 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
     return pathname.startsWith(href);
   };
 
+  // Close mobile sidebar on route change
   useEffect(() => {
-    if (onClose) onClose();
+    if (isOpen && onClose) {
+      onClose();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   const NavLink = ({ item, active }: { item: typeof navigation[0]; active: boolean }) => {

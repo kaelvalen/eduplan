@@ -1,18 +1,17 @@
-import { LucideIcon, TrendingUp, TrendingDown } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from 'next/link';
+import { LucideIcon, TrendingUp, ChevronRight } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { styles, getEntityColors, EntityKey } from '@/lib/design-tokens';
 
 interface StatsCardProps {
   title: string;
   value: string | number;
   description?: string;
   icon?: LucideIcon;
-  trend?: {
-    value: number;
-    isPositive: boolean;
-  };
+  entity?: EntityKey;
+  href?: string;
   className?: string;
-  iconClassName?: string;
 }
 
 export function StatsCard({
@@ -20,47 +19,60 @@ export function StatsCard({
   value,
   description,
   icon: Icon,
-  trend,
+  entity,
+  href,
   className,
-  iconClassName,
 }: StatsCardProps) {
-  return (
-    <Card className={cn('transition-shadow hover:shadow-md', className)}>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          {title}
-        </CardTitle>
-        {Icon && (
-          <div className={cn('rounded-full p-2', iconClassName)}>
-            <Icon className="h-5 w-5" />
-          </div>
-        )}
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-end justify-between">
+  const entityColors = entity ? getEntityColors(entity) : null;
+  
+  const content = (
+    <Card className={cn(styles.statCard, className)}>
+      {/* Hover overlay with gradient */}
+      {entityColors && (
+        <div className={cn(
+          styles.statCardOverlay,
+          `bg-gradient-to-br ${entityColors.gradient}`
+        )} />
+      )}
+      
+      <CardContent className={styles.statCardContent}>
+        <div className="flex items-start justify-between">
           <div>
-            <div className="text-2xl font-bold">{value}</div>
-            {description && (
-              <p className="text-xs text-muted-foreground mt-1">{description}</p>
-            )}
+            <p className="text-sm font-medium text-muted-foreground group-hover:text-white/80 transition-colors">
+              {title}
+            </p>
+            <p className="text-4xl font-bold mt-2 group-hover:text-white transition-colors">
+              {value}
+            </p>
           </div>
-          {trend && (
-            <div
-              className={cn(
-                'flex items-center text-xs font-medium',
-                trend.isPositive ? 'text-green-600' : 'text-red-600'
-              )}
-            >
-              {trend.isPositive ? (
-                <TrendingUp className="h-3 w-3 mr-1" />
-              ) : (
-                <TrendingDown className="h-3 w-3 mr-1" />
-              )}
-              {trend.value}%
+          {Icon && (
+            <div className={cn(
+              styles.iconContainer,
+              entityColors?.bg || 'bg-primary/10',
+              'group-hover:bg-white/20 transition-colors'
+            )}>
+              <Icon className={cn(
+                'h-6 w-6',
+                entityColors?.icon || 'text-primary',
+                'group-hover:text-white transition-colors'
+              )} />
             </div>
+          )}
+        </div>
+        <div className="mt-4 flex items-center text-sm text-muted-foreground group-hover:text-white/70 transition-colors">
+          <TrendingUp className="h-4 w-4 mr-1" />
+          <span>{description || 'Bu ay aktif'}</span>
+          {href && (
+            <ChevronRight className="h-4 w-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
           )}
         </div>
       </CardContent>
     </Card>
   );
+
+  if (href) {
+    return <Link href={href}>{content}</Link>;
+  }
+
+  return content;
 }

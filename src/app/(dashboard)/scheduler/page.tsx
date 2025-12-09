@@ -2,13 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Play, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Loader2, Play, CheckCircle, XCircle, AlertCircle, Cog } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/auth-context';
 import { schedulerApi } from '@/lib/api';
+import { styles } from '@/lib/design-tokens';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { PageHeader } from '@/components/ui/page-header';
+import { CardSkeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -73,21 +76,31 @@ export default function SchedulerPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className={styles.pageContainer}>
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="h-8 w-48 bg-muted rounded-lg animate-pulse" />
+            <div className="h-4 w-64 bg-muted rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <CardSkeleton key={i} />
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className={styles.pageContainer}>
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Program Oluşturucu</h1>
-        <p className="text-muted-foreground">
-          Genetik algoritma ile otomatik ders programı oluşturun
-        </p>
-      </div>
+      <PageHeader
+        title="Program Oluşturucu"
+        description="Genetik algoritma ile otomatik ders programı oluşturun"
+        icon={Cog}
+        entity="scheduler"
+      />
 
       {/* Status Cards */}
       <div className="grid gap-4 md:grid-cols-4">

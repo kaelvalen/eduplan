@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import { 
-  Loader2, 
   Trash2, 
   Download, 
   Filter, 
@@ -17,11 +16,13 @@ import {
 import * as XLSX from 'xlsx';
 import { useSchedules } from '@/hooks/use-schedules';
 import { useAuth } from '@/contexts/auth-context';
+import { styles } from '@/lib/design-tokens';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PageHeader } from '@/components/ui/page-header';
 import {
   Select,
   SelectContent,
@@ -184,10 +185,10 @@ export default function SchedulesPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className={styles.pageContainer}>
         <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <div className="h-8 w-48 bg-muted rounded animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-8 w-48 bg-muted rounded-lg animate-pulse" />
             <div className="h-4 w-64 bg-muted rounded animate-pulse" />
           </div>
         </div>
@@ -197,70 +198,68 @@ export default function SchedulesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={styles.pageContainer}>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Ders Programı</h1>
-          <p className="text-muted-foreground">
-            Haftalık ders programını görüntüleyin
-            {filteredSchedules.length !== schedules.length && (
-              <span className="ml-2 text-primary">
-                ({filteredSchedules.length} / {schedules.length} kayıt)
-              </span>
-            )}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {/* View Mode Toggle */}
-          <div className="flex border rounded-lg">
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('grid')}
-              className="rounded-r-none"
-            >
-              <Grid3X3 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-              className="rounded-l-none"
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Export Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Download className="mr-2 h-4 w-4" />
-                Dışa Aktar
-                <ChevronDown className="ml-2 h-4 w-4" />
+      <PageHeader
+        title="Ders Programı"
+        description={filteredSchedules.length !== schedules.length 
+          ? `${filteredSchedules.length} / ${schedules.length} kayıt gösteriliyor`
+          : `${schedules.length} ders programı kayıtlı`
+        }
+        icon={CalendarIcon}
+        entity="schedules"
+        action={
+          <div className="flex flex-wrap gap-2">
+            {/* View Mode Toggle */}
+            <div className="flex border rounded-xl overflow-hidden">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+                className="rounded-none"
+              >
+                <Grid3X3 className="h-4 w-4" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={handleExport}>
-                <Download className="mr-2 h-4 w-4" />
-                Excel&apos;e Aktar
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handlePrint}>
-                <Printer className="mr-2 h-4 w-4" />
-                Yazdır
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="rounded-none"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
 
-          {isAdmin && schedules.length > 0 && (
-            <Button variant="destructive" size="sm" onClick={() => setDeleteConfirm(true)}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              Tümünü Sil
-            </Button>
-          )}
-        </div>
-      </div>
+            {/* Export Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Download className="mr-2 h-4 w-4" />
+                  Dışa Aktar
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={handleExport}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Excel&apos;e Aktar
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handlePrint}>
+                  <Printer className="mr-2 h-4 w-4" />
+                  Yazdır
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {isAdmin && schedules.length > 0 && (
+              <Button variant="destructive" size="sm" onClick={() => setDeleteConfirm(true)}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Tümünü Sil
+              </Button>
+            )}
+          </div>
+        }
+      />
 
       {/* Filters */}
       <Card>
