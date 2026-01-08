@@ -1,0 +1,30 @@
+name: Security Audit
+
+on:
+  schedule:
+    # Run every Monday at 9 AM
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    name: NPM Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Run npm audit
+        run: |
+          npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Run npm outdated
+        run: npm outdated
+        continue-on-error: true
