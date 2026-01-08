@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser, isAdmin } from '@/lib/auth';
 import { getActiveCoursesForScheduler, getAllClassroomsForScheduler, deleteAllSchedules, createManySchedules } from '@/lib/turso-helpers';
+import logger, { logSchedulerEvent } from '@/lib/logger';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const TIME_BLOCKS = [
@@ -218,11 +219,18 @@ async function generateScheduleGenetic(
 
 // POST /api/scheduler/generate - Generate schedule
 export async function POST(request: Request) {
+  const startTime = Date.now();
+  
   try {
     const user = await getCurrentUser(request);
     if (!user || !isAdmin(user)) {
       return NextResponse.json({ detail: 'Yetkisiz erişim' }, { status: 403 });
     }
+
+    logSchedulerEvent({
+      action: 'generate_schedule',
+      status: 'started',
+    });
 
     // Get active courses with their data
     const courses: CourseData[] = await getActiveCoursesForScheduler();
@@ -283,6 +291,14 @@ export async function POST(request: Request) {
     const scheduledCount = schedule.length;
     const successRate = totalSessions > 0 ? Math.round((scheduledCount / totalSessions) * 100) : 0;
 
+    logSchedulerEvent({
+      action: 'generate_schedule',
+      status: 'success',
+      duration: Date.now() - startTime,
+      coursesProcessed: courses.length,
+      scheduledCount,
+    });
+
     return NextResponse.json({
       success: scheduledCount > 0,
       message: scheduledCount > 0
@@ -303,7 +319,17 @@ export async function POST(request: Request) {
       perfect: unscheduled.length === 0,
     });
   } catch (error) {
-    console.error('Generate schedule error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    logSchedulerEvent({
+      action: 'generate_schedule',
+      status: 'failed',
+      duration: Date.now() - startTime,
+      error: errorMessage,
+    });
+    
+    logger.error('Generate schedule error:', { error: errorMessage });
+    
     return NextResponse.json(
       { detail: 'Program oluşturulurken bir hata oluştu' },
       { status: 500 }

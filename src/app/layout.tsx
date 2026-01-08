@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/contexts/auth-context";
 import { ThemeProvider } from "@/contexts/theme-context";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -49,8 +50,10 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <AuthProvider>
-            {children}
-            <Toaster position="top-right" richColors closeButton />
+            <ErrorBoundary>
+              {children}
+              <Toaster position="top-right" richColors closeButton />
+            </ErrorBoundary>
           </AuthProvider>
         </ThemeProvider>
       </body>

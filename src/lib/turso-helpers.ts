@@ -248,8 +248,15 @@ export async function getAllCourses() {
     let departments: any[] = [];
     
     if (courseIds.length > 0) {
-      const sessionsResult = await db.execute(`SELECT * FROM CourseSession WHERE courseId IN (${courseIds.join(',')})`);
-      const deptsResult = await db.execute(`SELECT * FROM CourseDepartment WHERE courseId IN (${courseIds.join(',')})`);
+      const placeholders = courseIds.map(() => '?').join(',');
+      const sessionsResult = await db.execute({
+        sql: `SELECT * FROM CourseSession WHERE courseId IN (${placeholders})`,
+        args: courseIds
+      });
+      const deptsResult = await db.execute({
+        sql: `SELECT * FROM CourseDepartment WHERE courseId IN (${placeholders})`,
+        args: courseIds
+      });
       sessions = sessionsResult.rows;
       departments = deptsResult.rows;
     }
@@ -622,8 +629,15 @@ export async function getActiveCoursesForScheduler() {
     let departments: any[] = [];
     
     if (courseIds.length > 0) {
-      const sessionsResult = await db.execute(`SELECT * FROM CourseSession WHERE courseId IN (${courseIds.join(',')})`);
-      const deptsResult = await db.execute(`SELECT * FROM CourseDepartment WHERE courseId IN (${courseIds.join(',')})`);
+      const placeholders = courseIds.map(() => '?').join(',');
+      const sessionsResult = await db.execute({
+        sql: `SELECT * FROM CourseSession WHERE courseId IN (${placeholders})`,
+        args: courseIds
+      });
+      const deptsResult = await db.execute({
+        sql: `SELECT * FROM CourseDepartment WHERE courseId IN (${placeholders})`,
+        args: courseIds
+      });
       sessions = sessionsResult.rows;
       departments = deptsResult.rows;
     }
@@ -696,7 +710,11 @@ export async function getSchedulerStatus() {
     
     let totalActiveSessions = 0;
     if (courseIds.length > 0) {
-      const sessions = await db.execute(`SELECT COUNT(*) as count FROM CourseSession WHERE courseId IN (${courseIds.join(',')})`);
+      const placeholders = courseIds.map(() => '?').join(',');
+      const sessions = await db.execute({
+        sql: `SELECT COUNT(*) as count FROM CourseSession WHERE courseId IN (${placeholders})`,
+        args: courseIds
+      });
       totalActiveSessions = Number(sessions.rows[0].count);
     }
     
