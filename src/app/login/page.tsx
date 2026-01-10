@@ -87,7 +87,7 @@ export default function LoginPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold text-white">PlanEdu</h1>
-              <p className="text-xs text-white/70">v3.0s</p>
+              <p className="text-xs text-white/70">v3.0</p>
             </div>
           </div>
 
@@ -316,7 +316,7 @@ export default function LoginPage() {
           {/* Mobile Footer */}
           <div className="lg:hidden text-center pb-safe-bottom">
             <p className="text-xs text-muted-foreground">
-              © 2025 PlanEdu • Tüm hakları saklıdır
+              © 2026 PlanEdu • Tüm hakları saklıdır
             </p>
           </div>
         </div>
