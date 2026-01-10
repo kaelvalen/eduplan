@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { GraduationCap, Loader2, Eye, EyeOff, User, Lock, Sparkles, Shield, Zap } from 'lucide-react';
+import { GraduationCap, Loader2, Eye, EyeOff, User, Lock, Sparkles, Shield, Zap, ArrowRight, LayoutDashboard } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
@@ -12,9 +12,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Checkbox } from '@/components/ui/checkbox';
 
 const features = [
-  { icon: Zap, text: 'Otomatik Planlama' },
-  { icon: Shield, text: 'Güvenli Erişim' },
-  { icon: Sparkles, text: 'Modern Arayüz' },
+  { icon: Zap, text: 'Otomatik Planlama', description: 'Yapay zeka ile saniyeler içinde ders programı' },
+  { icon: Shield, text: 'Güvenli Erişim', description: 'Rol tabanlı gelişmiş yetkilendirme sistemi' },
+  { icon: Sparkles, text: 'Modern Arayüz', description: 'Kullanıcı dostu, hızlı ve akıcı deneyim' },
 ];
 
 export default function LoginPage() {
@@ -26,7 +26,6 @@ export default function LoginPage() {
   const { login, token } = useAuth();
   const router = useRouter();
 
-  // Redirect if already logged in
   useEffect(() => {
     if (token) {
       router.push('/');
@@ -70,132 +69,79 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col lg:flex-row">
-      {/* Mobile Header - Gradient Background */}
-      <div className="lg:hidden bg-gradient-to-br from-primary via-primary/90 to-primary/80 px-6 pt-safe-top pb-8 relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-white rounded-full translate-x-1/2 -translate-y-1/2" />
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full -translate-x-1/2 translate-y-1/2" />
-        </div>
+    <div className="min-h-screen w-full flex items-center justify-center bg-background relative overflow-hidden">
+      {/* Dynamic Background Elements */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/20 blur-[120px] rounded-full animate-blob mix-blend-multiply opacity-70" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/20 blur-[120px] rounded-full animate-blob animation-delay-2000 mix-blend-multiply opacity-70" />
+        <div className="absolute top-[20%] right-[20%] w-[30%] h-[30%] bg-pink-500/20 blur-[120px] rounded-full animate-blob animation-delay-4000 mix-blend-multiply opacity-70" />
+      </div>
 
-        <div className="relative z-10">
-          {/* Logo */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 backdrop-blur shadow-lg">
-              <GraduationCap className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-white">PlanEdu</h1>
-              <p className="text-xs text-white/70">v3.0</p>
-            </div>
-          </div>
+      <div className="container relative z-10 flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-24 px-4 py-8 lg:py-0 h-full lg:h-[800px]">
 
-          {/* Welcome Text */}
-          <div className="space-y-2">
-            <h2 className="text-2xl font-bold text-white">
-              Hoş Geldiniz! 👋
+        {/* Left Side: Branding & Features */}
+        <div className="w-full lg:w-1/2 space-y-8 lg:pr-12 animate-slide-up">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-purple-600 shadow-lg shadow-primary/25">
+                <GraduationCap className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-pink-500">PlanEdu</h1>
+                <p className="text-sm text-muted-foreground font-medium">Akıllı Ders Planlama</p>
+              </div>
+            </div>
+
+            <h2 className="text-4xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-[1.1]">
+              Geleceği <br />
+              <span className="text-primary">Planlayın</span>
             </h2>
-            <p className="text-sm text-white/80">
-              Ders programı yönetim sistemine giriş yapın
+
+            <p className="text-lg text-muted-foreground max-w-xl leading-relaxed">
+              Yapay zeka teknolojisi ile ders programlarınızı saniyeler içinde oluşturun, çakışmaları önleyin ve verimliliği artırın.
             </p>
           </div>
 
-          {/* Features - Horizontal on Mobile */}
-          <div className="flex gap-4 mt-6 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
+          <div className="grid gap-6">
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
-                <div key={index} className="flex items-center gap-2 text-white/90 bg-white/10 rounded-full px-3 py-1.5 text-xs whitespace-nowrap flex-shrink-0">
-                  <Icon className="h-3.5 w-3.5" />
-                  <span>{feature.text}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Desktop Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-12 flex-col justify-between relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full -translate-x-1/2 -translate-y-1/2" />
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full translate-x-1/2 translate-y-1/2" />
-        </div>
-
-        <div className="relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur">
-              <GraduationCap className="h-7 w-7 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-white">PlanEdu</h1>
-              <p className="text-sm text-white/70">v3.0</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="relative z-10 space-y-8">
-          <div>
-            <h2 className="text-4xl font-bold text-white mb-4">
-              Ders Programı Yönetiminde
-              <br />
-              <span className="text-white/90">Yeni Nesil Çözüm</span>
-            </h2>
-            <p className="text-lg text-white/80 max-w-md">
-              Yapay zeka destekli genetik algoritma ile otomatik program oluşturma,
-              çakışma kontrolü ve akıllı optimizasyon.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            {[
-              { icon: Zap, text: 'Genetik Algoritma ile Otomatik Planlama' },
-              { icon: Shield, text: 'Güvenli ve Rol Tabanlı Erişim' },
-              { icon: Sparkles, text: 'Modern ve Kullanıcı Dostu Arayüz' },
-            ].map((feature, index) => {
-              const Icon = feature.icon;
-              return (
-                <div key={index} className="flex items-center gap-3 text-white/90">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
+                <div key={index} className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors backdrop-blur-sm">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                     <Icon className="h-5 w-5" />
                   </div>
-                  <span>{feature.text}</span>
+                  <div>
+                    <h3 className="font-semibold text-foreground">{feature.text}</h3>
+                    <p className="text-sm text-muted-foreground">{feature.description}</p>
+                  </div>
                 </div>
               );
             })}
           </div>
         </div>
 
-        <div className="relative z-10 text-white/60 text-sm">
-          © 2025 PlanEdu. Tüm hakları saklıdır.
-        </div>
-      </div>
-
-      {/* Login Form */}
-      <div className="flex-1 flex items-start lg:items-center justify-center px-4 sm:px-6 py-6 lg:py-12 bg-background -mt-4 lg:mt-0 rounded-t-3xl lg:rounded-none relative z-10">
-        <div className="w-full max-w-md space-y-6 lg:space-y-8">
-          <Card className="border-0 shadow-xl lg:shadow-2xl">
-            <CardHeader className="space-y-1 pb-4 hidden lg:block">
-              <CardTitle className="text-2xl">Hoş Geldiniz</CardTitle>
-              <CardDescription>
-                Devam etmek için hesabınıza giriş yapın
+        {/* Right Side: Login Form */}
+        <div className="w-full lg:w-[420px] animate-scale-in animation-delay-200">
+          <Card className="border-border/50 shadow-2xl shadow-primary/10 backdrop-blur-xl bg-card/80">
+            <CardHeader className="space-y-1 pb-6">
+              <CardTitle className="text-2xl text-center">Hoş Geldiniz</CardTitle>
+              <CardDescription className="text-center">
+                Hesabınıza erişmek için giriş yapın
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 pt-6 lg:pt-0">
+            <CardContent className="space-y-6">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="username" className="text-sm font-medium">Kullanıcı Adı</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Label htmlFor="username">Kullanıcı Adı</Label>
+                  <div className="relative group">
+                    <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-hover:text-primary transition-colors" />
                     <Input
                       id="username"
                       type="text"
-                      placeholder="Kullanıcı adınızı girin"
+                      placeholder="ad.soyad"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="pl-10 h-12 text-base"
+                      className="pl-10"
                       required
                       autoComplete="username"
                     />
@@ -203,15 +149,15 @@ export default function LoginPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Şifre</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <div className="relative group">
+                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-hover:text-primary transition-colors" />
                     <Input
                       id="password"
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Şifrenizi girin"
+                      placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10 pr-10 h-12 text-base"
+                      className="pl-10 pr-10"
                       required
                       autoComplete="current-password"
                     />
@@ -219,13 +165,13 @@ export default function LoginPage() {
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
                     >
                       {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        <EyeOff className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
                       ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
+                        <Eye className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
                       )}
                     </Button>
                   </div>
@@ -237,38 +183,42 @@ export default function LoginPage() {
                       id="remember"
                       checked={rememberMe}
                       onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                      className="border-muted-foreground/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                     />
                     <label
                       htmlFor="remember"
-                      className="text-sm text-muted-foreground cursor-pointer"
+                      className="text-sm text-muted-foreground cursor-pointer select-none"
                     >
                       Beni hatırla
                     </label>
                   </div>
-                  <Button variant="link" className="px-0 text-sm" type="button">
-                    Şifremi unuttum
+                  <Button variant="link" className="px-0 text-sm h-auto font-normal text-muted-foreground hover:text-primary" type="button">
+                    Şifremi unuttum?
                   </Button>
                 </div>
 
-                <Button type="submit" className="w-full h-12 text-base font-semibold" disabled={isLoading}>
+                <Button type="submit" className="w-full h-12 text-base shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all duration-300 group" disabled={isLoading}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Giriş yapılıyor...
                     </>
                   ) : (
-                    'Giriş Yap'
+                    <>
+                      Giriş Yap
+                      <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    </>
                   )}
                 </Button>
               </form>
 
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
+                  <span className="w-full border-t border-border/50" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">
-                    veya demo hesabı ile deneyin
+                  <span className="bg-background px-2 text-muted-foreground font-medium">
+                    veya demo hesabı
                   </span>
                 </div>
               </div>
@@ -278,47 +228,27 @@ export default function LoginPage() {
                   variant="outline"
                   onClick={() => handleDemoLogin('admin')}
                   disabled={isLoading}
-                  className="h-auto py-4 active:scale-[0.98] transition-transform"
+                  className="h-auto py-3 flex flex-col items-center gap-1 hover:border-primary/50 hover:bg-primary/5 transition-all"
                 >
-                  <div className="flex flex-col items-center gap-1.5">
-                    <Shield className="h-5 w-5 text-primary" />
-                    <span className="text-sm font-medium">Yönetici</span>
-                  </div>
+                  <Shield className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-medium">Yönetici</span>
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => handleDemoLogin('teacher')}
                   disabled={isLoading}
-                  className="h-auto py-4 active:scale-[0.98] transition-transform"
+                  className="h-auto py-3 flex flex-col items-center gap-1 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all"
                 >
-                  <div className="flex flex-col items-center gap-1.5">
-                    <User className="h-5 w-5 text-emerald-600" />
-                    <span className="text-sm font-medium">Öğretmen</span>
-                  </div>
+                  <LayoutDashboard className="h-4 w-4 text-emerald-600" />
+                  <span className="text-xs font-medium">Öğretmen</span>
                 </Button>
               </div>
             </CardContent>
           </Card>
 
-          {/* Footer - Hidden on mobile, shown on desktop */}
-          <p className="hidden lg:block text-center text-sm text-muted-foreground">
-            Giriş yaparak{' '}
-            <Button variant="link" className="px-0 h-auto text-sm">
-              Kullanım Koşulları
-            </Button>
-            {' '}ve{' '}
-            <Button variant="link" className="px-0 h-auto text-sm">
-              Gizlilik Politikası
-            </Button>
-            &apos;nı kabul etmiş olursunuz.
+          <p className="mt-6 text-center text-xs text-muted-foreground opacity-60">
+            © 2026 PlanEdu. Tüm hakları saklıdır.
           </p>
-
-          {/* Mobile Footer */}
-          <div className="lg:hidden text-center pb-safe-bottom">
-            <p className="text-xs text-muted-foreground">
-              © 2026 PlanEdu • Tüm hakları saklıdır
-            </p>
-          </div>
         </div>
       </div>
     </div>

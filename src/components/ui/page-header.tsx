@@ -26,11 +26,11 @@ export function PageHeader({
   const entityColors = entity ? getEntityColors(entity) : null;
 
   return (
-    <div className={cn(styles.pageHeader, className)}>
+    <div className={cn(styles.pageHeader, "animate-fade-in", className)}>
       <div className="flex items-center gap-4">
         {Icon && (
           <div className={cn(
-            styles.pageHeaderIcon,
+            "p-3 rounded-2xl transition-all duration-300 hover:scale-105 shadow-sm",
             entityColors?.bg || 'bg-primary/10'
           )}>
             <Icon className={cn(
@@ -40,13 +40,13 @@ export function PageHeader({
           </div>
         )}
         <div>
-          <h1 className={styles.pageHeaderTitle}>{title}</h1>
-          <p className={styles.pageHeaderDescription}>
+          <h1 className={cn(styles.pageHeaderTitle, "tracking-tight text-foreground")}>{title}</h1>
+          <p className={cn(styles.pageHeaderDescription, "text-muted-foreground/80")}>
             {description || (count !== undefined ? `${count} kayıt` : '')}
           </p>
         </div>
       </div>
-      {action && <div className="flex-shrink-0">{action}</div>}
+      {action && <div className="flex-shrink-0 animate-scale-in">{action}</div>}
     </div>
   );
 }

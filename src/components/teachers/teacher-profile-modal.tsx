@@ -71,6 +71,29 @@ export function TeacherProfileModal({ teacher, open, onOpenChange }: TeacherProf
 
     const workingHours = teacher ? parseWorkingHours(teacher.working_hours) : {};
 
+    const checkAvailability = (day: string, time: string) => {
+        if (!workingHours) return false;
+
+        // Try exact match (Turkish)
+        if (workingHours[day]?.includes(time)) return true;
+
+        // Try lowercase Turkish
+        if (workingHours[day.toLowerCase()]?.includes(time)) return true;
+
+        // Map to English
+        const dayMap: Record<string, string> = {
+            'Pazartesi': 'monday',
+            'Salı': 'tuesday',
+            'Çarşamba': 'wednesday',
+            'Perşembe': 'thursday',
+            'Cuma': 'friday'
+        };
+        const englishDay = dayMap[day];
+        if (englishDay && workingHours[englishDay]?.includes(time)) return true;
+
+        return false;
+    };
+
     if (!teacher) return null;
 
     return (
@@ -141,7 +164,7 @@ export function TeacherProfileModal({ teacher, open, onOpenChange }: TeacherProf
                                                 </td>
                                                 {DAYS.map((day) => {
                                                     const slotSchedule = getScheduleForSlot(day, time);
-                                                    const isAvailable = workingHours[day]?.includes(time);
+                                                    const isAvailable = checkAvailability(day, time);
 
                                                     return (
                                                         <td

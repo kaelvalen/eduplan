@@ -74,7 +74,7 @@ export default function DashboardPage() {
     };
 
     fetchData();
-    
+
     // Refresh every 60 seconds
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
@@ -89,12 +89,11 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-pulse">
         <div className="space-y-2">
-          <div className="h-8 w-64 bg-muted rounded animate-pulse" />
-          <div className="h-4 w-48 bg-muted rounded animate-pulse" />
+          <div className="h-48 w-full bg-muted/20 rounded-2xl" />
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
             <CardSkeleton key={i} />
           ))}
@@ -104,25 +103,26 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className={styles.pageContainer}>
+    <div className={cn(styles.pageContainer, "pb-12")}>
       {/* Hero Section */}
       <HeroSection
         title={`${getGreeting()}, ${user?.username}!`}
         description="Ders programı yönetim sisteminize hoş geldiniz. İşte bugünkü özetiniz."
-        badge="PlanEdu v2.0"
+        badge="PlanEdu v3.0"
         action={isAdmin ? (
           <Link href="/scheduler">
-            <Button size="lg" className="bg-white text-primary hover:bg-white/90 shadow-xl">
-              <Play className="mr-2 h-5 w-5" />
+            <Button size="lg" className="bg-white text-primary hover:bg-white/90 shadow-xl hover:-translate-y-0.5 transition-transform duration-300 font-bold border-0">
+              <Play className="mr-2 h-5 w-5 fill-current" />
               Program Oluştur
             </Button>
           </Link>
         ) : undefined}
+        className="shadow-2xl shadow-primary/20 mb-8"
       />
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {statCardsConfig.map((stat) => (
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {statCardsConfig.map((stat, i) => (
           <StatsCard
             key={stat.key}
             title={stat.title}
@@ -130,12 +130,14 @@ export default function DashboardPage() {
             icon={stat.icon}
             entity={stat.entity}
             href={stat.href}
+            className={`animate-slide-up`}
+            style={{ animationDelay: `${i * 100}ms` }}
           />
         ))}
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-3 mt-4">
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
           {/* Scheduler Status */}
@@ -156,14 +158,14 @@ export default function DashboardPage() {
 
           {/* Quick Actions */}
           {isAdmin && (
-            <Card>
+            <Card className="glass-card border-white/5">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className={cn(styles.iconContainer, getEntityColors('scheduler').bg)}>
+                  <div className={cn(styles.iconContainer, getEntityColors('scheduler').bg, "shadow-md")}>
                     <Zap className={cn('h-5 w-5', getEntityColors('scheduler').icon)} />
                   </div>
                   <div>
-                    <h3 className="font-semibold">Hızlı İşlemler</h3>
+                    <h3 className="font-semibold text-lg">Hızlı İşlemler</h3>
                     <p className="text-sm text-muted-foreground">Sık kullanılan işlemlere hızlı erişim</p>
                   </div>
                 </div>
