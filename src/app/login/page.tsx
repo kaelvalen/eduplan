@@ -50,10 +50,10 @@ export default function LoginPage() {
   };
 
   const handleDemoLogin = async (user: 'admin' | 'teacher') => {
-    const credentials = user === 'admin' 
+    const credentials = user === 'admin'
       ? { username: 'admin', password: 'admin123' }
       : { username: 'teacher', password: 'teacher123' };
-    
+
     setUsername(credentials.username);
     setPassword(credentials.password);
     setIsLoading(true);
@@ -78,7 +78,7 @@ export default function LoginPage() {
           <div className="absolute top-0 right-0 w-48 h-48 bg-white rounded-full translate-x-1/2 -translate-y-1/2" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full -translate-x-1/2 translate-y-1/2" />
         </div>
-        
+
         <div className="relative z-10">
           {/* Logo */}
           <div className="flex items-center gap-3 mb-6">
@@ -87,10 +87,10 @@ export default function LoginPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold text-white">PlanEdu</h1>
-              <p className="text-xs text-white/70">v2.0.0</p>
+              <p className="text-xs text-white/70">v3.0s</p>
             </div>
           </div>
-          
+
           {/* Welcome Text */}
           <div className="space-y-2">
             <h2 className="text-2xl font-bold text-white">
@@ -100,7 +100,7 @@ export default function LoginPage() {
               Ders programı yönetim sistemine giriş yapın
             </p>
           </div>
-          
+
           {/* Features - Horizontal on Mobile */}
           <div className="flex gap-4 mt-6 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
             {features.map((feature, index) => {
@@ -123,7 +123,7 @@ export default function LoginPage() {
           <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full -translate-x-1/2 -translate-y-1/2" />
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full translate-x-1/2 translate-y-1/2" />
         </div>
-        
+
         <div className="relative z-10">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur">
@@ -131,7 +131,7 @@ export default function LoginPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">PlanEdu</h1>
-              <p className="text-sm text-white/70">v2.0.0</p>
+              <p className="text-sm text-white/70">v3.0</p>
             </div>
           </div>
         </div>
@@ -144,7 +144,7 @@ export default function LoginPage() {
               <span className="text-white/90">Yeni Nesil Çözüm</span>
             </h2>
             <p className="text-lg text-white/80 max-w-md">
-              Yapay zeka destekli genetik algoritma ile otomatik program oluşturma, 
+              Yapay zeka destekli genetik algoritma ile otomatik program oluşturma,
               çakışma kontrolü ve akıllı optimizasyon.
             </p>
           </div>
@@ -233,8 +233,8 @@ export default function LoginPage() {
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="remember" 
+                    <Checkbox
+                      id="remember"
                       checked={rememberMe}
                       onCheckedChange={(checked) => setRememberMe(checked as boolean)}
                     />
@@ -312,7 +312,7 @@ export default function LoginPage() {
             </Button>
             &apos;nı kabul etmiş olursunuz.
           </p>
-          
+
           {/* Mobile Footer */}
           <div className="lg:hidden text-center pb-safe-bottom">
             <p className="text-xs text-muted-foreground">

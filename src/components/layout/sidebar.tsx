@@ -115,7 +115,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
             <div className="flex flex-col">
               <span className="text-lg font-bold gradient-text">PlanEdu</span>
               <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <Sparkles className="h-2.5 w-2.5" /> v2.0
+                <Sparkles className="h-2.5 w-2.5" /> v3.0
               </span>
             </div>
           )}
