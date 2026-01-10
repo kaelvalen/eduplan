@@ -29,6 +29,7 @@ const navigation = [
   { name: 'Dersler', href: '/courses', icon: BookOpen, color: 'text-emerald-500' },
   { name: 'Derslikler', href: '/classrooms', icon: Building2, color: 'text-amber-500' },
   { name: 'Ders Programı', href: '/schedules', icon: Calendar, color: 'text-rose-500' },
+  { name: 'Bölüm Programları', href: '/programs', icon: GraduationCap, color: 'text-purple-500' },
 ];
 
 const adminNavigation = [
@@ -62,7 +63,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
 
   const NavLink = ({ item, active }: { item: typeof navigation[0]; active: boolean }) => {
     const Icon = item.icon;
-    
+
     const content = (
       <Link
         href={item.href}
@@ -119,13 +120,13 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
             </div>
           )}
         </Link>
-        
+
         {onClose && (
           <Button variant="ghost" size="icon" onClick={onClose} className="md:hidden rounded-xl">
             <X className="h-5 w-5" />
           </Button>
         )}
-        
+
         {onToggleCollapse && !onClose && (
           <Button
             variant="ghost"
@@ -190,12 +191,12 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
       {/* Footer */}
       <div className="p-3 space-y-1">
         {isAdmin && (
-          <NavLink 
-            item={{ name: 'Ayarlar', href: '/settings', icon: Settings, color: 'text-gray-500' }} 
-            active={isActive('/settings')} 
+          <NavLink
+            item={{ name: 'Ayarlar', href: '/settings', icon: Settings, color: 'text-gray-500' }}
+            active={isActive('/settings')}
           />
         )}
-        
+
         {!isCollapsed && (
           <div className="mt-4 px-3 py-3 rounded-xl bg-muted/50">
             <p className="text-[10px] text-muted-foreground text-center">
@@ -215,7 +216,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
           onClick={onClose}
         />
       )}
-      
+
       <aside
         className={cn(
           'fixed left-0 top-0 z-[60] h-screen bg-card/95 backdrop-blur-xl border-r border-border/50 transition-all duration-300 ease-out',

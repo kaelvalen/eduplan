@@ -29,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { TeacherProfileModal } from '@/components/teachers/teacher-profile-modal';
 import type { Teacher } from '@/types';
 
 type ViewLevel = 'faculties' | 'departments' | 'teachers';
@@ -43,12 +44,14 @@ export default function TeachersPage() {
     show: false,
     teacher: null,
   });
+  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const viewLevel: ViewLevel = selectedDepartment
     ? 'teachers'
     : selectedFaculty
-    ? 'departments'
-    : 'faculties';
+      ? 'departments'
+      : 'faculties';
 
   // Group teachers by faculty and department
   const groupedData = useMemo(() => {
@@ -303,10 +306,20 @@ export default function TeachersPage() {
       {viewLevel === 'teachers' && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredTeachers.map((teacher) => (
-            <Card key={teacher.id}>
+            <Card
+              key={teacher.id}
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => {
+                setSelectedTeacher(teacher);
+                setIsProfileModalOpen(true);
+              }}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
-                  <CardTitle className="text-lg">{teacher.name}</CardTitle>
+                  <div>
+                    <span className="text-xs text-muted-foreground">{teacher.title}</span>
+                    <CardTitle className="text-lg">{teacher.name}</CardTitle>
+                  </div>
                   <Badge variant={teacher.is_active !== false ? 'success' : 'secondary'}>
                     {teacher.is_active !== false ? 'Aktif' : 'Pasif'}
                   </Badge>
@@ -315,7 +328,7 @@ export default function TeachersPage() {
               <CardContent>
                 <p className="text-sm text-muted-foreground">{teacher.email}</p>
                 {isAdmin && (
-                  <div className="mt-4 flex gap-2">
+                  <div className="mt-4 flex gap-2" onClick={(e) => e.stopPropagation()}>
                     <Link href={`/teachers/${teacher.id}/edit`} className="flex-1">
                       <Button variant="outline" size="sm" className="w-full">
                         <Pencil className="mr-2 h-4 w-4" />
@@ -362,6 +375,13 @@ export default function TeachersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Teacher Profile Modal */}
+      <TeacherProfileModal
+        teacher={selectedTeacher}
+        open={isProfileModalOpen}
+        onOpenChange={setIsProfileModalOpen}
+      />
     </div>
   );
 }

@@ -15,7 +15,16 @@ export interface AuthResponse {
   token_type: string;
 }
 
-// ==================== TEACHER ====================
+// ==================== WORKING/AVAILABLE HOURS ====================
+export interface AvailableHours {
+  Pazartesi?: string[];
+  Salı?: string[];
+  Çarşamba?: string[];
+  Perşembe?: string[];
+  Cuma?: string[];
+}
+
+// Legacy support
 export interface WorkingHours {
   monday: string[];
   tuesday: string[];
@@ -24,28 +33,36 @@ export interface WorkingHours {
   friday: string[];
 }
 
+// ==================== TEACHER ====================
 export interface Teacher {
   id: number;
   name: string;
   email: string;
+  title: string; // Akademik ünvan
   faculty: string;
   department: string;
-  working_hours: string; // JSON string of WorkingHours
+  working_hours: string; // JSON string of AvailableHours
   is_active?: boolean;
 }
 
 export interface TeacherCreate {
   name: string;
   email: string;
+  title: string;
   faculty: string;
   department: string;
   working_hours: string;
+  is_active?: boolean;
+}
+
+export interface TeacherWithSchedule extends Teacher {
+  schedule?: Schedule[];
 }
 
 // ==================== COURSE ====================
 export interface CourseSession {
   id?: number;
-  type: 'teorik' | 'lab';
+  type: 'teorik' | 'lab' | 'tümü';
   hours: number;
 }
 
@@ -67,13 +84,16 @@ export interface Course {
   semester: string;
   ects: number;
   total_hours?: number;
+  capacity_margin?: number; // Opsiyonel kapasite marjı (0-30%)
   is_active: boolean;
   student_count?: number;
   sessions: CourseSession[];
   departments: CourseDepartment[];
+  hardcoded_schedules?: HardcodedSchedule[];
   teacher?: {
     id: number;
     name: string;
+    title?: string;
   } | null;
 }
 
@@ -86,6 +106,7 @@ export interface CourseCreate {
   category: 'zorunlu' | 'secmeli';
   semester: string;
   ects: number;
+  capacity_margin?: number;
   is_active: boolean;
   sessions: Omit<CourseSession, 'id'>[];
   departments: Omit<CourseDepartment, 'id'>[];
@@ -96,17 +117,51 @@ export interface Classroom {
   id: number;
   name: string;
   capacity: number;
-  type: 'teorik' | 'lab';
+  type: 'teorik' | 'lab' | 'hibrit';
   faculty: string;
   department: string;
+  priority_dept?: string; // Öncelikli bölüm kodu
+  available_hours?: string; // JSON string of AvailableHours
+  is_active?: boolean;
 }
 
 export interface ClassroomCreate {
   name: string;
   capacity: number;
-  type: 'teorik' | 'lab';
+  type: 'teorik' | 'lab' | 'hibrit';
   faculty: string;
   department: string;
+  priority_dept?: string;
+  available_hours?: string;
+  is_active?: boolean;
+}
+
+export interface ClassroomWithSchedule extends Classroom {
+  schedule?: Schedule[];
+}
+
+// ==================== HARDCODED SCHEDULE ====================
+export interface HardcodedSchedule {
+  id: number;
+  course_id: number;
+  session_type: 'teorik' | 'lab';
+  day: string;
+  start_time: string;
+  end_time: string;
+  classroom_id?: number;
+  classroom?: {
+    id: number;
+    name: string;
+  } | null;
+}
+
+export interface HardcodedScheduleCreate {
+  course_id: number;
+  session_type: 'teorik' | 'lab';
+  day: string;
+  start_time: string;
+  end_time: string;
+  classroom_id?: number;
 }
 
 // ==================== SCHEDULE ====================
@@ -116,6 +171,8 @@ export interface Schedule {
   time_range: string;
   course_id?: number;
   classroom_id?: number;
+  is_hardcoded?: boolean;
+  session_type?: string;
   course?: {
     id: number;
     name: string;
@@ -124,6 +181,7 @@ export interface Schedule {
     teacher?: {
       id: number;
       name: string;
+      title?: string;
       email: string;
       faculty: string;
       department: string;
@@ -144,6 +202,8 @@ export interface ScheduleCreate {
   time_range: string;
   course_id: number;
   classroom_id: number;
+  is_hardcoded?: boolean;
+  session_type?: string;
 }
 
 // ==================== SCHEDULER ====================
@@ -172,6 +232,13 @@ export interface SchedulerResult {
   perfect: boolean;
 }
 
+// ==================== SYSTEM SETTINGS ====================
+export interface SystemSettings {
+  id: number;
+  capacity_margin_enabled: boolean;
+  capacity_margin_percent: number;
+}
+
 // ==================== STATISTICS ====================
 export interface Statistics {
   teacherCount: number;
@@ -190,3 +257,37 @@ export interface Department {
   id: string;
   name: string;
 }
+
+// ==================== FILTER OPTIONS ====================
+export interface FilterOptions {
+  isActive?: boolean | null;
+  faculty?: string | null;
+  department?: string | null;
+  type?: string | null;
+  searchTerm?: string;
+}
+
+// ==================== ACADEMIC TITLES ====================
+export const ACADEMIC_TITLES = [
+  'Prof. Dr.',
+  'Doç. Dr.',
+  'Dr. Öğr. Üyesi',
+  'Öğr. Gör.',
+  'Arş. Gör.',
+] as const;
+
+export type AcademicTitle = typeof ACADEMIC_TITLES[number];
+
+// ==================== TIME BLOCKS ====================
+export const TIME_SLOTS = [
+  '08:00', '09:00', '10:00', '11:00', '12:00',
+  '13:00', '14:00', '15:00', '16:00', '17:00',
+] as const;
+
+export const DAYS = [
+  'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma',
+] as const;
+
+export type TimeSlot = typeof TIME_SLOTS[number];
+export type Day = typeof DAYS[number];
+

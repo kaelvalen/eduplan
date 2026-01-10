@@ -25,9 +25,10 @@ model Teacher {
   id           Int      @id @default(autoincrement())
   name         String
   email        String   @unique
+  title        String   @default("Öğr. Gör.") // Akademik ünvan
   faculty      String
   department   String
-  workingHours String   @default("{}") // JSON string
+  workingHours String   @default("{}") // JSON string - 1 saatlik periyotlar
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -36,23 +37,25 @@ model Teacher {
 
 // ==================== COURSE ====================
 model Course {
-  id          Int                @id @default(autoincrement())
-  name        String
-  code        String             @unique
-  teacherId   Int?
-  teacher     Teacher?           @relation(fields: [teacherId], references: [id])
-  faculty     String
-  level       String             @default("1")
-  category    String             @default("zorunlu") // "zorunlu" | "secmeli"
-  semester    String             @default("güz")
-  ects        Int                @default(3)
-  totalHours  Int                @default(2)
-  isActive    Boolean            @default(true)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  sessions    CourseSession[]
-  departments CourseDepartment[]
-  schedules   Schedule[]
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  code               String              @unique
+  teacherId          Int?
+  teacher            Teacher?            @relation(fields: [teacherId], references: [id])
+  faculty            String
+  level              String              @default("1")
+  category           String              @default("zorunlu") // "zorunlu" | "secmeli"
+  semester           String              @default("güz")
+  ects               Int                 @default(3)
+  totalHours         Int                 @default(2)
+  capacityMargin     Int                 @default(0)  // Opsiyonel kapasite marjı (0-30%)
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  sessions           CourseSession[]
+  departments        CourseDepartment[]
+  schedules          Schedule[]
+  hardcodedSchedules HardcodedSchedule[]
 }
 
 // ==================== COURSE SESSION ====================
@@ -60,7 +63,7 @@ model CourseSession {
   id       Int    @id @default(autoincrement())
   courseId Int
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  type     String @default("teorik") // "teorik" | "lab"
+  type     String @default("teorik") // "teorik" | "lab" | "tümü"
   hours    Int    @default(2)
 }
 
@@ -75,15 +78,19 @@ model CourseDepartment {
 
 // ==================== CLASSROOM ====================
 model Classroom {
-  id         Int        @id @default(autoincrement())
-  name       String
-  capacity   Int        @default(30)
-  type       String     @default("teorik") // "teorik" | "lab"
-  faculty    String
-  department String
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  schedules  Schedule[]
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  capacity           Int                 @default(30)
+  type               String              @default("teorik") // "teorik" | "lab"
+  faculty            String
+  department         String
+  priorityDept       String?             // Öncelikli bölüm kodu (örn: "YMH")
+  availableHours     String              @default("{}") // JSON - Uygunluk saatleri
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  schedules          Schedule[]
+  hardcodedSchedules HardcodedSchedule[]
 
   @@unique([name, department])
 }
@@ -91,11 +98,36 @@ model Classroom {
 // ==================== SCHEDULE ====================
 model Schedule {
   id          Int       @id @default(autoincrement())
-  day         String // "Monday", "Tuesday", etc.
-  timeRange   String // "09:00-10:30"
+  day         String    // "Pazartesi", "Salı", etc.
+  timeRange   String    // "09:00-10:00"
   courseId    Int
   course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
   classroomId Int
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  isHardcoded Boolean   @default(false) // Hardcoded mi?
+  sessionType String    @default("teorik") // "teorik" | "lab"
   createdAt   DateTime  @default(now())
+}
+
+// ==================== HARDCODED SCHEDULE ====================
+model HardcodedSchedule {
+  id          Int        @id @default(autoincrement())
+  courseId    Int
+  course      Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  sessionType String     @default("teorik") // "teorik" | "lab"
+  day         String     // "Pazartesi", "Salı", etc.
+  startTime   String     // "09:00"
+  endTime     String     // "10:00"
+  classroomId Int?       // Opsiyonel derslik
+  classroom   Classroom? @relation(fields: [classroomId], references: [id])
+  createdAt   DateTime   @default(now())
+}
+
+// ==================== SYSTEM SETTINGS ====================
+model SystemSettings {
+  id                    Int      @id @default(autoincrement())
+  capacityMarginEnabled Boolean  @default(false)
+  capacityMarginPercent Int      @default(0) // 0-30 arası
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }

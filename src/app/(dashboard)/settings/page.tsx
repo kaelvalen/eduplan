@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings } from 'lucide-react';
+import Link from 'next/link';
+import { Settings, Cog, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { styles } from '@/lib/design-tokens';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,12 +29,37 @@ export default function SettingsPage() {
     <div className={styles.pageContainer}>
       <PageHeader
         title="Ayarlar"
-        description="Sistem ayarlarını görüntüleyin"
+        description="Sistem ayarlarını görüntüleyin ve düzenleyin"
         icon={Settings}
         entity="settings"
       />
 
       <div className="grid gap-6 md:grid-cols-2">
+        {/* Scheduler Settings Card */}
+        <Link href="/settings/scheduler" className="block group">
+          <Card className="h-full transition-all hover:shadow-lg hover:border-primary/50">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <Cog className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle>Scheduler Ayarları</CardTitle>
+                    <CardDescription>Program oluşturma ayarları</CardDescription>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Kapasite marjı, zaman blokları ve algoritma davranışını yapılandırın.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
         <Card>
           <CardHeader>
             <CardTitle>Kullanıcı Bilgileri</CardTitle>
@@ -71,7 +97,7 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Uygulama Versiyonu</span>
-              <span className="font-medium">2.0.0</span>
+              <span className="font-medium">3.0.0</span>
             </div>
             <Separator />
             <div className="flex justify-between">
@@ -91,7 +117,7 @@ export default function SettingsPage() {
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Hakkında</CardTitle>
-            <CardDescription>PlanEdu - Ders Programı Yönetim Sistemi</CardDescription>
+            <CardDescription>PlanEdu - Ders Programı Yönetim Sistemi v3.0</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm text-muted-foreground">
             <p>
@@ -99,15 +125,17 @@ export default function SettingsPage() {
               Genetik algoritma kullanarak otomatik program oluşturma özelliğine sahiptir.
             </p>
             <p>
-              <strong>Özellikler:</strong>
+              <strong>v3.0 Yenilikleri:</strong>
             </p>
             <ul className="ml-4 list-disc space-y-1">
-              <li>Öğretmen, ders ve derslik yönetimi</li>
-              <li>Fakülte ve bölüm bazlı organizasyon</li>
-              <li>Genetik algoritma ile otomatik program oluşturma</li>
-              <li>Excel ile toplu veri aktarımı</li>
-              <li>Rol tabanlı yetkilendirme</li>
-              <li>Modern ve responsive arayüz</li>
+              <li>1 saatlik zaman blokları ve oturum bölme</li>
+              <li>Kapasite marjı desteği</li>
+              <li>Derslik önceliklendirme (bölüm bazlı)</li>
+              <li>Sabit (hardcoded) program desteği</li>
+              <li>Derslik ve öğretmen uygunluk saatleri</li>
+              <li>Aktif/pasif durum kontrolleri</li>
+              <li>Öğretmen ve derslik profil modelleri</li>
+              <li>Gelişmiş filtreler</li>
             </ul>
           </CardContent>
         </Card>
@@ -115,3 +143,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+

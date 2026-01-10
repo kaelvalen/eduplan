@@ -19,10 +19,10 @@ export async function GET(request: Request) {
     }
 
     const teachers = await getAllTeachers();
-    
+
     // Cache for 10 minutes
     cache.set('teachers:all', teachers, 600);
-    
+
     return NextResponse.json(teachers);
   } catch (error) {
     console.error('Get teachers error:', error);
@@ -42,20 +42,20 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    
+
     // Validate request body
     const validation = CreateTeacherSchema.safeParse(body);
     if (!validation.success) {
       return NextResponse.json(
-        { 
+        {
           detail: 'Geçersiz veri formatı',
-          errors: validation.error.flatten().fieldErrors 
+          errors: validation.error.flatten().fieldErrors
         },
         { status: 400 }
       );
     }
-    
-    const { name, email, faculty, department, working_hours } = validation.data;
+
+    const { name, email, title, faculty, department, working_hours } = validation.data;
 
     // Check if email already exists
     const existing = await findTeacherByEmail(email);
@@ -66,11 +66,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const teacher = await createTeacher({ name, email, faculty, department, working_hours });
-    
+    const teacher = await createTeacher({ name, email, title, faculty, department, working_hours });
+
     // Invalidate teachers cache
     cache.invalidate('teachers');
-    
+
     return NextResponse.json(teacher);
   } catch (error) {
     console.error('Create teacher error:', error);

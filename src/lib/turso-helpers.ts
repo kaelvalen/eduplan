@@ -3,11 +3,12 @@ import { db, prisma, isTurso } from './db';
 // ==================== TEACHER ====================
 export async function getAllTeachers() {
   if (isTurso && db) {
-    const result = await db.execute('SELECT id, name, email, faculty, department, workingHours, isActive FROM Teacher ORDER BY name ASC');
+    const result = await db.execute('SELECT id, name, email, title, faculty, department, workingHours, isActive FROM Teacher ORDER BY name ASC');
     return result.rows.map(row => ({
       id: row.id as number,
       name: row.name as string,
       email: row.email as string,
+      title: (row.title as string) || 'Öğr. Gör.',
       faculty: row.faculty as string,
       department: row.department as string,
       working_hours: row.workingHours as string,
@@ -19,6 +20,7 @@ export async function getAllTeachers() {
     id: t.id,
     name: t.name,
     email: t.email,
+    title: (t as any).title || 'Öğr. Gör.',
     faculty: t.faculty,
     department: t.department,
     working_hours: t.workingHours,
@@ -35,6 +37,7 @@ export async function getTeacherById(id: number) {
       id: row.id as number,
       name: row.name as string,
       email: row.email as string,
+      title: (row.title as string) || 'Öğr. Gör.',
       faculty: row.faculty as string,
       department: row.department as string,
       working_hours: row.workingHours as string,
@@ -47,6 +50,7 @@ export async function getTeacherById(id: number) {
     id: t.id,
     name: t.name,
     email: t.email,
+    title: (t as any).title || 'Öğr. Gör.',
     faculty: t.faculty,
     department: t.department,
     working_hours: t.workingHours,
@@ -62,38 +66,45 @@ export async function findTeacherByEmail(email: string) {
   return prisma.teacher.findUnique({ where: { email } });
 }
 
-export async function createTeacher(data: { name: string; email: string; faculty: string; department: string; working_hours?: string }) {
+export async function createTeacher(data: { name: string; email: string; title?: string; faculty: string; department: string; working_hours?: string }) {
+  const title = data.title || 'Öğr. Gör.';
+
   if (isTurso && db) {
     const result = await db.execute({
-      sql: 'INSERT INTO Teacher (name, email, faculty, department, workingHours, isActive) VALUES (?, ?, ?, ?, ?, 1)',
-      args: [data.name, data.email, data.faculty, data.department, data.working_hours || '{}'],
+      sql: 'INSERT INTO Teacher (name, email, title, faculty, department, workingHours, isActive) VALUES (?, ?, ?, ?, ?, ?, 1)',
+      args: [data.name, data.email, title, data.faculty, data.department, data.working_hours || '{}'],
     });
-    return { id: Number(result.lastInsertRowid), ...data, is_active: true };
+    return { id: Number(result.lastInsertRowid), ...data, title, is_active: true };
   }
+  // @ts-ignore - title field may not be in Prisma types until prisma generate
   const t = await prisma.teacher.create({
     data: {
       name: data.name,
       email: data.email,
+      title: title,
       faculty: data.faculty,
       department: data.department,
       workingHours: data.working_hours || '{}',
-    },
+    } as any,
   });
-  return { id: t.id, name: t.name, email: t.email, faculty: t.faculty, department: t.department, working_hours: t.workingHours, is_active: t.isActive };
+  return { id: t.id, name: t.name, email: t.email, title: (t as any).title || title, faculty: t.faculty, department: t.department, working_hours: t.workingHours, is_active: t.isActive };
 }
 
-export async function updateTeacher(id: number, data: { name?: string; email?: string; faculty?: string; department?: string; working_hours?: string; is_active?: boolean }) {
+export async function updateTeacher(id: number, data: { name?: string; email?: string; title?: string; faculty?: string; department?: string; working_hours?: string; is_active?: boolean }) {
   if (isTurso && db) {
     const sets: string[] = [];
     const args: any[] = [];
     if (data.name !== undefined) { sets.push('name = ?'); args.push(data.name); }
     if (data.email !== undefined) { sets.push('email = ?'); args.push(data.email); }
+    if (data.title !== undefined) { sets.push('title = ?'); args.push(data.title); }
     if (data.faculty !== undefined) { sets.push('faculty = ?'); args.push(data.faculty); }
     if (data.department !== undefined) { sets.push('department = ?'); args.push(data.department); }
     if (data.working_hours !== undefined) { sets.push('workingHours = ?'); args.push(data.working_hours); }
     if (data.is_active !== undefined) { sets.push('isActive = ?'); args.push(data.is_active ? 1 : 0); }
     args.push(id);
-    await db.execute({ sql: `UPDATE Teacher SET ${sets.join(', ')} WHERE id = ?`, args });
+    if (sets.length > 0) {
+      await db.execute({ sql: `UPDATE Teacher SET ${sets.join(', ')} WHERE id = ?`, args });
+    }
     return getTeacherById(id);
   }
   const t = await prisma.teacher.update({
@@ -101,20 +112,28 @@ export async function updateTeacher(id: number, data: { name?: string; email?: s
     data: {
       name: data.name,
       email: data.email,
+      title: data.title,
       faculty: data.faculty,
       department: data.department,
       workingHours: data.working_hours,
       isActive: data.is_active,
-    },
+    } as any,
   });
-  return { id: t.id, name: t.name, email: t.email, faculty: t.faculty, department: t.department, working_hours: t.workingHours, is_active: t.isActive };
+  return { id: t.id, name: t.name, email: t.email, title: (t as any).title, faculty: t.faculty, department: t.department, working_hours: t.workingHours, is_active: t.isActive };
 }
 
 export async function deleteTeacher(id: number) {
   if (isTurso && db) {
+    // First, set teacherId to NULL for any courses referencing this teacher
+    await db.execute({ sql: 'UPDATE Course SET teacherId = NULL WHERE teacherId = ?', args: [id] });
     await db.execute({ sql: 'DELETE FROM Teacher WHERE id = ?', args: [id] });
     return true;
   }
+  // First, disconnect courses from this teacher
+  await prisma.course.updateMany({
+    where: { teacherId: id },
+    data: { teacherId: null },
+  });
   await prisma.teacher.delete({ where: { id } });
   return true;
 }
@@ -201,9 +220,20 @@ export async function updateClassroom(id: number, data: { name?: string; capacit
 
 export async function deleteClassroom(id: number) {
   if (isTurso && db) {
+    // First, delete schedules and hardcoded schedules referencing this classroom
+    await db.execute({ sql: 'DELETE FROM Schedule WHERE classroomId = ?', args: [id] });
+    try {
+      await db.execute({ sql: 'DELETE FROM HardcodedSchedule WHERE classroomId = ?', args: [id] });
+    } catch { /* HardcodedSchedule table might not exist yet */ }
     await db.execute({ sql: 'DELETE FROM Classroom WHERE id = ?', args: [id] });
     return true;
   }
+  // First, delete related schedules
+  await prisma.schedule.deleteMany({ where: { classroomId: id } });
+  try {
+    // @ts-ignore - hardcodedSchedule might not exist in older schema
+    await (prisma as any).hardcodedSchedule?.deleteMany({ where: { classroomId: id } });
+  } catch { /* HardcodedSchedule model might not exist yet */ }
   await prisma.classroom.delete({ where: { id } });
   return true;
 }
@@ -242,11 +272,11 @@ export async function getAllCourses() {
       LEFT JOIN Teacher t ON c.teacherId = t.id 
       ORDER BY c.name ASC
     `);
-    
+
     const courseIds = courses.rows.map(c => c.id);
     let sessions: any[] = [];
     let departments: any[] = [];
-    
+
     if (courseIds.length > 0) {
       const placeholders = courseIds.map(() => '?').join(',');
       const sessionsResult = await db.execute({
@@ -260,7 +290,7 @@ export async function getAllCourses() {
       sessions = sessionsResult.rows;
       departments = deptsResult.rows;
     }
-    
+
     return courses.rows.map(c => ({
       id: c.id as number,
       name: c.name as string,
@@ -278,12 +308,12 @@ export async function getAllCourses() {
       departments: departments.filter(d => d.courseId === c.id).map(d => ({ id: d.id, department: d.department, student_count: d.studentCount })),
     }));
   }
-  
+
   const courses = await prisma.course.findMany({
     include: { teacher: { select: { id: true, name: true } }, sessions: true, departments: true },
     orderBy: { name: 'asc' },
   });
-  
+
   return courses.map(c => ({
     id: c.id,
     name: c.name,
@@ -359,27 +389,27 @@ export async function findCourseByCode(code: string) {
 
 export async function createCourse(data: any) {
   const totalHours = data.sessions?.reduce((sum: number, s: { hours: number }) => sum + s.hours, 0) || 2;
-  
+
   if (isTurso && db) {
     const result = await db.execute({
       sql: 'INSERT INTO Course (name, code, teacherId, faculty, level, category, semester, ects, totalHours, isActive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       args: [data.name, data.code, data.teacher_id || null, data.faculty, data.level || '1', data.category || 'zorunlu', data.semester || 'güz', data.ects || 3, totalHours, data.is_active !== false ? 1 : 0],
     });
     const courseId = Number(result.lastInsertRowid);
-    
+
     // Insert sessions
     for (const s of (data.sessions || [])) {
       await db.execute({ sql: 'INSERT INTO CourseSession (courseId, type, hours) VALUES (?, ?, ?)', args: [courseId, s.type, s.hours] });
     }
-    
+
     // Insert departments
     for (const d of (data.departments || [])) {
       await db.execute({ sql: 'INSERT INTO CourseDepartment (courseId, department, studentCount) VALUES (?, ?, ?)', args: [courseId, d.department, d.student_count || 0] });
     }
-    
+
     return getCourseById(courseId);
   }
-  
+
   const course = await prisma.course.create({
     data: {
       name: data.name,
@@ -397,7 +427,7 @@ export async function createCourse(data: any) {
     },
     include: { teacher: { select: { id: true, name: true } }, sessions: true, departments: true },
   });
-  
+
   return {
     id: course.id,
     name: course.name,
@@ -429,18 +459,18 @@ export async function updateCourse(id: number, data: any) {
     if (data.semester !== undefined) { sets.push('semester = ?'); args.push(data.semester); }
     if (data.ects !== undefined) { sets.push('ects = ?'); args.push(data.ects); }
     if (data.is_active !== undefined) { sets.push('isActive = ?'); args.push(data.is_active ? 1 : 0); }
-    
+
     if (data.sessions) {
       const totalHours = data.sessions.reduce((sum: number, s: { hours: number }) => sum + s.hours, 0);
       sets.push('totalHours = ?');
       args.push(totalHours);
     }
-    
+
     if (sets.length > 0) {
       args.push(id);
       await db.execute({ sql: `UPDATE Course SET ${sets.join(', ')} WHERE id = ?`, args });
     }
-    
+
     // Update sessions
     if (data.sessions) {
       await db.execute({ sql: 'DELETE FROM CourseSession WHERE courseId = ?', args: [id] });
@@ -448,7 +478,7 @@ export async function updateCourse(id: number, data: any) {
         await db.execute({ sql: 'INSERT INTO CourseSession (courseId, type, hours) VALUES (?, ?, ?)', args: [id, s.type, s.hours] });
       }
     }
-    
+
     // Update departments
     if (data.departments) {
       await db.execute({ sql: 'DELETE FROM CourseDepartment WHERE courseId = ?', args: [id] });
@@ -456,12 +486,12 @@ export async function updateCourse(id: number, data: any) {
         await db.execute({ sql: 'INSERT INTO CourseDepartment (courseId, department, studentCount) VALUES (?, ?, ?)', args: [id, d.department, d.student_count || 0] });
       }
     }
-    
+
     return getCourseById(id);
   }
-  
+
   const totalHours = data.sessions?.reduce((sum: number, s: { hours: number }) => sum + s.hours, 0);
-  
+
   const course = await prisma.course.update({
     where: { id },
     data: {
@@ -480,7 +510,7 @@ export async function updateCourse(id: number, data: any) {
     },
     include: { teacher: { select: { id: true, name: true } }, sessions: true, departments: true },
   });
-  
+
   return {
     id: course.id,
     name: course.name,
@@ -525,6 +555,9 @@ export async function getAllSchedules() {
       id: row.id as number,
       day: row.day as string,
       time_range: row.timeRange as string,
+      course_id: row.courseId as number,
+      classroom_id: row.classroomId as number,
+      session_type: row.sessionType as string,
       course: row.courseId ? {
         id: row.courseId as number,
         code: row.courseCode as string,
@@ -534,7 +567,7 @@ export async function getAllSchedules() {
       classroom: row.classroomId ? { id: row.classroomId as number, name: row.classroomName as string } : null,
     }));
   }
-  
+
   const schedules = await prisma.schedule.findMany({
     include: {
       course: { include: { teacher: { select: { id: true, name: true } } } },
@@ -542,11 +575,14 @@ export async function getAllSchedules() {
     },
     orderBy: [{ day: 'asc' }, { timeRange: 'asc' }],
   });
-  
+
   return schedules.map(s => ({
     id: s.id,
     day: s.day,
     time_range: s.timeRange,
+    course_id: s.courseId,
+    classroom_id: s.classroomId,
+    session_type: (s as any).sessionType,
     course: s.course ? {
       id: s.course.id,
       code: s.course.code,
@@ -557,13 +593,20 @@ export async function getAllSchedules() {
   }));
 }
 
-export async function createSchedule(data: { day: string; time_range: string; course_id: number; classroom_id: number }) {
+export async function createSchedule(data: { day: string; time_range: string; course_id: number; classroom_id: number; session_type?: string }) {
   if (isTurso && db) {
     const result = await db.execute({
-      sql: 'INSERT INTO Schedule (day, timeRange, courseId, classroomId) VALUES (?, ?, ?, ?)',
-      args: [data.day, data.time_range, data.course_id, data.classroom_id],
+      sql: 'INSERT INTO Schedule (day, timeRange, courseId, classroomId, sessionType) VALUES (?, ?, ?, ?, ?)',
+      args: [data.day, data.time_range, data.course_id, data.classroom_id, data.session_type || 'teorik'],
     });
-    return { id: Number(result.lastInsertRowid), day: data.day, time_range: data.time_range, course_id: data.course_id, classroom_id: data.classroom_id };
+    return {
+      id: Number(result.lastInsertRowid),
+      day: data.day,
+      time_range: data.time_range,
+      course_id: data.course_id,
+      classroomId: data.classroom_id,
+      session_type: data.session_type || 'teorik'
+    };
   }
   const s = await prisma.schedule.create({
     data: { day: data.day, timeRange: data.time_range, courseId: data.course_id, classroomId: data.classroom_id },
@@ -598,6 +641,15 @@ export async function deleteSchedulesByDay(day: string) {
   return true;
 }
 
+export async function deleteNonHardcodedSchedules() {
+  if (isTurso && db) {
+    await db.execute('DELETE FROM Schedule WHERE isHardcoded = 0');
+    return true;
+  }
+  await prisma.schedule.deleteMany({ where: { isHardcoded: false } as any });
+  return true;
+}
+
 export async function countSchedulesByClassroom(classroomId: number): Promise<number> {
   if (isTurso && db) {
     const result = await db.execute({ sql: 'SELECT COUNT(*) as count FROM Schedule WHERE classroomId = ?', args: [classroomId] });
@@ -615,33 +667,50 @@ export async function countSchedulesByCourse(courseId: number): Promise<number> 
 }
 
 // ==================== SCHEDULER HELPERS ====================
+// Get active courses for scheduler with full details
 export async function getActiveCoursesForScheduler() {
   if (isTurso && db) {
+    // Get courses
     const courses = await db.execute(`
       SELECT c.*, t.workingHours as teacherWorkingHours
       FROM Course c
       LEFT JOIN Teacher t ON c.teacherId = t.id
       WHERE c.isActive = 1
     `);
-    
+
     const courseIds = courses.rows.map(c => c.id);
     let sessions: any[] = [];
     let departments: any[] = [];
-    
+    let hardcodedSchedules: any[] = [];
+
     if (courseIds.length > 0) {
       const placeholders = courseIds.map(() => '?').join(',');
+
       const sessionsResult = await db.execute({
         sql: `SELECT * FROM CourseSession WHERE courseId IN (${placeholders})`,
         args: courseIds
       });
+
       const deptsResult = await db.execute({
         sql: `SELECT * FROM CourseDepartment WHERE courseId IN (${placeholders})`,
         args: courseIds
       });
+
+      // Try fetching hardcoded schedules (table might not exist yet)
+      try {
+        const hsResult = await db.execute({
+          sql: `SELECT * FROM HardcodedSchedule WHERE courseId IN (${placeholders})`,
+          args: courseIds
+        });
+        hardcodedSchedules = hsResult.rows;
+      } catch (e) {
+        // Table might not exist, ignore
+      }
+
       sessions = sessionsResult.rows;
       departments = deptsResult.rows;
     }
-    
+
     return courses.rows.map(c => ({
       id: c.id as number,
       name: c.name as string,
@@ -650,17 +719,31 @@ export async function getActiveCoursesForScheduler() {
       faculty: c.faculty as string,
       level: c.level as string,
       totalHours: c.totalHours as number,
+      capacityMargin: (c.capacityMargin as number) || 0,
       sessions: sessions.filter(s => s.courseId === c.id).map(s => ({ type: s.type as string, hours: s.hours as number })),
       departments: departments.filter(d => d.courseId === c.id).map(d => ({ department: d.department as string, studentCount: d.studentCount as number })),
       teacherWorkingHours: c.teacherWorkingHours ? JSON.parse(c.teacherWorkingHours as string) : {},
+      hardcodedSchedules: hardcodedSchedules.filter(hs => hs.courseId === c.id).map(hs => ({
+        day: hs.day as string,
+        startTime: hs.startTime as string,
+        endTime: hs.endTime as string,
+        sessionType: hs.sessionType as string,
+        classroomId: hs.classroomId as number | null,
+      })),
     }));
   }
-  
+
   const coursesRaw = await prisma.course.findMany({
     where: { isActive: true },
-    include: { teacher: true, sessions: true, departments: true },
+    include: {
+      teacher: true,
+      sessions: true,
+      departments: true,
+      // @ts-ignore - hardcodedSchedules might not be in Prisma types yet
+      hardcodedSchedules: true,
+    },
   });
-  
+
   return coursesRaw.map(c => ({
     id: c.id,
     name: c.name,
@@ -669,32 +752,52 @@ export async function getActiveCoursesForScheduler() {
     faculty: c.faculty,
     level: c.level,
     totalHours: c.totalHours,
-    sessions: c.sessions.map(s => ({ type: s.type, hours: s.hours })),
-    departments: c.departments.map(d => ({ department: d.department, studentCount: d.studentCount })),
-    teacherWorkingHours: c.teacher ? JSON.parse(c.teacher.workingHours || '{}') : {},
+    capacityMargin: (c as any).capacityMargin || 0,
+    sessions: (c as any).sessions.map((s: any) => ({ type: s.type, hours: s.hours })),
+    departments: (c as any).departments.map((d: any) => ({ department: d.department, studentCount: d.studentCount })),
+    teacherWorkingHours: (c as any).teacher ? JSON.parse((c as any).teacher.workingHours || '{}') : {},
+    hardcodedSchedules: (c as any).hardcodedSchedules?.map((hs: any) => ({
+      day: hs.day,
+      startTime: hs.startTime,
+      endTime: hs.endTime,
+      sessionType: hs.sessionType,
+      classroomId: hs.classroomId,
+    })) || [],
   }));
 }
 
 export async function getAllClassroomsForScheduler() {
   if (isTurso && db) {
-    const result = await db.execute('SELECT id, name, capacity, type FROM Classroom');
+    const result = await db.execute('SELECT id, name, capacity, type, priorityDept, availableHours, isActive FROM Classroom WHERE isActive = 1');
     return result.rows.map(row => ({
       id: row.id as number,
       name: row.name as string,
       capacity: row.capacity as number,
       type: row.type as string,
+      priorityDept: row.priorityDept as string | null,
+      availableHours: row.availableHours ? JSON.parse(row.availableHours as string) : {},
+      isActive: Boolean(row.isActive),
     }));
   }
-  const classrooms = await prisma.classroom.findMany();
-  return classrooms.map(c => ({ id: c.id, name: c.name, capacity: c.capacity, type: c.type }));
+  // @ts-ignore - new fields might not be in Prisma types yet
+  const classrooms = await prisma.classroom.findMany({ where: { isActive: true } as any });
+  return classrooms.map(c => ({
+    id: c.id,
+    name: c.name,
+    capacity: c.capacity,
+    type: c.type,
+    priorityDept: (c as any).priorityDept,
+    availableHours: (c as any).availableHours ? JSON.parse((c as any).availableHours) : {},
+    isActive: (c as any).isActive,
+  }));
 }
 
-export async function createManySchedules(schedules: { day: string; timeRange: string; courseId: number; classroomId: number }[]) {
+export async function createManySchedules(schedules: { day: string; timeRange: string; courseId: number; classroomId: number; sessionType?: string }[]) {
   if (isTurso && db) {
     for (const s of schedules) {
       await db.execute({
-        sql: 'INSERT INTO Schedule (day, timeRange, courseId, classroomId) VALUES (?, ?, ?, ?)',
-        args: [s.day, s.timeRange, s.courseId, s.classroomId],
+        sql: 'INSERT INTO Schedule (day, timeRange, courseId, classroomId, sessionType) VALUES (?, ?, ?, ?, ?)',
+        args: [s.day, s.timeRange, s.courseId, s.classroomId, s.sessionType || 'teorik'],
       });
     }
     return true;
@@ -707,7 +810,7 @@ export async function getSchedulerStatus() {
   if (isTurso && db) {
     const courses = await db.execute('SELECT id FROM Course WHERE isActive = 1');
     const courseIds = courses.rows.map(c => c.id);
-    
+
     let totalActiveSessions = 0;
     if (courseIds.length > 0) {
       const placeholders = courseIds.map(() => '?').join(',');
@@ -717,24 +820,233 @@ export async function getSchedulerStatus() {
       });
       totalActiveSessions = Number(sessions.rows[0].count);
     }
-    
+
     const scheduledSessions = await db.execute('SELECT COUNT(*) as count FROM Schedule');
-    
+
     return {
       totalActiveCourses: courseIds.length,
       totalActiveSessions,
       scheduledSessions: Number(scheduledSessions.rows[0].count),
     };
   }
-  
+
   const courses = await prisma.course.findMany({
     where: { isActive: true },
     include: { sessions: true },
   });
-  
+
   const totalActiveCourses = courses.length;
   const totalActiveSessions = courses.reduce((sum, c) => sum + c.sessions.length, 0);
   const scheduledSessions = await prisma.schedule.count();
-  
+
   return { totalActiveCourses, totalActiveSessions, scheduledSessions };
+}
+
+export async function getTeacherSchedule(teacherId: number) {
+  if (isTurso && db) {
+    const result = await db.execute({
+      sql: `
+        SELECT s.*, c.code as courseCode, c.name as courseName, c.teacherId, 
+               cr.id as classroomId, cr.name as classroomName, cr.type as classroomType, cr.capacity as classroomCapacity
+        FROM Schedule s
+        JOIN Course c ON s.courseId = c.id
+        LEFT JOIN Classroom cr ON s.classroomId = cr.id
+        WHERE c.teacherId = ?
+        ORDER BY s.day, s.timeRange
+      `,
+      args: [teacherId]
+    });
+
+    const coursesResult = await db.execute({
+      sql: `SELECT * FROM Course WHERE teacherId = ?`,
+      args: [teacherId]
+    });
+
+    const courseMap = new Map();
+    for (const row of coursesResult.rows) {
+      let studentCount = 0;
+      try {
+        // @ts-ignore
+        const depts = typeof row.departments === 'string' ? JSON.parse(row.departments) : row.departments;
+        if (Array.isArray(depts)) {
+          studentCount = depts.reduce((acc: number, d: any) => acc + (d.studentCount || 0), 0);
+        }
+      } catch (e) { }
+      courseMap.set(row.id, { ...row, studentCount });
+    }
+
+    return result.rows.map(row => {
+      const course = courseMap.get(row.courseId);
+      return {
+        id: row.id as number,
+        day: row.day as string,
+        time_range: row.timeRange as string,
+        is_hardcoded: Boolean(row.isHardcoded),
+        session_type: row.sessionType as string,
+        course: {
+          id: row.courseId as number,
+          code: row.courseCode as string,
+          name: row.courseName as string,
+          student_count: course?.studentCount || 0
+        },
+        classroom: row.classroomId ? {
+          id: row.classroomId as number,
+          name: row.classroomName as string,
+          type: row.classroomType as string,
+          capacity: row.classroomCapacity as number
+        } : null,
+      };
+    });
+  }
+
+  // Prisma fallback
+  const courses = await prisma.course.findMany({
+    where: { teacherId },
+    select: { id: true },
+  });
+
+  const courseIds = courses.map(c => c.id);
+
+  const schedules = await prisma.schedule.findMany({
+    where: { courseId: { in: courseIds } },
+    include: {
+      course: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          departments: { select: { studentCount: true } }
+        }
+      },
+      classroom: {
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          capacity: true
+        }
+      }
+    },
+    orderBy: [{ day: 'asc' }, { timeRange: 'asc' }]
+  });
+
+  return schedules.map(s => ({
+    id: s.id,
+    day: s.day,
+    time_range: s.timeRange,
+    // @ts-ignore
+    is_hardcoded: s.isHardcoded,
+    // @ts-ignore
+    session_type: s.sessionType,
+    course: s.course ? {
+      id: s.course.id,
+      name: s.course.name,
+      code: s.course.code,
+      // @ts-ignore
+      student_count: s.course.departments?.reduce((acc: number, curr: any) => acc + curr.studentCount, 0) || 0
+    } : null,
+    classroom: s.classroom
+  }));
+}
+
+export async function getClassroomSchedule(classroomId: number) {
+  if (isTurso && db) {
+    const result = await db.execute({
+      sql: `
+        SELECT s.*, c.code as courseCode, c.name as courseName, c.teacherId, 
+               t.name as teacherName, t.title as teacherTitle
+        FROM Schedule s
+        JOIN Course c ON s.courseId = c.id
+        LEFT JOIN Teacher t ON c.teacherId = t.id
+        WHERE s.classroomId = ?
+        ORDER BY s.day, s.timeRange
+      `,
+      args: [classroomId]
+    });
+
+    const courseIds = [...new Set(result.rows.map(r => r.courseId as number))];
+    const courseMap = new Map();
+
+    if (courseIds.length > 0) {
+      const placeholders = courseIds.map(() => '?').join(',');
+      const coursesResult = await db.execute({
+        sql: `SELECT * FROM Course WHERE id IN (${placeholders})`,
+        args: courseIds
+      });
+
+      for (const row of coursesResult.rows) {
+        let studentCount = 0;
+        try {
+          // @ts-ignore
+          const depts = typeof row.departments === 'string' ? JSON.parse(row.departments) : row.departments;
+          if (Array.isArray(depts)) {
+            studentCount = depts.reduce((acc: number, d: any) => acc + (d.studentCount || 0), 0);
+          }
+        } catch (e) { }
+        courseMap.set(row.id, { ...row, studentCount });
+      }
+    }
+
+    return result.rows.map(row => {
+      const course = courseMap.get(row.courseId);
+      return {
+        id: row.id as number,
+        day: row.day as string,
+        time_range: row.timeRange as string,
+        is_hardcoded: Boolean(row.isHardcoded),
+        session_type: row.sessionType as string,
+        course: {
+          id: row.courseId as number,
+          code: row.courseCode as string,
+          name: row.courseName as string,
+          student_count: course?.studentCount || 0,
+          teacher: row.teacherId ? {
+            id: row.teacherId as number,
+            name: row.teacherName as string,
+            title: row.teacherTitle as string
+          } : null
+        }
+      };
+    });
+  }
+
+  // Prisma Fallback
+  const schedules = await prisma.schedule.findMany({
+    where: { classroomId },
+    include: {
+      course: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          teacher: {
+            select: {
+              id: true, name: true, // @ts-ignore 
+              title: true
+            }
+          },
+          departments: { select: { studentCount: true } }
+        }
+      }
+    },
+    orderBy: [{ day: 'asc' }, { timeRange: 'asc' }]
+  });
+
+  return schedules.map(s => {
+    const sAny = s as any;
+    return {
+      id: s.id,
+      day: s.day,
+      time_range: s.timeRange,
+      is_hardcoded: sAny.isHardcoded,
+      session_type: sAny.sessionType,
+      course: sAny.course ? {
+        id: sAny.course.id,
+        name: sAny.course.name,
+        code: sAny.course.code,
+        teacher: sAny.course.teacher,
+        student_count: sAny.course.departments?.reduce((acc: number, curr: any) => acc + curr.studentCount, 0) || 0
+      } : null
+    };
+  });
 }

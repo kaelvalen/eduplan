@@ -39,6 +39,7 @@ export function CourseForm({ courseId }: CourseFormProps) {
     category: 'zorunlu' as 'zorunlu' | 'secmeli',
     semester: 'güz',
     ects: 3,
+    capacity_margin: 0, // Added capacity margin
     is_active: true,
   });
 
@@ -76,6 +77,7 @@ export function CourseForm({ courseId }: CourseFormProps) {
             category: course.category,
             semester: course.semester,
             ects: course.ects,
+            capacity_margin: course.capacity_margin || 0, // Fetch capacity margin
             is_active: course.is_active,
           });
           setSessions(course.sessions.map((s) => ({ type: s.type, hours: s.hours })));
@@ -282,6 +284,20 @@ export function CourseForm({ courseId }: CourseFormProps) {
               onChange={(e) => setFormData({ ...formData, ects: parseInt(e.target.value) || 0 })}
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="capacity_margin">Kapasite Marjı (%)</Label>
+            <Input
+              id="capacity_margin"
+              type="number"
+              min={0}
+              max={30}
+              value={formData.capacity_margin}
+              onChange={(e) => setFormData({ ...formData, capacity_margin: parseInt(e.target.value) || 0 })}
+              placeholder="0"
+            />
+            <p className="text-xs text-muted-foreground">0-30 arası değer</p>
           </div>
 
           <div className="flex items-center space-x-2 md:col-span-2">

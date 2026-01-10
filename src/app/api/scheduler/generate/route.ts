@@ -1,17 +1,41 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser, isAdmin } from '@/lib/auth';
-import { getActiveCoursesForScheduler, getAllClassroomsForScheduler, deleteAllSchedules, createManySchedules } from '@/lib/turso-helpers';
 import logger, { logSchedulerEvent } from '@/lib/logger';
+import {
+  getActiveCoursesForScheduler,
+  getAllClassroomsForScheduler,
+  createManySchedules,
+  deleteNonHardcodedSchedules
+} from '@/lib/turso-helpers';
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+// 1 saatlik zaman blokları
+const DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'];
 const TIME_BLOCKS = [
-  { start: '08:00', end: '09:30' },
-  { start: '09:30', end: '11:00' },
-  { start: '11:00', end: '12:30' },
-  { start: '13:00', end: '14:30' },
-  { start: '14:30', end: '16:00' },
-  { start: '16:00', end: '17:30' },
+  { start: '08:00', end: '09:00' },
+  { start: '09:00', end: '10:00' },
+  { start: '10:00', end: '11:00' },
+  { start: '11:00', end: '12:00' },
+  { start: '13:00', end: '14:00' },
+  { start: '14:00', end: '15:00' },
+  { start: '15:00', end: '16:00' },
+  { start: '16:00', end: '17:00' },
+  { start: '17:00', end: '18:00' },
 ];
+
+const DAY_MAPPING: Record<string, string> = {
+  'Pazartesi': 'monday',
+  'Salı': 'tuesday',
+  'Çarşamba': 'wednesday',
+  'Perşembe': 'thursday',
+  'Cuma': 'friday',
+  // Reverse mapping support if needed, but primarily TR->EN needed
+  'monday': 'Pazartesi',
+  'tuesday': 'Salı',
+  'wednesday': 'Çarşamba',
+  'thursday': 'Perşembe',
+  'friday': 'Cuma'
+};
+
 
 interface ScheduleItem {
   courseId: number;
@@ -20,6 +44,7 @@ interface ScheduleItem {
   timeRange: string;
   sessionType: string;
   sessionHours: number;
+  isHardcoded: boolean;
 }
 
 interface CourseData {
@@ -30,9 +55,17 @@ interface CourseData {
   faculty: string;
   level: string;
   totalHours: number;
+  capacityMargin: number; // Per-course capacity margin (0-30%)
   sessions: { type: string; hours: number }[];
   departments: { department: string; studentCount: number }[];
   teacherWorkingHours: Record<string, string[]>;
+  hardcodedSchedules: {
+    day: string;
+    startTime: string;
+    endTime: string;
+    sessionType: string;
+    classroomId: number | null;
+  }[];
 }
 
 interface ClassroomData {
@@ -40,14 +73,18 @@ interface ClassroomData {
   name: string;
   capacity: number;
   type: string;
+  priorityDept: string | null;
+  availableHours: Record<string, string[]>;
+  isActive: boolean;
 }
 
-// Parse working hours JSON
-function parseWorkingHours(workingHoursStr: string): Record<string, string[]> {
+// Parse JSON string to object
+function parseJsonField<T>(jsonStr: string, defaultValue: T): T {
   try {
-    return JSON.parse(workingHoursStr);
+    const parsed = JSON.parse(jsonStr);
+    return parsed as T;
   } catch {
-    return {};
+    return defaultValue;
   }
 }
 
@@ -57,47 +94,113 @@ function isTeacherAvailable(
   day: string,
   timeBlock: { start: string; end: string }
 ): boolean {
-  const dayKey = day.toLowerCase();
-  const slots = workingHours[dayKey] || [];
-  if (slots.length === 0) return true; // No restrictions
+  // If no configuration is set at all (empty object), assume fully available
+  if (Object.keys(workingHours).length === 0) return true;
 
-  // Check if any slot overlaps with the time block
-  return slots.some((slot) => {
-    const slotTime = slot.split(':').map(Number);
-    const startTime = timeBlock.start.split(':').map(Number);
-    const endTime = timeBlock.end.split(':').map(Number);
+  let slots = workingHours[day];
 
-    const slotMinutes = slotTime[0] * 60 + slotTime[1];
-    const startMinutes = startTime[0] * 60 + startTime[1];
-    const endMinutes = endTime[0] * 60 + endTime[1];
+  // Try mapped key if direct access fails
+  if (!slots) {
+    const mappedDay = DAY_MAPPING[day];
+    if (mappedDay) {
+      slots = workingHours[mappedDay];
+    }
+  }
 
-    return slotMinutes >= startMinutes && slotMinutes < endMinutes;
-  });
+  // If configuration exists but this day has no slots or is undefined, assume UNAVAILABLE
+  if (!slots || slots.length === 0) return false;
+
+  // Check if the time block start is in the available slots
+  return slots.includes(timeBlock.start);
 }
 
-// Find suitable classroom for a course session
-function findSuitableClassroom(
+// Check if classroom is available at given time
+function isClassroomAvailable(
+  availableHours: Record<string, string[]>,
+  day: string,
+  timeBlock: { start: string; end: string }
+): boolean {
+  // If no configuration is set at all (empty object), assume fully available
+  if (Object.keys(availableHours).length === 0) return true;
+
+  let slots = availableHours[day];
+
+  // Try mapped key if direct access fails
+  if (!slots) {
+    const mappedDay = DAY_MAPPING[day];
+    if (mappedDay) {
+      slots = availableHours[mappedDay];
+    }
+  }
+
+  // If configuration exists but this day has no slots or is undefined, assume UNAVAILABLE
+  if (!slots || slots.length === 0) return false;
+
+  return slots.includes(timeBlock.start);
+}
+
+// Find suitable classroom for a course session (supporting multiple blocks)
+function findSuitableClassroomForBlocks(
   classrooms: ClassroomData[],
   sessionType: string,
   studentCount: number,
-  occupiedClassrooms: Set<number>
+  occupiedClassroomsByBlock: Set<number>[], // Occupied classrooms for each time block
+  courseCapacityMargin: number,
+  courseDepartment: string,
+  day: string,
+  timeBlocks: { start: string; end: string }[]
 ): ClassroomData | null {
+  // Calculate adjusted capacity with per-course margin
+  const adjustedStudentCount = courseCapacityMargin > 0
+    ? Math.ceil(studentCount * (1 - courseCapacityMargin / 100))
+    : studentCount;
+
   const suitable = classrooms.filter((c) => {
-    if (occupiedClassrooms.has(c.id)) return false;
-    if (c.capacity < studentCount) return false;
+    // Check if classroom is active
+    if (!c.isActive) return false;
+
+    // Check capacity
+    if (c.capacity < adjustedStudentCount) return false;
+
+    // Check classroom type matching
     if (sessionType === 'lab' && c.type !== 'lab') return false;
+    if (sessionType === 'teorik' && c.type === 'lab') return false;
+    // 'tümü' can go to any classroom
+
+    // Check availability and occupancy for ALL blocks
+    for (let i = 0; i < timeBlocks.length; i++) {
+      const block = timeBlocks[i];
+
+      // Custom availability
+      if (!isClassroomAvailable(c.availableHours, day, block)) return false;
+
+      // Already occupied in this block
+      if (occupiedClassroomsByBlock[i].has(c.id)) return false;
+    }
+
     return true;
   });
 
-  // Sort by capacity (prefer smaller rooms that fit)
-  suitable.sort((a, b) => a.capacity - b.capacity);
+  // Sort by priority department first, then by capacity (prefer smaller rooms)
+  suitable.sort((a, b) => {
+    // Priority department matching
+    const aHasPriority = a.priorityDept === courseDepartment;
+    const bHasPriority = b.priorityDept === courseDepartment;
+
+    if (aHasPriority && !bHasPriority) return -1;
+    if (bHasPriority && !aHasPriority) return 1;
+
+    // Then sort by capacity (prefer smaller that fits)
+    return a.capacity - b.capacity;
+  });
+
   return suitable[0] || null;
 }
 
 // Check for conflicts
 function hasConflict(
   schedule: ScheduleItem[],
-  newItem: Omit<ScheduleItem, 'classroomId'>,
+  newItem: Omit<ScheduleItem, 'classroomId' | 'isHardcoded'>,
   courses: Map<number, CourseData>
 ): boolean {
   const course = courses.get(newItem.courseId);
@@ -127,17 +230,70 @@ function hasConflict(
   return false;
 }
 
+// Process hardcoded schedules first
+function processHardcodedSchedules(
+  courses: CourseData[],
+  classrooms: ClassroomData[]
+): { schedule: ScheduleItem[]; processedSessionCount: Map<number, number> } {
+  const schedule: ScheduleItem[] = [];
+  const processedSessionCount = new Map<number, number>();
+
+  for (const course of courses) {
+    let count = 0;
+
+    for (const hs of course.hardcodedSchedules) {
+      const timeRange = `${hs.startTime}-${hs.endTime}`;
+
+      // Find classroom if specified, otherwise use first available
+      let classroomId = hs.classroomId;
+      if (!classroomId) {
+        const suitable = classrooms.find((c) => {
+          if (!c.isActive) return false;
+
+          // Update for hybrid support
+          if (hs.sessionType === 'lab') {
+            if (c.type !== 'lab' && c.type !== 'hibrit') return false;
+          } else { // teorik or 'tümü'
+            // teorik or 'tümü' sessions can't be in 'lab' only rooms
+            if (c.type === 'lab') return false;
+            // 'hibrit' and 'teorik' types are fine for 'teorik' or 'tümü' sessions
+          }
+          return true;
+        });
+        classroomId = suitable?.id || null;
+      }
+
+      if (classroomId) {
+        schedule.push({
+          courseId: course.id,
+          classroomId,
+          day: hs.day,
+          timeRange,
+          sessionType: hs.sessionType,
+          sessionHours: 1,
+          isHardcoded: true,
+        });
+        count++;
+      }
+    }
+
+    if (count > 0) {
+      processedSessionCount.set(course.id, count);
+    }
+  }
+
+  return { schedule, processedSessionCount };
+}
+
 // Genetic algorithm for schedule generation
 async function generateScheduleGenetic(
   courses: CourseData[],
   classrooms: ClassroomData[]
 ): Promise<{ schedule: ScheduleItem[]; unscheduled: CourseData[] }> {
-  const schedule: ScheduleItem[] = [];
+  // First, process hardcoded schedules
+  const { schedule, processedSessionCount } = processHardcodedSchedules(courses, classrooms);
   const unscheduled: CourseData[] = [];
   const courseMap = new Map(courses.map((c) => [c.id, c]));
-
-  // Track what's scheduled for each course
-  const courseScheduledSessions = new Map<number, number>();
 
   // Sort courses by constraints (more constrained first)
   const sortedCourses = [...courses].sort((a, b) => {
@@ -148,68 +304,155 @@ async function generateScheduleGenetic(
 
   for (const course of sortedCourses) {
     const totalStudents = course.departments.reduce((sum, d) => sum + d.studentCount, 0);
-    let sessionsScheduled = 0;
+    const mainDepartment = course.departments[0]?.department || '';
 
-    for (const session of course.sessions) {
-      let scheduled = false;
+    // Get how many hours were already scheduled via hardcoded
+    let hardcodedAndScheduledHours = processedSessionCount.get(course.id) || 0;
 
-      // Try each day and time block
-      for (const day of DAYS) {
-        if (scheduled) break;
+    // Determine remaining sessions to schedule
+    // Logic: Sort sessions, assume hardcoded ones cover some parts, schedule the rest as blocks
+    const allSessions = [...course.sessions].sort((a, b) => b.hours - a.hours);
+    const sessionsToSchedule: { type: string, hours: number }[] = [];
 
-        // Check teacher availability
-        if (!isTeacherAvailable(course.teacherWorkingHours, day, TIME_BLOCKS[0])) {
-          continue;
-        }
-
-        for (const timeBlock of TIME_BLOCKS) {
-          if (scheduled) break;
-
-          const timeRange = `${timeBlock.start}-${timeBlock.end}`;
-
-          // Check for conflicts
-          if (hasConflict(schedule, { courseId: course.id, day, timeRange, sessionType: session.type, sessionHours: session.hours }, courseMap)) {
-            continue;
-          }
-
-          // Find occupied classrooms at this time
-          const occupiedClassrooms = new Set(
-            schedule
-              .filter((s) => s.day === day && s.timeRange === timeRange)
-              .map((s) => s.classroomId)
-          );
-
-          // Find suitable classroom
-          const classroom = findSuitableClassroom(
-            classrooms,
-            session.type,
-            totalStudents,
-            occupiedClassrooms
-          );
-
-          if (classroom) {
-            schedule.push({
-              courseId: course.id,
-              classroomId: classroom.id,
-              day,
-              timeRange,
-              sessionType: session.type,
-              sessionHours: session.hours,
-            });
-            sessionsScheduled++;
-            scheduled = true;
-          }
-        }
+    // Deduct hardcoded hours from sessions
+    for (const sess of allSessions) {
+      if (hardcodedAndScheduledHours >= sess.hours) {
+        hardcodedAndScheduledHours -= sess.hours;
+        continue; // Fully covered by hardcoded/scheduled
       }
 
-      if (!scheduled) {
-        // Could not schedule this session
+      if (hardcodedAndScheduledHours > 0) {
+        // Partially covered
+        sessionsToSchedule.push({ type: sess.type, hours: sess.hours - hardcodedAndScheduledHours });
+        hardcodedAndScheduledHours = 0;
+      } else {
+        // Not covered
+        sessionsToSchedule.push(sess);
       }
     }
 
-    courseScheduledSessions.set(course.id, sessionsScheduled);
+    // If no sessions left to schedule
+    if (sessionsToSchedule.length === 0) continue;
 
-    if (sessionsScheduled < course.sessions.length) {
+    let courseFullyScheduled = true;
+    const scheduledDays = new Set<string>(); // Track days used for this course
+
+    for (const session of sessionsToSchedule) {
+      let sessionScheduled = false;
+      const duration = session.hours;
+
+      // Shuffle days
+      const shuffledDays = [...DAYS].sort(() => Math.random() - 0.5);
+
+      for (const day of shuffledDays) {
+        if (sessionScheduled) break;
+
+        // Prefer different days for different session blocks of the same course (optional, but good for distribution)
+        // If it's a new session needed and we already have a session on this day, skip if possible
+        // But if forced, allow it. For now, strict check:
+        // if (scheduledDays.has(day) && shuffledDays.some(d => !scheduledDays.has(d))) continue;
+
+        // Find consecutive time blocks
+        // We look for 'duration' number of consecutive blocks
+        // Constraints:
+        // 1. Must be consecutive indices in TIME_BLOCKS
+        // 2. Must not span across gaps (like lunch break)
+        // 3. Teacher must be available for ALL blocks
+        // 4. No conflict for ALL blocks
+
+        const possibleStartIndices = Array.from({ length: TIME_BLOCKS.length - duration + 1 }, (_, i) => i)
+          .sort(() => Math.random() - 0.5);
+
+        for (const startIndex of possibleStartIndices) {
+          if (sessionScheduled) break;
+
+          const currentBlocks: typeof TIME_BLOCKS[0][] = [];
+          const blockRanges: string[] = [];
+          let isValidSequence = true;
+
+          // Validate sequence
+          for (let i = 0; i < duration; i++) {
+            const blockIndex = startIndex + i;
+            const currentBlock = TIME_BLOCKS[blockIndex];
+            const nextBlock = (i < duration - 1) ? TIME_BLOCKS[blockIndex + 1] : null;
+
+            // Gap check (e.g. 12:00-13:00)
+            if (nextBlock && currentBlock.end !== nextBlock.start) {
+              isValidSequence = false;
+              break;
+            }
+
+            currentBlocks.push(currentBlock);
+            blockRanges.push(`${currentBlock.start}-${currentBlock.end}`);
+
+            // Teacher availability
+            if (!isTeacherAvailable(course.teacherWorkingHours, day, currentBlock)) {
+              isValidSequence = false;
+              break;
+            }
+
+            // Conflict check
+            if (hasConflict(
+              schedule,
+              { courseId: course.id, day, timeRange: `${currentBlock.start}-${currentBlock.end}`, sessionType: session.type, sessionHours: 1 },
+              courseMap
+            )) {
+              isValidSequence = false;
+              break;
+            }
+          }
+
+          if (!isValidSequence) continue;
+
+          // Find a classroom that matches ALL blocks
+          // Prepare occupied sets for each block
+          const occupiedClassroomsByBlock: Set<number>[] = [];
+          for (const range of blockRanges) {
+            const occupied = new Set(
+              schedule
+                .filter(s => s.day === day && s.timeRange === range)
+                .map(s => s.classroomId)
+            );
+            occupiedClassroomsByBlock.push(occupied);
+          }
+
+          const classroom = findSuitableClassroomForBlocks(
+            classrooms,
+            session.type,
+            totalStudents,
+            occupiedClassroomsByBlock,
+            course.capacityMargin,
+            mainDepartment,
+            day,
+            currentBlocks
+          );
+
+          if (classroom) {
+            // Schedule all blocks
+            for (let i = 0; i < duration; i++) {
+              const block = currentBlocks[i];
+              schedule.push({
+                courseId: course.id,
+                classroomId: classroom.id,
+                day,
+                timeRange: `${block.start}-${block.end}`,
+                sessionType: session.type,
+                sessionHours: 1,
+                isHardcoded: false
+              });
+            }
+            sessionScheduled = true;
+            scheduledDays.add(day);
+          }
+        }
+      }
+
+      if (!sessionScheduled) {
+        courseFullyScheduled = false;
+      }
+    }
+
+    if (!courseFullyScheduled) {
       unscheduled.push(course);
     }
   }
@@ -220,7 +463,7 @@ async function generateScheduleGenetic(
 // POST /api/scheduler/generate - Generate schedule
 export async function POST(request: Request) {
   const startTime = Date.now();
-  
+
   try {
     const user = await getCurrentUser(request);
     if (!user || !isAdmin(user)) {
@@ -233,15 +476,15 @@ export async function POST(request: Request) {
     });
 
     // Get active courses with their data
-    const courses: CourseData[] = await getActiveCoursesForScheduler();
+    const courses = await getActiveCoursesForScheduler();
 
-    // Get all classrooms
-    const classrooms: ClassroomData[] = await getAllClassroomsForScheduler();
+    // Get all active classrooms
+    const classrooms = await getAllClassroomsForScheduler();
 
     if (courses.length === 0) {
       return NextResponse.json({
         success: false,
-        message: 'Programlanacak aktif ders bulunamadı',
+        message: 'Programlanacak aktif ders bulunamadı (Turso)',
         scheduled_count: 0,
         unscheduled_count: 0,
         success_rate: 0,
@@ -254,7 +497,7 @@ export async function POST(request: Request) {
     if (classrooms.length === 0) {
       return NextResponse.json({
         success: false,
-        message: 'Derslik bulunamadı',
+        message: 'Aktif derslik bulunamadı',
         scheduled_count: 0,
         unscheduled_count: courses.length,
         success_rate: 0,
@@ -264,30 +507,38 @@ export async function POST(request: Request) {
           name: c.name,
           code: c.code,
           total_hours: c.totalHours,
-          student_count: c.departments.reduce((sum, d) => sum + d.studentCount, 0),
-          reason: 'Derslik yok',
+          student_count: (c.departments as any[]).reduce((sum, d) => sum + d.studentCount, 0),
+          reason: 'Aktif derslik yok',
         })),
         perfect: false,
       });
     }
 
-    // Delete existing schedules
-    await deleteAllSchedules();
+    // Delete existing non-hardcoded schedules
+    await deleteNonHardcodedSchedules();
 
     // Generate new schedule
-    const { schedule, unscheduled } = await generateScheduleGenetic(courses, classrooms);
+    const { schedule, unscheduled } = await generateScheduleGenetic(courses as any[], classrooms as any[]);
 
     // Save to database
     if (schedule.length > 0) {
-      await createManySchedules(schedule.map((s) => ({
-        day: s.day,
-        timeRange: s.timeRange,
-        courseId: s.courseId,
-        classroomId: s.classroomId,
-      })));
+      await createManySchedules(
+        schedule.map((s) => ({
+          day: s.day,
+          timeRange: s.timeRange,
+          courseId: s.courseId,
+          classroomId: s.classroomId,
+          sessionType: s.sessionType,
+        }))
+      );
     }
 
-    const totalSessions = courses.reduce((sum, c) => sum + c.sessions.length, 0);
+    // Calculate total sessions
+    const totalSessions = courses.reduce((sum, c) => {
+      // Fix: cast c.sessions to any[] to avoid implicit any error
+      return sum + (c.sessions as any[]).reduce((sSum, session) => sSum + session.hours, 0);
+    }, 0);
+
     const scheduledCount = schedule.length;
     const successRate = totalSessions > 0 ? Math.round((scheduledCount / totalSessions) * 100) : 0;
 
@@ -302,36 +553,36 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: scheduledCount > 0,
       message: scheduledCount > 0
-        ? `${scheduledCount} oturum başarıyla programlandı`
+        ? `${scheduledCount} saatlik ders başarıyla programlandı`
         : 'Hiçbir oturum programlanamadı',
       scheduled_count: scheduledCount,
       unscheduled_count: unscheduled.length,
       success_rate: successRate,
-      schedule: schedule,
+      schedule: schedule, // Schedule details (optional to return full list if large)
       unscheduled: unscheduled.map((c) => ({
         id: c.id,
         name: c.name,
         code: c.code,
         total_hours: c.totalHours,
-        student_count: c.departments.reduce((sum, d) => sum + d.studentCount, 0),
-        reason: 'Uygun zaman/derslik bulunamadı',
+        student_count: (c.departments as any[]).reduce((sum, d) => sum + d.studentCount, 0),
+        reason: 'Uygun zaman/derslik bulunamadı (Blok yerleştirme)',
       })),
       perfect: unscheduled.length === 0,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    
+
     logSchedulerEvent({
       action: 'generate_schedule',
       status: 'failed',
       duration: Date.now() - startTime,
       error: errorMessage,
     });
-    
+
     logger.error('Generate schedule error:', { error: errorMessage });
-    
+
     return NextResponse.json(
-      { detail: 'Program oluşturulurken bir hata oluştu' },
+      { detail: 'Program oluşturulurken bir hata oluştu: ' + errorMessage },
       { status: 500 }
     );
   }

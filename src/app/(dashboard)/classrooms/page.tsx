@@ -29,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ClassroomDetailModal } from '@/components/classrooms/classroom-detail-modal';
 import type { Classroom } from '@/types';
 
 type ViewLevel = 'faculties' | 'departments' | 'classrooms';
@@ -43,12 +44,14 @@ export default function ClassroomsPage() {
     show: false,
     classroom: null,
   });
+  const [selectedClassroom, setSelectedClassroom] = useState<Classroom | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const viewLevel: ViewLevel = selectedDepartment
     ? 'classrooms'
     : selectedFaculty
-    ? 'departments'
-    : 'faculties';
+      ? 'departments'
+      : 'faculties';
 
   // Group classrooms by faculty and department
   const groupedData = useMemo(() => {
@@ -310,21 +313,38 @@ export default function ClassroomsPage() {
       {viewLevel === 'classrooms' && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredClassrooms.map((classroom) => (
-            <Card key={classroom.id}>
+            <Card
+              key={classroom.id}
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => {
+                setSelectedClassroom(classroom);
+                setIsDetailModalOpen(true);
+              }}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <CardTitle className="text-lg">{classroom.name}</CardTitle>
-                  <Badge variant={classroom.type === 'teorik' ? 'default' : 'secondary'}>
-                    {classroom.type === 'teorik' ? 'Teorik' : 'Laboratuvar'}
-                  </Badge>
+                  <div className="flex gap-1">
+                    <Badge variant={classroom.type === 'teorik' ? 'default' : 'secondary'}>
+                      {classroom.type === 'teorik' ? 'Teorik' : 'Lab'}
+                    </Badge>
+                    <Badge variant={classroom.is_active !== false ? 'success' : 'outline'}>
+                      {classroom.is_active !== false ? 'Aktif' : 'Pasif'}
+                    </Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="text-sm text-muted-foreground">
                   Kapasite: <span className="font-semibold text-foreground">{classroom.capacity}</span> kişi
                 </div>
+                {classroom.priority_dept && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Öncelik: {classroom.priority_dept}
+                  </div>
+                )}
                 {isAdmin && (
-                  <div className="mt-4 flex gap-2">
+                  <div className="mt-4 flex gap-2" onClick={(e) => e.stopPropagation()}>
                     <Link href={`/classrooms/${classroom.id}/edit`} className="flex-1">
                       <Button variant="outline" size="sm" className="w-full">
                         <Pencil className="mr-2 h-4 w-4" />
@@ -371,6 +391,13 @@ export default function ClassroomsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Classroom Detail Modal */}
+      <ClassroomDetailModal
+        classroom={selectedClassroom}
+        open={isDetailModalOpen}
+        onOpenChange={setIsDetailModalOpen}
+      />
     </div>
   );
 }

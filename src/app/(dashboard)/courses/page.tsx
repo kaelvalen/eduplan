@@ -47,8 +47,8 @@ export default function CoursesPage() {
   const viewLevel: ViewLevel = selectedDepartment
     ? 'courses'
     : selectedFaculty
-    ? 'departments'
-    : 'faculties';
+      ? 'departments'
+      : 'faculties';
 
   // Group courses by faculty and department
   const groupedData = useMemo(() => {
@@ -56,24 +56,39 @@ export default function CoursesPage() {
 
     courses.forEach((course) => {
       const facultyName = getFacultyName(course.faculty);
-      
+
       // Handle multiple departments per course
       if (course.departments && course.departments.length > 0) {
         course.departments.forEach((dept) => {
           const deptName = getDepartmentName(course.faculty, dept.department);
-          
+
           if (!grouped[facultyName]) {
             grouped[facultyName] = {};
           }
           if (!grouped[facultyName][deptName]) {
             grouped[facultyName][deptName] = [];
           }
-          
+
           // Add course with department-specific info
           grouped[facultyName][deptName].push({
             ...course,
             student_count: dept.student_count,
           });
+        });
+      } else {
+        // Handle courses with no departments
+        const deptName = 'Bölümsüz Dersler';
+
+        if (!grouped[facultyName]) {
+          grouped[facultyName] = {};
+        }
+        if (!grouped[facultyName][deptName]) {
+          grouped[facultyName][deptName] = [];
+        }
+
+        grouped[facultyName][deptName].push({
+          ...course,
+          student_count: 0,
         });
       }
     });
@@ -102,12 +117,12 @@ export default function CoursesPage() {
   const filteredCourses = useMemo(() => {
     if (!selectedFaculty || !selectedDepartment) return [];
     const deptCourses = groupedData[selectedFaculty]?.[selectedDepartment] || [];
-    
+
     // Remove duplicates by course code
     const uniqueCourses = Array.from(
       new Map(deptCourses.map((c) => [c.code, c])).values()
     );
-    
+
     if (!searchTerm) return uniqueCourses.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
     return uniqueCourses
       .filter(

@@ -21,6 +21,17 @@ import {
 } from '@/components/ui/select';
 import type { Teacher, TeacherCreate } from '@/types';
 
+// Akademik ünvanlar
+const ACADEMIC_TITLES = [
+  { value: 'Prof. Dr.', label: 'Prof. Dr.' },
+  { value: 'Doç. Dr.', label: 'Doç. Dr.' },
+  { value: 'Dr. Öğr. Üyesi', label: 'Dr. Öğr. Üyesi' },
+  { value: 'Öğr. Gör.', label: 'Öğr. Gör.' },
+  { value: 'Öğr. Gör. Dr.', label: 'Öğr. Gör. Dr.' },
+  { value: 'Arş. Gör.', label: 'Arş. Gör.' },
+  { value: 'Arş. Gör. Dr.', label: 'Arş. Gör. Dr.' },
+] as const;
+
 interface TeacherFormProps {
   teacherId?: number;
 }
@@ -33,6 +44,7 @@ export function TeacherForm({ teacherId }: TeacherFormProps) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    title: 'Öğr. Gör.',
     faculty: '',
     department: '',
   });
@@ -55,6 +67,7 @@ export function TeacherForm({ teacherId }: TeacherFormProps) {
           setFormData({
             name: teacher.name,
             email: teacher.email,
+            title: teacher.title || 'Öğr. Gör.',
             faculty: teacher.faculty,
             department: teacher.department,
           });
@@ -145,6 +158,25 @@ export function TeacherForm({ teacherId }: TeacherFormProps) {
               placeholder="Öğretmen adı"
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="title">Akademik Ünvan</Label>
+            <Select
+              value={formData.title}
+              onValueChange={(value) => setFormData({ ...formData, title: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Ünvan seçin" />
+              </SelectTrigger>
+              <SelectContent>
+                {ACADEMIC_TITLES.map((title) => (
+                  <SelectItem key={title.value} value={title.value}>
+                    {title.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

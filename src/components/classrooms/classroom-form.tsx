@@ -31,7 +31,7 @@ export function ClassroomForm({ classroomId }: ClassroomFormProps) {
   const [formData, setFormData] = useState<ClassroomCreate>({
     name: '',
     capacity: 30,
-    type: 'teorik',
+    type: 'teorik' as 'teorik' | 'lab' | 'hibrit',
     faculty: '',
     department: '',
   });
@@ -124,7 +124,7 @@ export function ClassroomForm({ classroomId }: ClassroomFormProps) {
             <Label htmlFor="type">Tür</Label>
             <Select
               value={formData.type}
-              onValueChange={(value: 'teorik' | 'lab') => setFormData({ ...formData, type: value })}
+              onValueChange={(value: 'teorik' | 'lab' | 'hibrit') => setFormData({ ...formData, type: value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Tür seçin" />
@@ -132,6 +132,7 @@ export function ClassroomForm({ classroomId }: ClassroomFormProps) {
               <SelectContent>
                 <SelectItem value="teorik">Teorik</SelectItem>
                 <SelectItem value="lab">Laboratuvar</SelectItem>
+                <SelectItem value="hibrit">Hibrit</SelectItem>
               </SelectContent>
             </Select>
           </div>

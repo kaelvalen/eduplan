@@ -14,6 +14,11 @@ import type {
   SchedulerStatus,
   SchedulerResult,
   Statistics,
+  SystemSettings,
+  HardcodedSchedule,
+  HardcodedScheduleCreate,
+  TeacherWithSchedule,
+  ClassroomWithSchedule,
 } from '@/types';
 
 const API_URL = '/api';
@@ -74,6 +79,11 @@ export const teachersApi = {
     return response.data;
   },
 
+  getSchedule: async (id: number): Promise<TeacherWithSchedule> => {
+    const response = await api.get<TeacherWithSchedule>(`/teachers/${id}/schedule`);
+    return response.data;
+  },
+
   create: async (data: TeacherCreate): Promise<Teacher> => {
     const response = await api.post<Teacher>('/teachers', data);
     return response.data;
@@ -119,6 +129,21 @@ export const coursesApi = {
   delete: async (id: number): Promise<void> => {
     await api.delete(`/courses/${id}`);
   },
+
+  // Hardcoded Schedules
+  getHardcodedSchedules: async (id: number): Promise<HardcodedSchedule[]> => {
+    const response = await api.get<HardcodedSchedule[]>(`/courses/${id}/hardcoded`);
+    return response.data;
+  },
+
+  addHardcodedSchedule: async (id: number, data: Omit<HardcodedScheduleCreate, 'course_id'>): Promise<HardcodedSchedule> => {
+    const response = await api.post<HardcodedSchedule>(`/courses/${id}/hardcoded`, data);
+    return response.data;
+  },
+
+  removeHardcodedSchedule: async (courseId: number, scheduleId: number): Promise<void> => {
+    await api.delete(`/courses/${courseId}/hardcoded?scheduleId=${scheduleId}`);
+  },
 };
 
 // ==================== CLASSROOMS ====================
@@ -130,6 +155,11 @@ export const classroomsApi = {
 
   getById: async (id: number): Promise<Classroom> => {
     const response = await api.get<Classroom>(`/classrooms/${id}`);
+    return response.data;
+  },
+
+  getSchedule: async (id: number): Promise<ClassroomWithSchedule> => {
+    const response = await api.get<ClassroomWithSchedule>(`/classrooms/${id}/schedule`);
     return response.data;
   },
 
@@ -191,6 +221,19 @@ export const schedulerApi = {
   },
 };
 
+// ==================== SETTINGS ====================
+export const settingsApi = {
+  get: async (): Promise<SystemSettings> => {
+    const response = await api.get<SystemSettings>('/settings');
+    return response.data;
+  },
+
+  update: async (data: Partial<SystemSettings>): Promise<SystemSettings> => {
+    const response = await api.put<SystemSettings>('/settings', data);
+    return response.data;
+  },
+};
+
 // ==================== STATISTICS ====================
 export const statisticsApi = {
   get: async (): Promise<Statistics> => {
@@ -200,3 +243,4 @@ export const statisticsApi = {
 };
 
 export default api;
+
