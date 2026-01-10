@@ -1,41 +1,76 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser, isAdmin } from '@/lib/auth';
 import logger, { logSchedulerEvent } from '@/lib/logger';
+import prisma from '@/lib/prisma';
 import {
   getActiveCoursesForScheduler,
   getAllClassroomsForScheduler,
   createManySchedules,
   deleteNonHardcodedSchedules
 } from '@/lib/turso-helpers';
+import { DAYS_TR as DAYS, DAY_MAPPING } from '@/constants/time';
 
-// 1 saatlik zaman blokları
-const DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'];
-const TIME_BLOCKS = [
-  { start: '08:00', end: '09:00' },
-  { start: '09:00', end: '10:00' },
-  { start: '10:00', end: '11:00' },
-  { start: '11:00', end: '12:00' },
-  { start: '13:00', end: '14:00' },
-  { start: '14:00', end: '15:00' },
-  { start: '15:00', end: '16:00' },
-  { start: '16:00', end: '17:00' },
-  { start: '17:00', end: '18:00' },
-];
+// Dynamic time block generation based on settings
+interface TimeBlock {
+  start: string;
+  end: string;
+}
 
-const DAY_MAPPING: Record<string, string> = {
-  'Pazartesi': 'monday',
-  'Salı': 'tuesday',
-  'Çarşamba': 'wednesday',
-  'Perşembe': 'thursday',
-  'Cuma': 'friday',
-  // Reverse mapping support if needed, but primarily TR->EN needed
-  'monday': 'Pazartesi',
-  'tuesday': 'Salı',
-  'wednesday': 'Çarşamba',
-  'thursday': 'Perşembe',
-  'friday': 'Cuma'
-};
+interface TimeSettings {
+  slotDuration: number;
+  dayStart: string;
+  dayEnd: string;
+  lunchBreakStart: string;
+  lunchBreakEnd: string;
+}
 
+function generateDynamicTimeBlocks(settings: TimeSettings): TimeBlock[] {
+  const blocks: TimeBlock[] = [];
+  const { slotDuration, dayStart, dayEnd, lunchBreakStart, lunchBreakEnd } = settings;
+  
+  const toMinutes = (time: string) => {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+  };
+  
+  const toTimeString = (minutes: number) => {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  };
+  
+  const startMinutes = toMinutes(dayStart);
+  const endMinutes = toMinutes(dayEnd);
+  const lunchStartMin = toMinutes(lunchBreakStart);
+  const lunchEndMin = toMinutes(lunchBreakEnd);
+  
+  for (let current = startMinutes; current < endMinutes; current += slotDuration) {
+    const blockEnd = current + slotDuration;
+    
+    // Skip if block overlaps with lunch break
+    if (current < lunchEndMin && blockEnd > lunchStartMin) {
+      continue;
+    }
+    
+    blocks.push({
+      start: toTimeString(current),
+      end: toTimeString(blockEnd)
+    });
+  }
+  
+  return blocks;
+}
+
+async function getTimeSettings(): Promise<TimeSettings> {
+  const settings = await prisma.systemSettings.findFirst();
+  return {
+    slotDuration: settings?.slotDuration ?? 60,
+    dayStart: settings?.dayStart ?? '08:00',
+    dayEnd: settings?.dayEnd ?? '18:00',
+    lunchBreakStart: settings?.lunchBreakStart ?? '12:00',
+    lunchBreakEnd: settings?.lunchBreakEnd ?? '13:00',
+  };
+}
 
 interface ScheduleItem {
   courseId: number;
@@ -288,7 +323,8 @@ function processHardcodedSchedules(
 // Genetic algorithm for schedule generation
 async function generateScheduleGenetic(
   courses: CourseData[],
-  classrooms: ClassroomData[]
+  classrooms: ClassroomData[],
+  TIME_BLOCKS: TimeBlock[]
 ): Promise<{ schedule: ScheduleItem[]; unscheduled: CourseData[] }> {
   // First, process hardcoded schedules
   const { schedule, processedSessionCount } = processHardcodedSchedules(courses, classrooms);
@@ -517,8 +553,13 @@ export async function POST(request: Request) {
     // Delete existing non-hardcoded schedules
     await deleteNonHardcodedSchedules();
 
+    // Get time settings and generate dynamic time blocks
+    const timeSettings = await getTimeSettings();
+    const TIME_BLOCKS = generateDynamicTimeBlocks(timeSettings);
+    logger.info('Using dynamic time blocks:', { timeSettings, blockCount: TIME_BLOCKS.length });
+
     // Generate new schedule
-    const { schedule, unscheduled } = await generateScheduleGenetic(courses as any[], classrooms as any[]);
+    const { schedule, unscheduled } = await generateScheduleGenetic(courses as CourseData[], classrooms as ClassroomData[], TIME_BLOCKS);
 
     // Save to database
     if (schedule.length > 0) {

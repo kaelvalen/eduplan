@@ -21,6 +21,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { DAYS_TR as DAYS, TIME_SLOTS } from '@/constants/time';
 import type { HardcodedSchedule, Classroom } from '@/types';
 
 interface HardcodedScheduleFormProps {
@@ -31,12 +32,6 @@ interface HardcodedScheduleFormProps {
     onScheduleRemoved: (scheduleId: number) => void;
     disabled?: boolean;
 }
-
-const DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'] as const;
-const TIME_SLOTS = [
-    '08:00', '09:00', '10:00', '11:00', '12:00',
-    '13:00', '14:00', '15:00', '16:00', '17:00',
-] as const;
 
 export function HardcodedScheduleForm({
     courseId,

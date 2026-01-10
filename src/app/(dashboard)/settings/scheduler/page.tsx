@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings, Save, Percent, AlertCircle } from 'lucide-react';
+import { Settings, Save, Percent, AlertCircle, Clock, Timer } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/auth-context';
 import { settingsApi } from '@/lib/api';
@@ -13,7 +13,20 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { PageHeader } from '@/components/ui/page-header';
 import { CardSkeleton } from '@/components/ui/skeleton';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import type { SystemSettings } from '@/types';
+
+// Time options
+const TIME_OPTIONS = [
+    '07:00', '08:00', '09:00', '10:00', '11:00', '12:00',
+    '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'
+];
 
 export default function SchedulerSettingsPage() {
     const { isAdmin } = useAuth();
@@ -23,9 +36,16 @@ export default function SchedulerSettingsPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
 
-    // Local form state
+    // Capacity margin state
     const [capacityMarginEnabled, setCapacityMarginEnabled] = useState(false);
     const [capacityMarginPercent, setCapacityMarginPercent] = useState(0);
+
+    // Time configuration state
+    const [slotDuration, setSlotDuration] = useState(60);
+    const [dayStart, setDayStart] = useState('08:00');
+    const [dayEnd, setDayEnd] = useState('18:00');
+    const [lunchBreakStart, setLunchBreakStart] = useState('12:00');
+    const [lunchBreakEnd, setLunchBreakEnd] = useState('13:00');
 
     useEffect(() => {
         if (!isAdmin) {
@@ -41,6 +61,12 @@ export default function SchedulerSettingsPage() {
             setSettings(data);
             setCapacityMarginEnabled(data.capacity_margin_enabled);
             setCapacityMarginPercent(data.capacity_margin_percent);
+            // Time settings (with fallback defaults)
+            setSlotDuration(data.slot_duration ?? 60);
+            setDayStart(data.day_start ?? '08:00');
+            setDayEnd(data.day_end ?? '18:00');
+            setLunchBreakStart(data.lunch_break_start ?? '12:00');
+            setLunchBreakEnd(data.lunch_break_end ?? '13:00');
         } catch (error) {
             console.error('Error fetching settings:', error);
             toast.error('Ayarlar yüklenirken bir hata oluştu');
@@ -55,6 +81,11 @@ export default function SchedulerSettingsPage() {
             const updatedSettings = await settingsApi.update({
                 capacity_margin_enabled: capacityMarginEnabled,
                 capacity_margin_percent: capacityMarginPercent,
+                slot_duration: slotDuration,
+                day_start: dayStart,
+                day_end: dayEnd,
+                lunch_break_start: lunchBreakStart,
+                lunch_break_end: lunchBreakEnd,
             });
             setSettings(updatedSettings);
             setHasChanges(false);
@@ -77,6 +108,16 @@ export default function SchedulerSettingsPage() {
         setHasChanges(true);
     };
 
+    const handleTimeChange = (setter: (v: string) => void) => (value: string) => {
+        setter(value);
+        setHasChanges(true);
+    };
+
+    const handleSlotDurationChange = (value: string) => {
+        setSlotDuration(parseInt(value));
+        setHasChanges(true);
+    };
+
     if (!isAdmin) {
         return null;
     }
@@ -91,7 +132,7 @@ export default function SchedulerSettingsPage() {
                     </div>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
-                    {[1, 2].map((i) => (
+                    {[1, 2, 3].map((i) => (
                         <CardSkeleton key={i} />
                     ))}
                 </div>
@@ -130,6 +171,111 @@ export default function SchedulerSettingsPage() {
 
             {/* Settings Cards */}
             <div className="grid gap-6 md:grid-cols-2">
+                {/* Time Configuration */}
+                <Card className="md:col-span-2">
+                    <CardHeader>
+                        <div className="flex items-center gap-2">
+                            <Clock className="h-5 w-5 text-primary" />
+                            <CardTitle>Zaman Yapılandırması</CardTitle>
+                        </div>
+                        <CardDescription>
+                            Ders programı için zaman dilimlerini ve öğle arasını ayarlayın
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                            {/* Slot Duration */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium flex items-center gap-2">
+                                    <Timer className="h-4 w-4" />
+                                    Ders Bloğu Süresi
+                                </label>
+                                <Select value={String(slotDuration)} onValueChange={handleSlotDurationChange}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="30">30 dakika</SelectItem>
+                                        <SelectItem value="60">60 dakika</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Day Start */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Gün Başlangıcı</label>
+                                <Select value={dayStart} onValueChange={handleTimeChange(setDayStart)}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {TIME_OPTIONS.map(time => (
+                                            <SelectItem key={time} value={time}>{time}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Day End */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Gün Bitişi</label>
+                                <Select value={dayEnd} onValueChange={handleTimeChange(setDayEnd)}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {TIME_OPTIONS.map(time => (
+                                            <SelectItem key={time} value={time}>{time}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        {/* Lunch Break */}
+                        <div className="border-t pt-6">
+                            <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
+                                🍽️ Öğle Arası
+                            </h4>
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="space-y-2">
+                                    <label className="text-sm text-muted-foreground">Başlangıç</label>
+                                    <Select value={lunchBreakStart} onValueChange={handleTimeChange(setLunchBreakStart)}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {TIME_OPTIONS.map(time => (
+                                                <SelectItem key={time} value={time}>{time}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm text-muted-foreground">Bitiş</label>
+                                    <Select value={lunchBreakEnd} onValueChange={handleTimeChange(setLunchBreakEnd)}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {TIME_OPTIONS.map(time => (
+                                                <SelectItem key={time} value={time}>{time}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Preview */}
+                        <div className="p-4 rounded-lg bg-muted/50 text-sm">
+                            <strong>Önizleme:</strong>{' '}
+                            {dayStart} - {dayEnd} arası, {slotDuration} dakikalık bloklar.
+                            Öğle arası: {lunchBreakStart} - {lunchBreakEnd}
+                        </div>
+                    </CardContent>
+                </Card>
+
                 {/* Capacity Margin */}
                 <Card>
                     <CardHeader>
@@ -188,19 +334,19 @@ export default function SchedulerSettingsPage() {
                     </CardHeader>
                     <CardContent className="space-y-3 text-sm text-muted-foreground">
                         <p>
-                            <strong>Zaman Blokları:</strong> 1 saatlik periyotlar (08:00-18:00)
+                            <strong>Zaman Blokları:</strong> {slotDuration} dakikalık periyotlar ({dayStart}-{dayEnd})
                         </p>
                         <p>
-                            <strong>Oturum Bölme:</strong> Çok saatlik oturumlar 1 saatlik bloklara bölünür
+                            <strong>Öğle Arası:</strong> {lunchBreakStart}-{lunchBreakEnd} arası ders yerleştirilmez
+                        </p>
+                        <p>
+                            <strong>Oturum Bölme:</strong> Çok saatlik oturumlar {slotDuration} dakikalık bloklara bölünür
                         </p>
                         <p>
                             <strong>Derslik Türleri:</strong> Lab oturumları laboratuvara, teorik oturumlar dersliğe yerleştirilir
                         </p>
                         <p>
                             <strong>Öncelik:</strong> Derslik koduna göre bölüm önceliği uygulanır
-                        </p>
-                        <p>
-                            <strong>Hardcoded:</strong> Elle belirlenen saatler korunur
                         </p>
                     </CardContent>
                 </Card>

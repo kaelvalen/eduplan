@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Calendar, Building2, Users, ChevronDown, Search } from 'lucide-react';
 import { useSchedules } from '@/hooks/use-schedules';
 import { useCourses } from '@/hooks/use-courses';
-import { getFacultyName, getDepartmentName, FACULTIES, DEPARTMENTS } from '@/constants/faculties';
+import { getDepartmentName, FACULTIES, DEPARTMENTS } from '@/constants/faculties';
+import { DAYS_TR as DAYS, TIME_SLOTS } from '@/constants/time';
 import { styles } from '@/lib/design-tokens';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
@@ -24,24 +25,63 @@ import {
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
-import type { Schedule, Course } from '@/types';
-
-const DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'] as const;
-const TIME_SLOTS = [
-    '08:00', '09:00', '10:00', '11:00', '12:00',
-    '13:00', '14:00', '15:00', '16:00', '17:00',
-] as const;
+import type { Schedule, Course, SystemSettings } from '@/types';
 
 const LEVELS = ['1', '2', '3', '4'] as const;
 
 export default function ProgramViewPage() {
     const { schedules, isLoading: schedulesLoading } = useSchedules();
     const { courses, isLoading: coursesLoading } = useCourses();
+    const [settings, setSettings] = useState<SystemSettings | null>(null);
 
     const [selectedFaculty, setSelectedFaculty] = useState<string>('');
     const [selectedDepartment, setSelectedDepartment] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedLevels, setExpandedLevels] = useState<Set<string>>(new Set(['1', '2', '3', '4']));
+
+    // Fetch time settings for lunch break detection and dynamic slots
+    useEffect(() => {
+        fetch('/api/settings', { credentials: 'include' })
+            .then(res => res.ok ? res.json() : null)
+            .then(data => data && setSettings(data))
+            .catch(console.error);
+    }, []);
+
+    // Generate dynamic time slots based on settings
+    const dynamicTimeSlots = useMemo(() => {
+        if (!settings) return TIME_SLOTS; // Fallback to static
+        
+        const slots: string[] = [];
+        const toMinutes = (time: string) => {
+            const [h, m] = time.split(':').map(Number);
+            return h * 60 + m;
+        };
+        
+        const startMin = toMinutes(settings.day_start || '08:00');
+        const endMin = toMinutes(settings.day_end || '18:00');
+        const lunchStartMin = toMinutes(settings.lunch_break_start || '12:00');
+        const lunchEndMin = toMinutes(settings.lunch_break_end || '13:00');
+        const slotDuration = settings.slot_duration || 60;
+        
+        for (let current = startMin; current < endMin; current += slotDuration) {
+            const blockEnd = current + slotDuration;
+            // Skip if overlaps with lunch
+            if (current < lunchEndMin && blockEnd > lunchStartMin) {
+                continue;
+            }
+            const h = Math.floor(current / 60);
+            const m = current % 60;
+            slots.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
+        }
+        
+        return slots;
+    }, [settings]);
+
+    // Dynamic lunch break detection based on settings
+    const isLunchTime = (time: string) => {
+        if (!settings) return false;
+        return time === settings.lunch_break_start;
+    };
 
     // Get departments for selected faculty
     const departments = useMemo(() => {
@@ -147,7 +187,7 @@ export default function ProgramViewPage() {
     return (
         <div className={styles.pageContainer}>
             <PageHeader
-                title="Bölüm Programları"
+                title="Ders Programı"
                 description="Bölüm ve sınıf bazlı ders programları"
                 icon={Calendar}
                 entity="schedules"
@@ -269,10 +309,21 @@ export default function ProgramViewPage() {
                                                             </tr>
                                                         </thead>
                                                         <tbody>
-                                                            {TIME_SLOTS.map(time => (
-                                                                <tr key={time} className="border-t">
-                                                                    <td className="p-2 font-medium bg-muted/30 border-r text-xs">
+                                                            {dynamicTimeSlots.map(time => {
+                                                                const isLunch = isLunchTime(time);
+                                                                return (
+                                                                <tr key={time} className={cn(
+                                                                    'border-t',
+                                                                    isLunch && 'bg-amber-50/50 dark:bg-amber-950/20'
+                                                                )}>
+                                                                    <td className={cn(
+                                                                        'p-2 font-medium border-r text-xs',
+                                                                        isLunch ? 'bg-amber-100/50 dark:bg-amber-900/30' : 'bg-muted/30'
+                                                                    )}>
                                                                         {time}
+                                                                        {isLunch && (
+                                                                            <span className="block text-[10px] text-amber-600">🍽️ Öğle</span>
+                                                                        )}
                                                                     </td>
                                                                     {DAYS.map(day => {
                                                                         const schedule = getScheduleForSlot(levels[level], day, time);
@@ -282,10 +333,11 @@ export default function ProgramViewPage() {
                                                                                 key={`${day}-${time}`}
                                                                                 className={cn(
                                                                                     'p-1 border-r last:border-r-0',
-                                                                                    schedule && 'bg-primary/10'
+                                                                                    schedule && 'bg-primary/10',
+                                                                                    isLunch && !schedule && 'bg-amber-50/30 dark:bg-amber-950/10'
                                                                                 )}
                                                                             >
-                                                                                {schedule && (
+                                                                                {schedule ? (
                                                                                     <div className="text-xs p-1 rounded bg-primary/20">
                                                                                         <div className="flex items-center justify-between gap-1 mb-1">
                                                                                             <div className="font-medium truncate">{schedule.course?.code}</div>
@@ -305,12 +357,17 @@ export default function ProgramViewPage() {
                                                                                             {schedule.classroom?.name}
                                                                                         </div>
                                                                                     </div>
-                                                                                )}
+                                                                                ) : isLunch ? (
+                                                                                    <div className="h-8 flex items-center justify-center text-xs text-amber-600/40">
+                                                                                        —
+                                                                                    </div>
+                                                                                ) : null}
                                                                             </td>
                                                                         );
                                                                     })}
                                                                 </tr>
-                                                            ))}
+                                                                );
+                                                            })}
                                                         </tbody>
                                                     </table>
                                                 </div>

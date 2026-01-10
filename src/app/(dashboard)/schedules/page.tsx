@@ -67,6 +67,10 @@ const TIME_SLOTS = [
 
 type ViewMode = 'grid' | 'list';
 
+// Lunch break helper
+const LUNCH_SLOTS = ['12:00-12:30', '12:30-13:00'];
+const isLunchSlot = (slot: string) => LUNCH_SLOTS.includes(slot);
+
 export default function SchedulesPage() {
   const { schedules, isLoading, deleteByDays, fetchSchedules } = useSchedules();
   const { isAdmin } = useAuth();
@@ -342,14 +346,31 @@ export default function SchedulesPage() {
                 </tr>
               </thead>
               <tbody>
-                {TIME_SLOTS.map((slot) => (
-                  <tr key={slot}>
-                    <td className="border bg-muted/50 p-2 font-medium">{slot}</td>
+                {TIME_SLOTS.map((slot) => {
+                  const isLunch = isLunchSlot(slot);
+                  return (
+                  <tr key={slot} className={isLunch ? 'bg-amber-50/50 dark:bg-amber-950/20' : ''}>
+                    <td className={cn(
+                      'border p-2 font-medium',
+                      isLunch ? 'bg-amber-100/50 dark:bg-amber-900/30' : 'bg-muted/50'
+                    )}>
+                      {slot}
+                      {isLunch && slot === '12:00-12:30' && (
+                        <span className="block text-[10px] text-amber-600 dark:text-amber-400">🍽️</span>
+                      )}
+                    </td>
                     {DAYS.map((day) => {
                       const items = scheduleGrid[day][slot];
                       return (
-                        <td key={`${day}-${slot}`} className="border p-1">
-                          {items.length === 0 ? (
+                        <td key={`${day}-${slot}`} className={cn(
+                          'border p-1',
+                          isLunch && 'bg-amber-50/30 dark:bg-amber-950/10'
+                        )}>
+                          {isLunch && items.length === 0 ? (
+                            <div className="h-8 flex items-center justify-center text-xs text-amber-600/50 dark:text-amber-400/50">
+                              {slot === '12:00-12:30' ? 'Öğle' : 'Arası'}
+                            </div>
+                          ) : items.length === 0 ? (
                             <div className="h-8" />
                           ) : (
                             items.map((item, idx) => (
@@ -374,7 +395,8 @@ export default function SchedulesPage() {
                       );
                     })}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </CardContent>

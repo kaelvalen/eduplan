@@ -29,8 +29,7 @@ const navigation = [
   { name: 'Öğretmenler', href: '/teachers', icon: Users, color: 'text-blue-500' },
   { name: 'Dersler', href: '/courses', icon: BookOpen, color: 'text-emerald-500' },
   { name: 'Derslikler', href: '/classrooms', icon: Building2, color: 'text-amber-500' },
-  { name: 'Ders Programı', href: '/schedules', icon: Calendar, color: 'text-rose-500' },
-  { name: 'Bölüm Programları', href: '/programs', icon: GraduationCap, color: 'text-purple-500' },
+  { name: 'Ders Programı', href: '/programs', icon: Calendar, color: 'text-rose-500' },
 ];
 
 const adminNavigation = [

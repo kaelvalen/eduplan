@@ -237,6 +237,12 @@ export interface SystemSettings {
   id: number;
   capacity_margin_enabled: boolean;
   capacity_margin_percent: number;
+  // Time configuration
+  slot_duration: number;
+  day_start: string;
+  day_end: string;
+  lunch_break_start: string;
+  lunch_break_end: string;
 }
 
 // ==================== STATISTICS ====================
@@ -279,15 +285,15 @@ export const ACADEMIC_TITLES = [
 export type AcademicTitle = typeof ACADEMIC_TITLES[number];
 
 // ==================== TIME BLOCKS ====================
-export const TIME_SLOTS = [
-  '08:00', '09:00', '10:00', '11:00', '12:00',
-  '13:00', '14:00', '15:00', '16:00', '17:00',
-] as const;
-
-export const DAYS = [
-  'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma',
-] as const;
-
-export type TimeSlot = typeof TIME_SLOTS[number];
-export type Day = typeof DAYS[number];
+// Re-exported from centralized time constants
+export { 
+  TIME_SLOTS, 
+  TIME_BLOCKS, 
+  DAYS, 
+  DAYS_TR, 
+  DAYS_EN,
+  DAY_MAPPING,
+  type TimeSlot, 
+  type Day 
+} from '@/constants/time';
 

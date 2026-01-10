@@ -90,6 +90,12 @@ export const BulkCreateScheduleSchema = z.array(CreateScheduleSchema);
 export const SystemSettingsSchema = z.object({
   capacity_margin_enabled: z.boolean().default(false),
   capacity_margin_percent: z.number().min(0).max(30).default(0),
+  // Time configuration
+  slot_duration: z.number().min(30).max(60).default(60),
+  day_start: z.string().regex(/^\d{2}:\d{2}$/).default('08:00'),
+  day_end: z.string().regex(/^\d{2}:\d{2}$/).default('18:00'),
+  lunch_break_start: z.string().regex(/^\d{2}:\d{2}$/).default('12:00'),
+  lunch_break_end: z.string().regex(/^\d{2}:\d{2}$/).default('13:00'),
 });
 
 export const UpdateSystemSettingsSchema = SystemSettingsSchema.partial();

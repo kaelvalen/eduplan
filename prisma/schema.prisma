@@ -128,6 +128,12 @@ model SystemSettings {
   id                    Int      @id @default(autoincrement())
   capacityMarginEnabled Boolean  @default(false)
   capacityMarginPercent Int      @default(0) // 0-30 arası
+  // Time configuration
+  slotDuration          Int      @default(60)       // 30 veya 60 dakika
+  dayStart              String   @default("08:00")
+  dayEnd                String   @default("18:00")
+  lunchBreakStart       String   @default("12:00")
+  lunchBreakEnd         String   @default("13:00")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }

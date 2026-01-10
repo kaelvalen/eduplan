@@ -2,18 +2,13 @@
 
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { DAYS_TR as DAYS, TIME_SLOTS } from '@/constants/time';
 
 interface AvailabilityPickerProps {
     value: Record<string, string[]>;
     onChange: (value: Record<string, string[]>) => void;
     disabled?: boolean;
 }
-
-const DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'] as const;
-const TIME_SLOTS = [
-    '08:00', '09:00', '10:00', '11:00', '12:00',
-    '13:00', '14:00', '15:00', '16:00', '17:00',
-] as const;
 
 export function AvailabilityPicker({ value, onChange, disabled = false }: AvailabilityPickerProps) {
     const [isDragging, setIsDragging] = useState(false);

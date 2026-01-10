@@ -20,6 +20,11 @@ export async function GET(request: Request) {
                 data: {
                     capacityMarginEnabled: false,
                     capacityMarginPercent: 0,
+                    slotDuration: 60,
+                    dayStart: '08:00',
+                    dayEnd: '18:00',
+                    lunchBreakStart: '12:00',
+                    lunchBreakEnd: '13:00',
                 },
             });
         }
@@ -28,6 +33,11 @@ export async function GET(request: Request) {
             id: settings.id,
             capacity_margin_enabled: settings.capacityMarginEnabled,
             capacity_margin_percent: settings.capacityMarginPercent,
+            slot_duration: settings.slotDuration,
+            day_start: settings.dayStart,
+            day_end: settings.dayEnd,
+            lunch_break_start: settings.lunchBreakStart,
+            lunch_break_end: settings.lunchBreakEnd,
         });
     } catch (error) {
         logger.error('Get settings error:', { error });
@@ -47,7 +57,7 @@ export async function PUT(request: Request) {
         }
 
         const body = await request.json();
-        const validation = SystemSettingsSchema.safeParse(body);
+        const validation = SystemSettingsSchema.partial().safeParse(body);
 
         if (!validation.success) {
             return NextResponse.json(
@@ -56,24 +66,43 @@ export async function PUT(request: Request) {
             );
         }
 
-        const { capacity_margin_enabled, capacity_margin_percent } = validation.data;
+        const {
+            capacity_margin_enabled,
+            capacity_margin_percent,
+            slot_duration,
+            day_start,
+            day_end,
+            lunch_break_start,
+            lunch_break_end,
+        } = validation.data;
 
         // Find existing settings or create new
         let settings = await prisma.systemSettings.findFirst();
 
+        const updateData: Record<string, unknown> = {};
+        if (capacity_margin_enabled !== undefined) updateData.capacityMarginEnabled = capacity_margin_enabled;
+        if (capacity_margin_percent !== undefined) updateData.capacityMarginPercent = capacity_margin_percent;
+        if (slot_duration !== undefined) updateData.slotDuration = slot_duration;
+        if (day_start !== undefined) updateData.dayStart = day_start;
+        if (day_end !== undefined) updateData.dayEnd = day_end;
+        if (lunch_break_start !== undefined) updateData.lunchBreakStart = lunch_break_start;
+        if (lunch_break_end !== undefined) updateData.lunchBreakEnd = lunch_break_end;
+
         if (settings) {
             settings = await prisma.systemSettings.update({
                 where: { id: settings.id },
-                data: {
-                    capacityMarginEnabled: capacity_margin_enabled,
-                    capacityMarginPercent: capacity_margin_percent,
-                },
+                data: updateData,
             });
         } else {
             settings = await prisma.systemSettings.create({
                 data: {
-                    capacityMarginEnabled: capacity_margin_enabled,
-                    capacityMarginPercent: capacity_margin_percent,
+                    capacityMarginEnabled: capacity_margin_enabled ?? false,
+                    capacityMarginPercent: capacity_margin_percent ?? 0,
+                    slotDuration: slot_duration ?? 60,
+                    dayStart: day_start ?? '08:00',
+                    dayEnd: day_end ?? '18:00',
+                    lunchBreakStart: lunch_break_start ?? '12:00',
+                    lunchBreakEnd: lunch_break_end ?? '13:00',
                 },
             });
         }
@@ -84,6 +113,11 @@ export async function PUT(request: Request) {
             id: settings.id,
             capacity_margin_enabled: settings.capacityMarginEnabled,
             capacity_margin_percent: settings.capacityMarginPercent,
+            slot_duration: settings.slotDuration,
+            day_start: settings.dayStart,
+            day_end: settings.dayEnd,
+            lunch_break_start: settings.lunchBreakStart,
+            lunch_break_end: settings.lunchBreakEnd,
         });
     } catch (error) {
         logger.error('Update settings error:', { error });
@@ -93,3 +127,4 @@ export async function PUT(request: Request) {
         );
     }
 }
+

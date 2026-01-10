@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/contexts/auth-context';
 import { getFacultyName, getDepartmentName } from '@/constants/faculties';
+import { DAYS_TR as DAYS, TIME_SLOTS } from '@/constants/time';
+import { parseAvailableHours } from '@/lib/time-utils';
 import type { Classroom, Schedule } from '@/types';
 
 interface ClassroomDetailModalProps {
@@ -14,12 +16,6 @@ interface ClassroomDetailModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
-
-const DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'] as const;
-const TIME_SLOTS = [
-    '08:00', '09:00', '10:00', '11:00', '12:00',
-    '13:00', '14:00', '15:00', '16:00', '17:00',
-] as const;
 
 export function ClassroomDetailModal({ classroom, open, onOpenChange }: ClassroomDetailModalProps) {
     const [schedule, setSchedule] = useState<Schedule[]>([]);
@@ -61,16 +57,7 @@ export function ClassroomDetailModal({ classroom, open, onOpenChange }: Classroo
         });
     };
 
-    const parseAvailableHours = (jsonStr: string | undefined): Record<string, string[]> => {
-        if (!jsonStr) return {};
-        try {
-            return JSON.parse(jsonStr);
-        } catch {
-            return {};
-        }
-    };
-
-    const availableHours = classroom ? parseAvailableHours(classroom.available_hours) : {};
+    const availableHours = classroom ? parseAvailableHours(classroom.available_hours || '{}') : {};
 
     if (!classroom) return null;
 

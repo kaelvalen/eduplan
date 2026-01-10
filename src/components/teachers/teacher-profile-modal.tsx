@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Calendar, Clock, Mail, Building2 } from 'lucide-react';
+import { Calendar, Mail, Building2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/contexts/auth-context';
 import { getFacultyName, getDepartmentName } from '@/constants/faculties';
+import { DAYS_TR as DAYS, TIME_SLOTS } from '@/constants/time';
+import { parseAvailableHours, isAvailableAt } from '@/lib/time-utils';
 import type { Teacher, Schedule } from '@/types';
 
 interface TeacherProfileModalProps {
@@ -14,12 +16,6 @@ interface TeacherProfileModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
-
-const DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'] as const;
-const TIME_SLOTS = [
-    '08:00', '09:00', '10:00', '11:00', '12:00',
-    '13:00', '14:00', '15:00', '16:00', '17:00',
-] as const;
 
 export function TeacherProfileModal({ teacher, open, onOpenChange }: TeacherProfileModalProps) {
     const [schedule, setSchedule] = useState<Schedule[]>([]);
@@ -61,37 +57,10 @@ export function TeacherProfileModal({ teacher, open, onOpenChange }: TeacherProf
         });
     };
 
-    const parseWorkingHours = (jsonStr: string): Record<string, string[]> => {
-        try {
-            return JSON.parse(jsonStr);
-        } catch {
-            return {};
-        }
-    };
-
-    const workingHours = teacher ? parseWorkingHours(teacher.working_hours) : {};
+    const workingHours = teacher ? parseAvailableHours(teacher.working_hours) : {};
 
     const checkAvailability = (day: string, time: string) => {
-        if (!workingHours) return false;
-
-        // Try exact match (Turkish)
-        if (workingHours[day]?.includes(time)) return true;
-
-        // Try lowercase Turkish
-        if (workingHours[day.toLowerCase()]?.includes(time)) return true;
-
-        // Map to English
-        const dayMap: Record<string, string> = {
-            'Pazartesi': 'monday',
-            'Salı': 'tuesday',
-            'Çarşamba': 'wednesday',
-            'Perşembe': 'thursday',
-            'Cuma': 'friday'
-        };
-        const englishDay = dayMap[day];
-        if (englishDay && workingHours[englishDay]?.includes(time)) return true;
-
-        return false;
+        return isAvailableAt(workingHours, day, time);
     };
 
     if (!teacher) return null;
