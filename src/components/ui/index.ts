@@ -21,6 +21,7 @@ export * from './alert';
 export * from './avatar';
 export * from './tooltip';
 export * from './pagination';
+export * from './scroll-area';
 
 // Layout components
 export * from './page-header';

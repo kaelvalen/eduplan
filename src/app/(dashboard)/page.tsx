@@ -6,6 +6,7 @@ import { Users, BookOpen, Building2, Calendar, Zap, Play, CheckCircle2, Activity
 import { toast } from 'sonner';
 import { statisticsApi, schedulerApi } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
+import { useDashboardPreferences } from '@/hooks/use-dashboard-preferences';
 import { styles } from '@/lib/design-tokens';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,7 +19,8 @@ import { NavCard, NavCardGrid } from '@/components/ui/nav-card';
 import { ActivityList } from '@/components/ui/activity-list';
 import { StatusSection } from '@/components/ui/status-section';
 import { TipCard, KeyboardShortcut } from '@/components/ui/tip-card';
-import type { Statistics, SchedulerStatus } from '@/types';
+import { DashboardGrid } from '@/components/ui/dashboard-grid';
+import type { Statistics, SchedulerStatus, WidgetConfig } from '@/types';
 import { getEntityColors, type EntityKey, type StatusKey } from '@/lib/design-tokens';
 
 // Stat cards configuration using entity keys
@@ -47,6 +49,7 @@ const recentActivitiesData = [
 
 export default function DashboardPage() {
   const { user, isAdmin } = useAuth();
+  const { widgets, layout, updateWidgets, updateLayout } = useDashboardPreferences();
   const [stats, setStats] = useState<Statistics>({
     teacherCount: 0,
     courseCount: 0,
@@ -55,6 +58,7 @@ export default function DashboardPage() {
   });
   const [schedulerStatus, setSchedulerStatus] = useState<SchedulerStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -102,9 +106,99 @@ export default function DashboardPage() {
     );
   }
 
+  // Render widget content based on type
+  const renderWidgetContent = (widget: WidgetConfig) => {
+    switch (widget.type) {
+      case 'stats':
+        return (
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+            {statCardsConfig.map((stat, i) => (
+              <StatsCard
+                key={stat.key}
+                title={stat.title}
+                value={stats[stat.key]}
+                icon={stat.icon}
+                entity={stat.entity}
+                href={stat.href}
+                className="h-full"
+              />
+            ))}
+          </div>
+        );
+
+      case 'actions':
+        if (!isAdmin) return null;
+        return (
+          <div className="h-full flex flex-col">
+            <div className="flex items-center gap-3 mb-4">
+              <div className={cn(styles.iconContainer, getEntityColors('scheduler').bg, "shadow-md")}>
+                <Zap className={cn('h-4 w-4', getEntityColors('scheduler').icon)} />
+              </div>
+              <div>
+                <h4 className="font-semibold text-sm">Hızlı İşlemler</h4>
+                <p className="text-xs text-muted-foreground">Sık kullanılan işlemlere hızlı erişim</p>
+              </div>
+            </div>
+            <div className="flex-1">
+              <ActionCardGrid>
+                {quickActionsConfig.map((action) => (
+                  <ActionCard
+                    key={action.label}
+                    label={action.label}
+                    href={action.href}
+                    icon={action.icon}
+                    entity={action.entity}
+                  />
+                ))}
+              </ActionCardGrid>
+            </div>
+          </div>
+        );
+
+      case 'activity':
+        return <ActivityList activities={recentActivitiesData} />;
+
+      case 'scheduler':
+        if (!isAdmin || !schedulerStatus) return null;
+        return (
+          <StatusSection
+            title=""
+            description=""
+            icon={Activity}
+            progress={schedulerStatus.completion_percentage}
+            isComplete={schedulerStatus.completion_percentage === 100}
+            metrics={[
+              { label: 'Aktif Ders', value: schedulerStatus.total_active_courses, entity: 'teachers' },
+              { label: 'Toplam Oturum', value: schedulerStatus.total_active_sessions, entity: 'courses' },
+              { label: 'Programlanan', value: schedulerStatus.scheduled_sessions, entity: 'classrooms' },
+            ]}
+          />
+        );
+
+      case 'navigation':
+        return (
+          <NavCardGrid>
+            {statCardsConfig.map((stat) => (
+              <NavCard
+                key={stat.key}
+                title={stat.title}
+                description={`${stat.title} bilgilerini görüntüle ve yönet`}
+                href={stat.href}
+                icon={stat.icon}
+                entity={stat.entity}
+              />
+            ))}
+          </NavCardGrid>
+        );
+
+      default:
+        return <div className="flex items-center justify-center h-full text-muted-foreground">Widget yükleniyor...</div>;
+    }
+  };
+
   return (
     <div className={cn(styles.pageContainer, "pb-12")}>
-      {/* Hero Section */}
+      {/* Hero Section - Always visible */}
       <HeroSection
         title={`${getGreeting()}, ${user?.username}!`}
         description="Ders programı yönetim sisteminize hoş geldiniz. İşte bugünkü özetiniz."
@@ -120,91 +214,20 @@ export default function DashboardPage() {
         className="shadow-2xl shadow-primary/20 mb-8"
       />
 
-      {/* Stats Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {statCardsConfig.map((stat, i) => (
-          <StatsCard
-            key={stat.key}
-            title={stat.title}
-            value={stats[stat.key]}
-            icon={stat.icon}
-            entity={stat.entity}
-            href={stat.href}
-            className={`animate-slide-up`}
-            style={{ animationDelay: `${i * 100}ms` }}
-          />
-        ))}
-      </div>
+      {/* Dashboard Grid */}
+      <DashboardGrid
+        widgets={widgets}
+        layout={layout}
+        onWidgetsChange={updateWidgets}
+        onLayoutChange={updateLayout}
+        isEditMode={isEditMode}
+        onEditModeChange={setIsEditMode}
+        renderWidget={renderWidgetContent}
+      />
 
-      {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-3 mt-4">
-        {/* Left Column */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Scheduler Status */}
-          {isAdmin && schedulerStatus && (
-            <StatusSection
-              title="Program Durumu"
-              description="Ders programı oluşturma durumu"
-              icon={Activity}
-              progress={schedulerStatus.completion_percentage}
-              isComplete={schedulerStatus.completion_percentage === 100}
-              metrics={[
-                { label: 'Aktif Ders', value: schedulerStatus.total_active_courses, entity: 'teachers' },
-                { label: 'Toplam Oturum', value: schedulerStatus.total_active_sessions, entity: 'courses' },
-                { label: 'Programlanan', value: schedulerStatus.scheduled_sessions, entity: 'classrooms' },
-              ]}
-            />
-          )}
-
-          {/* Quick Actions */}
-          {isAdmin && (
-            <Card className="glass-card border-white/5">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className={cn(styles.iconContainer, getEntityColors('scheduler').bg, "shadow-md")}>
-                    <Zap className={cn('h-5 w-5', getEntityColors('scheduler').icon)} />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg">Hızlı İşlemler</h3>
-                    <p className="text-sm text-muted-foreground">Sık kullanılan işlemlere hızlı erişim</p>
-                  </div>
-                </div>
-                <ActionCardGrid>
-                  {quickActionsConfig.map((action) => (
-                    <ActionCard
-                      key={action.label}
-                      label={action.label}
-                      href={action.href}
-                      icon={action.icon}
-                      entity={action.entity}
-                    />
-                  ))}
-                </ActionCardGrid>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Navigation Cards */}
-          <NavCardGrid>
-            {statCardsConfig.map((stat) => (
-              <NavCard
-                key={stat.key}
-                title={stat.title}
-                description={`${stat.title} bilgilerini görüntüle ve yönet`}
-                href={stat.href}
-                icon={stat.icon}
-                entity={stat.entity}
-              />
-            ))}
-          </NavCardGrid>
-        </div>
-
-        {/* Right Column */}
-        <div className="space-y-6">
-          {/* Recent Activity */}
-          <ActivityList activities={recentActivitiesData} />
-
-          {/* Tips Card */}
+      {/* Tips Card - Always visible outside grid */}
+      {!isEditMode && (
+        <div className="mt-6">
           <TipCard>
             <p className="text-sm text-muted-foreground">
               Klavye kısayollarını kullanarak daha hızlı gezinebilirsiniz.
@@ -212,7 +235,7 @@ export default function DashboardPage() {
             <KeyboardShortcut keys={['⌘', 'K']} description="Hızlı arama" />
           </TipCard>
         </div>
-      </div>
+      )}
     </div>
   );
 }

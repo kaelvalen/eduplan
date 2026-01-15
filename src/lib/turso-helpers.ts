@@ -1050,3 +1050,274 @@ export async function getClassroomSchedule(classroomId: number) {
     };
   });
 }
+
+// ==================== NOTIFICATIONS ====================
+export async function getAllNotifications(userId?: number) {
+  if (isTurso && db) {
+    const sql = userId
+      ? 'SELECT * FROM Notification WHERE userId IS NULL OR userId = ? ORDER BY createdAt DESC'
+      : 'SELECT * FROM Notification ORDER BY createdAt DESC';
+    const args = userId ? [userId] : [];
+    const result = await db.execute({ sql, args });
+    return result.rows.map(row => ({
+      id: row.id as number,
+      title: row.title as string,
+      message: row.message as string,
+      type: row.type as string,
+      category: row.category as string,
+      userId: row.userId as number | undefined,
+      isRead: Boolean(row.isRead),
+      actionUrl: row.actionUrl as string | undefined,
+      data: row.data as string | undefined,
+      createdAt: row.createdAt as string,
+      readAt: row.readAt as string | undefined,
+    }));
+  }
+  const where = userId ? { OR: [{ userId: null }, { userId }] } : {};
+  const notifications = await prisma.notification.findMany({
+    where,
+    orderBy: { createdAt: 'desc' }
+  });
+  return notifications;
+}
+
+export async function getNotificationById(id: number) {
+  if (isTurso && db) {
+    const result = await db.execute({ sql: 'SELECT * FROM Notification WHERE id = ?', args: [id] });
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0];
+    return {
+      id: row.id as number,
+      title: row.title as string,
+      message: row.message as string,
+      type: row.type as string,
+      category: row.category as string,
+      userId: row.userId as number | undefined,
+      isRead: Boolean(row.isRead),
+      actionUrl: row.actionUrl as string | undefined,
+      data: row.data as string | undefined,
+      createdAt: row.createdAt as string,
+      readAt: row.readAt as string | undefined,
+    };
+  }
+  return await prisma.notification.findUnique({ where: { id } });
+}
+
+export async function createNotification(data: {
+  title: string;
+  message: string;
+  type?: string;
+  category?: string;
+  userId?: number;
+  actionUrl?: string;
+  data?: string;
+}) {
+  if (isTurso && db) {
+    const result = await db.execute({
+      sql: `INSERT INTO Notification (title, message, type, category, userId, actionUrl, data)
+            VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+      args: [
+        data.title,
+        data.message,
+        data.type || 'info',
+        data.category || 'general',
+        data.userId || null,
+        data.actionUrl || null,
+        data.data || null
+      ]
+    });
+    const row = result.rows[0];
+    return {
+      id: row.id as number,
+      title: row.title as string,
+      message: row.message as string,
+      type: row.type as string,
+      category: row.category as string,
+      userId: row.userId as number | undefined,
+      isRead: Boolean(row.isRead),
+      actionUrl: row.actionUrl as string | undefined,
+      data: row.data as string | undefined,
+      createdAt: row.createdAt as string,
+      readAt: row.readAt as string | undefined,
+    };
+  }
+  return await prisma.notification.create({ data });
+}
+
+export async function markNotificationAsRead(id: number) {
+  if (isTurso && db) {
+    await db.execute({
+      sql: 'UPDATE Notification SET isRead = true, readAt = CURRENT_TIMESTAMP WHERE id = ?',
+      args: [id]
+    });
+    return true;
+  }
+  await prisma.notification.update({
+    where: { id },
+    data: { isRead: true, readAt: new Date() }
+  });
+  return true;
+}
+
+export async function deleteNotification(id: number) {
+  if (isTurso && db) {
+    await db.execute({ sql: 'DELETE FROM Notification WHERE id = ?', args: [id] });
+    return true;
+  }
+  await prisma.notification.delete({ where: { id } });
+  return true;
+}
+
+// ==================== SYSTEM NOTIFICATIONS ====================
+// Helper function to create system notifications
+export async function createSystemNotification(
+  title: string,
+  message: string,
+  options: {
+    type?: 'info' | 'success' | 'warning' | 'error';
+    category?: 'schedule' | 'teacher' | 'course' | 'classroom' | 'general';
+    userId?: number; // If not provided, sends to all users
+    actionUrl?: string;
+    data?: any;
+    sendPush?: boolean; // Whether to send push notification
+  } = {}
+) {
+  try {
+    const notification = await createNotification({
+      title,
+      message,
+      type: options.type || 'info',
+      category: options.category || 'general',
+      userId: options.userId,
+      actionUrl: options.actionUrl,
+      data: options.data ? JSON.stringify(options.data) : undefined,
+    });
+
+    // Import here to avoid circular dependency
+    const { sendPushNotification, broadcastPushNotification } = await import('../app/api/push/route');
+
+    // Send push notification if requested
+    if (options.sendPush !== false) { // Default to true
+      if (options.userId) {
+        await sendPushNotification(options.userId, title, message, {
+          type: options.type || 'info',
+          category: options.category || 'general',
+          actionUrl: options.actionUrl,
+          ...options.data
+        });
+      } else {
+        await broadcastPushNotification(title, message, {
+          type: options.type || 'info',
+          category: options.category || 'general',
+          actionUrl: options.actionUrl,
+          ...options.data
+        });
+      }
+    }
+
+    return notification;
+  } catch (error) {
+    console.error('Error creating system notification:', error);
+    throw error;
+  }
+}
+
+// ==================== USER DASHBOARD PREFERENCES ====================
+export async function getUserDashboardPreference(userId: number) {
+  if (isTurso && db) {
+    const result = await db.execute({
+      sql: 'SELECT * FROM UserDashboardPreference WHERE userId = ?',
+      args: [userId]
+    });
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0];
+    return {
+      id: row.id as number,
+      userId: row.userId as number,
+      widgets: JSON.parse(row.widgets as string),
+      layout: JSON.parse(row.layout as string),
+      theme: row.theme as string,
+      createdAt: row.createdAt as string,
+      updatedAt: row.updatedAt as string,
+    };
+  }
+  const preference = await prisma.userDashboardPreference.findUnique({
+    where: { userId }
+  });
+  if (!preference) return null;
+  return {
+    ...preference,
+    widgets: JSON.parse(preference.widgets),
+    layout: JSON.parse(preference.layout),
+  };
+}
+
+export async function createOrUpdateUserDashboardPreference(data: {
+  userId: number;
+  widgets?: any[];
+  layout?: any;
+  theme?: string;
+}) {
+  const existing = await getUserDashboardPreference(data.userId);
+
+  const preferenceData = {
+    widgets: JSON.stringify(data.widgets || []),
+    layout: JSON.stringify(data.layout || {}),
+    theme: data.theme || 'default',
+  };
+
+  if (isTurso && db) {
+    if (existing) {
+      const result = await db.execute({
+        sql: 'UPDATE UserDashboardPreference SET widgets = ?, layout = ?, theme = ?, updatedAt = CURRENT_TIMESTAMP WHERE userId = ? RETURNING *',
+        args: [preferenceData.widgets, preferenceData.layout, preferenceData.theme, data.userId]
+      });
+      const row = result.rows[0];
+      return {
+        id: row.id as number,
+        userId: row.userId as number,
+        widgets: JSON.parse(row.widgets as string),
+        layout: JSON.parse(row.layout as string),
+        theme: row.theme as string,
+        createdAt: row.createdAt as string,
+        updatedAt: row.updatedAt as string,
+      };
+    } else {
+      const result = await db.execute({
+        sql: 'INSERT INTO UserDashboardPreference (userId, widgets, layout, theme) VALUES (?, ?, ?, ?) RETURNING *',
+        args: [data.userId, preferenceData.widgets, preferenceData.layout, preferenceData.theme]
+      });
+      const row = result.rows[0];
+      return {
+        id: row.id as number,
+        userId: row.userId as number,
+        widgets: JSON.parse(row.widgets as string),
+        layout: JSON.parse(row.layout as string),
+        theme: row.theme as string,
+        createdAt: row.createdAt as string,
+        updatedAt: row.updatedAt as string,
+      };
+    }
+  }
+
+  if (existing) {
+    const updated = await prisma.userDashboardPreference.update({
+      where: { userId: data.userId },
+      data: { ...preferenceData, updatedAt: new Date() }
+    });
+    return {
+      ...updated,
+      widgets: JSON.parse(updated.widgets),
+      layout: JSON.parse(updated.layout),
+    };
+  } else {
+    const created = await prisma.userDashboardPreference.create({
+      data: { ...preferenceData, userId: data.userId }
+    });
+    return {
+      ...created,
+      widgets: JSON.parse(created.widgets),
+      layout: JSON.parse(created.layout),
+    };
+  }
+}

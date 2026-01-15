@@ -242,5 +242,39 @@ export const statisticsApi = {
   },
 };
 
+export const dashboardPreferencesApi = {
+  get: async () => {
+    const response = await api.get('/dashboard-preferences/');
+    return response.data;
+  },
+  update: async (data: any) => {
+    const response = await api.put('/dashboard-preferences/', data);
+    return response.data;
+  },
+};
+
+export const notificationApi = {
+  getAll: async (params?: { unreadOnly?: boolean; category?: string }) => {
+    const response = await api.get('/notifications/', { params });
+    return response.data;
+  },
+  getById: async (id: number) => {
+    const response = await api.get(`/notifications/${id}/`);
+    return response.data;
+  },
+  create: async (data: any) => {
+    const response = await api.post('/notifications/', data);
+    return response.data;
+  },
+  markAsRead: async (id: number) => {
+    const response = await api.put(`/notifications/${id}/`);
+    return response.data;
+  },
+  delete: async (id: number) => {
+    const response = await api.delete(`/notifications/${id}/`);
+    return response.data;
+  },
+};
+
 export default api;
 

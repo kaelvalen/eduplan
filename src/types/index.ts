@@ -284,16 +284,75 @@ export const ACADEMIC_TITLES = [
 
 export type AcademicTitle = typeof ACADEMIC_TITLES[number];
 
+// ==================== NOTIFICATIONS ====================
+export interface Notification {
+  id: number;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  category: 'schedule' | 'teacher' | 'course' | 'classroom' | 'general';
+  userId?: number;
+  isRead: boolean;
+  actionUrl?: string;
+  data?: string; // JSON string
+  createdAt: string;
+  readAt?: string;
+}
+
+export interface NotificationCreate {
+  title: string;
+  message: string;
+  type?: 'info' | 'success' | 'warning' | 'error';
+  category?: 'schedule' | 'teacher' | 'course' | 'classroom' | 'general';
+  userId?: number;
+  actionUrl?: string;
+  data?: string;
+}
+
+// ==================== DASHBOARD PREFERENCES ====================
+export interface WidgetConfig {
+  id: string;
+  type: 'stats' | 'actions' | 'activity' | 'scheduler' | 'navigation';
+  title?: string;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  visible: boolean;
+  order: number;
+}
+
+export interface DashboardLayout {
+  columns: number;
+  gap: number;
+  padding: number;
+}
+
+export interface UserDashboardPreference {
+  id: number;
+  userId: number;
+  widgets: WidgetConfig[];
+  layout: DashboardLayout;
+  theme: 'default' | 'dark' | 'light' | 'auto';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserDashboardPreferenceCreate {
+  userId: number;
+  widgets?: WidgetConfig[];
+  layout?: DashboardLayout;
+  theme?: 'default' | 'dark' | 'light' | 'auto';
+}
+
 // ==================== TIME BLOCKS ====================
 // Re-exported from centralized time constants
-export { 
-  TIME_SLOTS, 
-  TIME_BLOCKS, 
-  DAYS, 
-  DAYS_TR, 
+export {
+  TIME_SLOTS,
+  TIME_BLOCKS,
+  DAYS,
+  DAYS_TR,
   DAYS_EN,
   DAY_MAPPING,
-  type TimeSlot, 
-  type Day 
+  type TimeSlot,
+  type Day
 } from '@/constants/time';
 

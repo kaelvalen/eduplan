@@ -7,15 +7,10 @@ import {
   LogOut,
   User,
   Settings,
-  Bell,
   Search,
   Menu,
   Command,
-  Sparkles,
-  CheckCircle2,
-  AlertTriangle,
-  Info,
-  ChevronRight
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
@@ -28,14 +23,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { NotificationCenter } from '@/components/ui/notification-center';
 
 const shortcuts = [
   { key: '⌘ K', description: 'Arama' },
@@ -45,32 +34,6 @@ const shortcuts = [
   { key: 'G S', description: 'Program' },
 ];
 
-const notifications = [
-  {
-    id: 1,
-    title: 'Program oluşturuldu',
-    message: 'Yeni ders programı başarıyla oluşturuldu.',
-    time: '2 dakika önce',
-    type: 'success',
-    icon: CheckCircle2
-  },
-  {
-    id: 2,
-    title: 'Yeni öğretmen eklendi',
-    message: 'Dr. Ahmet Yılmaz sisteme eklendi.',
-    time: '1 saat önce',
-    type: 'info',
-    icon: Info
-  },
-  {
-    id: 3,
-    title: 'Çakışma uyarısı',
-    message: '2 derste zaman çakışması tespit edildi.',
-    time: '3 saat önce',
-    type: 'warning',
-    icon: AlertTriangle
-  },
-];
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -167,55 +130,7 @@ export function Header({ onMenuClick, showMenuButton = false, onSearchClick }: H
           </Button>
 
           {/* Notifications */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative rounded-xl h-10 w-10 tap-highlight-none hover:bg-white/20 transition-colors">
-                <Bell className="h-5 w-5 text-foreground/80" />
-                <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-background animate-pulse" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[calc(100vw-2rem)] md:w-80 max-w-80 rounded-2xl p-0 overflow-hidden glass-card border-none">
-              <div className="bg-gradient-to-r from-primary/10 to-primary/5 px-4 py-3 border-b border-white/10">
-                <div className="flex items-center justify-between">
-                  <p className="font-semibold text-sm">Bildirimler</p>
-                  <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
-                    3 yeni
-                  </span>
-                </div>
-              </div>
-              <div className="max-h-80 overflow-y-auto">
-                {notifications.map((notif) => {
-                  const Icon = notif.icon;
-                  return (
-                    <div
-                      key={notif.id}
-                      className="flex gap-3 p-4 hover:bg-white/5 cursor-pointer transition-colors border-b border-white/5 last:border-0"
-                    >
-                      <div className={cn(
-                        'flex-shrink-0 h-9 w-9 rounded-full flex items-center justify-center',
-                        notif.type === 'success' && 'bg-emerald-500/10 text-emerald-500',
-                        notif.type === 'warning' && 'bg-amber-500/10 text-amber-500',
-                        notif.type === 'info' && 'bg-blue-500/10 text-blue-500'
-                      )}>
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground/90">{notif.title}</p>
-                        <p className="text-xs text-muted-foreground line-clamp-1">{notif.message}</p>
-                        <p className="text-[10px] text-muted-foreground/60 mt-1">{notif.time}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="p-2 border-t border-white/5 bg-muted/20">
-                <Button variant="ghost" className="w-full h-8 text-xs rounded-lg hover:bg-white/10">
-                  Tüm bildirimleri gör
-                  <ChevronRight className="h-3 w-3 ml-1" />
-                </Button>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <NotificationCenter />
 
           {/* Theme Toggle */}
           <ThemeToggle />
@@ -283,27 +198,6 @@ export function Header({ onMenuClick, showMenuButton = false, onSearchClick }: H
         </div>
       </header>
 
-      {/* Keyboard Shortcuts Dialog */}
-      <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
-        <DialogContent className="sm:max-w-md glass-card border-white/10">
-          <DialogHeader>
-            <DialogTitle>Klavye Kısayolları</DialogTitle>
-            <DialogDescription>
-              Hızlı navigasyon için klavye kısayollarını kullanın
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            {shortcuts.map((shortcut) => (
-              <div key={shortcut.key} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0 hover:bg-white/5 px-2 rounded-lg transition-colors">
-                <span className="text-sm text-foreground/80">{shortcut.description}</span>
-                <kbd className="px-2.5 py-1 text-xs font-semibold bg-white/10 rounded-md border border-white/10 text-foreground">
-                  {shortcut.key}
-                </kbd>
-              </div>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

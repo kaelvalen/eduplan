@@ -18,6 +18,8 @@ model User {
   role         String   @default("teacher") // "admin" | "teacher"
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  notifications Notification[]
+  dashboardPreference UserDashboardPreference?
 }
 
 // ==================== TEACHER ====================
@@ -121,6 +123,34 @@ model HardcodedSchedule {
   classroomId Int?       // Opsiyonel derslik
   classroom   Classroom? @relation(fields: [classroomId], references: [id])
   createdAt   DateTime   @default(now())
+}
+
+// ==================== NOTIFICATIONS ====================
+model Notification {
+  id          Int       @id @default(autoincrement())
+  title       String
+  message     String
+  type        String    @default("info") // "info" | "success" | "warning" | "error"
+  category    String    @default("general") // "schedule" | "teacher" | "course" | "classroom" | "general"
+  userId      Int?
+  user        User?     @relation(fields: [userId], references: [id])
+  isRead      Boolean   @default(false)
+  actionUrl   String?   // Bildirime tıklandığında yönlendirme URL'i
+  data        String?   // JSON string - ek veriler için
+  createdAt   DateTime  @default(now())
+  readAt      DateTime?
+}
+
+// ==================== USER DASHBOARD PREFERENCES ====================
+model UserDashboardPreference {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  widgets     String    @default("[]") // JSON array - widget konfigürasyonu
+  layout      String    @default("{}") // JSON object - layout ayarları
+  theme       String    @default("default") // Tema seçeneği
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 // ==================== SYSTEM SETTINGS ====================
