@@ -1,10 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { 
   Trash2, 
   Download, 
-  Filter, 
   Grid3X3, 
   List, 
   Calendar as CalendarIcon,
@@ -19,9 +18,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { styles } from '@/lib/design-tokens';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import {
   Select,
@@ -47,38 +44,82 @@ import {
 import { cn } from '@/lib/utils';
 import { NoSchedule } from '@/components/ui/empty-state';
 import { ScheduleSkeleton } from '@/components/ui/skeleton';
+import { DAYS_EN, DAYS_EN_TO_TR, TIME_CONFIG } from '@/constants/time';
+import type { SystemSettings } from '@/types';
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const;
-const DAYS_TR: Record<string, string> = {
-  Monday: 'Pazartesi',
-  Tuesday: 'Salı',
-  Wednesday: 'Çarşamba',
-  Thursday: 'Perşembe',
-  Friday: 'Cuma',
-};
-
-const TIME_SLOTS = [
-  '08:00-08:30', '08:30-09:00', '09:00-09:30', '09:30-10:00',
-  '10:00-10:30', '10:30-11:00', '11:00-11:30', '11:30-12:00',
-  '12:00-12:30', '12:30-13:00', '13:00-13:30', '13:30-14:00',
-  '14:00-14:30', '14:30-15:00', '15:00-15:30', '15:30-16:00',
-  '16:00-16:30', '16:30-17:00',
-];
+// Use English day names internally, display Turkish
+const DAYS = DAYS_EN;
+const DAYS_TR = DAYS_EN_TO_TR;
 
 type ViewMode = 'grid' | 'list';
-
-// Lunch break helper
-const LUNCH_SLOTS = ['12:00-12:30', '12:30-13:00'];
-const isLunchSlot = (slot: string) => LUNCH_SLOTS.includes(slot);
 
 export default function SchedulesPage() {
   const { schedules, isLoading, deleteByDays, fetchSchedules } = useSchedules();
   const { isAdmin } = useAuth();
+  const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDay, setSelectedDay] = useState<string>('all');
   const [selectedClassroom, setSelectedClassroom] = useState<string>('all');
+
+  // Fetch time settings
+  useEffect(() => {
+    fetch('/api/settings', { credentials: 'include' })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => data && setSettings(data))
+      .catch(console.error);
+  }, []);
+
+  // Generate dynamic time slots with range format (e.g., '08:00-09:00')
+  const TIME_SLOTS = useMemo(() => {
+    const slots: string[] = [];
+    const slotDuration = settings?.slot_duration || TIME_CONFIG.slotDuration;
+    const dayStart = settings?.day_start || TIME_CONFIG.dayStart;
+    const dayEnd = settings?.day_end || TIME_CONFIG.dayEnd;
+
+    const toMinutes = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
+    const fromMinutes = (mins: number) => {
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    };
+
+    const startMin = toMinutes(dayStart);
+    const endMin = toMinutes(dayEnd);
+
+    for (let current = startMin; current < endMin; current += slotDuration) {
+      const slotEnd = Math.min(current + slotDuration, endMin);
+      slots.push(`${fromMinutes(current)}-${fromMinutes(slotEnd)}`);
+    }
+
+    return slots;
+  }, [settings]);
+
+  // Dynamic lunch break detection
+  const LUNCH_SLOTS = useMemo(() => {
+    const lunchStart = settings?.lunch_break_start || TIME_CONFIG.lunchBreak.start;
+    const lunchEnd = settings?.lunch_break_end || TIME_CONFIG.lunchBreak.end;
+    
+    return TIME_SLOTS.filter(slot => {
+      const [slotStart, slotEnd] = slot.split('-');
+      const toMin = (t: string) => {
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + m;
+      };
+      const slotStartMin = toMin(slotStart);
+      const slotEndMin = toMin(slotEnd);
+      const lunchStartMin = toMin(lunchStart);
+      const lunchEndMin = toMin(lunchEnd);
+      // Overlap check
+      return slotStartMin < lunchEndMin && slotEndMin > lunchStartMin;
+    });
+  }, [TIME_SLOTS, settings]);
+
+  const isLunchSlot = (slot: string) => LUNCH_SLOTS.includes(slot);
 
   // Get unique classrooms
   const classrooms = useMemo(() => {
@@ -115,7 +156,9 @@ export default function SchedulesPage() {
 
     filteredSchedules.forEach((schedule) => {
       const { day, time_range } = schedule;
-      if (!DAYS.includes(day as typeof DAYS[number])) return;
+      // Normalize day comparison (handle both Monday and monday)
+      const normalizedDay = day.charAt(0).toUpperCase() + day.slice(1).toLowerCase();
+      if (!DAYS.includes(normalizedDay as typeof DAYS[number])) return;
 
       const [start, end] = time_range.split('-');
       const toMinutes = (t: string) => {
@@ -130,14 +173,15 @@ export default function SchedulesPage() {
         const slotStartMin = toMinutes(slotStart);
         const slotEndMin = toMinutes(slotEnd);
 
+        // Check if this slot overlaps with the schedule time range
         if (slotStartMin >= startMin && slotEndMin <= endMin) {
-          grid[day][slot].push(schedule);
+          grid[normalizedDay][slot].push(schedule);
         }
       });
     });
 
     return grid;
-  }, [filteredSchedules]);
+  }, [filteredSchedules, TIME_SLOTS]);
 
   const handleDeleteAll = async () => {
     const uniqueDays = [...new Set(schedules.map((s) => s.day))];
