@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, Cog, ChevronRight } from 'lucide-react';
+import { Settings, Cog, ChevronRight, BookOpen } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { styles } from '@/lib/design-tokens';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,8 +45,8 @@ export default function SettingsPage() {
                     <Cog className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <CardTitle>Scheduler Ayarları</CardTitle>
-                    <CardDescription>Program oluşturma ayarları</CardDescription>
+                    <CardTitle>Scheduler Bilgileri</CardTitle>
+                    <CardDescription>Algoritma hakkında bilgi</CardDescription>
                   </div>
                 </div>
                 <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -54,7 +54,32 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Kapasite marjı, zaman blokları ve algoritma davranışını yapılandırın.
+                Program oluşturma algoritmasının kısıtları ve özellikleri hakkında detaylı bilgi.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        {/* User Manual Card */}
+        <Link href="/settings/manual" className="block group">
+          <Card className="h-full transition-all hover:shadow-lg hover:border-primary/50">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10">
+                    <BookOpen className="h-5 w-5 text-green-500" />
+                  </div>
+                  <div>
+                    <CardTitle>Kullanım Kılavuzu</CardTitle>
+                    <CardDescription>Sistem kullanım rehberi</CardDescription>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-green-500 transition-colors" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Hızlı başlangıç, modül kullanımı, ipuçları ve uyarılar.
               </p>
             </CardContent>
           </Card>

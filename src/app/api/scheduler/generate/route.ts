@@ -88,6 +88,10 @@ interface ScheduleItem {
   isHardcoded: boolean;
 }
 
+// Type aliases for nested course structures
+type SessionData = { type: string; hours: number };
+type DepartmentData = { department: string; studentCount: number };
+
 interface CourseData {
   id: number;
   name: string;
@@ -121,15 +125,7 @@ interface ClassroomData {
   isActive: boolean;
 }
 
-// Parse JSON string to object
-function parseJsonField<T>(jsonStr: string, defaultValue: T): T {
-  try {
-    const parsed = JSON.parse(jsonStr);
-    return parsed as T;
-  } catch {
-    return defaultValue;
-  }
-}
+
 
 // Check if teacher is available at given time
 function isTeacherAvailable(
@@ -228,8 +224,7 @@ function findSuitableClassroomForBlocks(
   // Replaces magic number (50) with ratio-based calculation
   // Priority 1: Size ratio optimization (0.7-0.9 ideal, <0.4 penalty)
   // Priority 2: Department/faculty preference
-  // Note: MIN_ACCEPTABLE_SCORE can be added in future if we want to reject very poor matches
-  const MIN_ACCEPTABLE_SCORE = -500; // Below this, classroom is severely mismatched (optional filter)
+  // Note: Scoring prioritizes 0.7-0.9 size ratio (ideal), with penalties for <0.4
   
   suitable.sort((a, b) => {
     // Calculate size_ratio = student_count / classroom_capacity
@@ -356,6 +351,11 @@ function processHardcodedSchedules(
 
     for (const hs of course.hardcodedSchedules) {
       const timeRange = `${hs.startTime}-${hs.endTime}`;
+      
+      // Calculate actual session hours from time range
+      const [startHour] = hs.startTime.split(':').map(Number);
+      const [endHour] = hs.endTime.split(':').map(Number);
+      const sessionHours = endHour - startHour;
 
       // Find classroom if specified, otherwise use first available
       let classroomId = hs.classroomId;
@@ -383,10 +383,10 @@ function processHardcodedSchedules(
           day: hs.day,
           timeRange,
           sessionType: hs.sessionType,
-          sessionHours: 1,
+          sessionHours: sessionHours > 0 ? sessionHours : 1,
           isHardcoded: true,
         });
-        count++;
+        count += sessionHours > 0 ? sessionHours : 1;
       }
     }
 
@@ -614,19 +614,18 @@ async function generateScheduleHeuristic(
           );
 
           if (classroom) {
-            // Schedule all blocks
-            for (let i = 0; i < duration; i++) {
-              const block = currentBlocks[i];
-              schedule.push({
-                courseId: course.id,
-                classroomId: classroom.id,
-                day,
-                timeRange: `${block.start}-${block.end}`,
-                sessionType: session.type,
-                sessionHours: 1,
-                isHardcoded: false
-              });
-            }
+            // Schedule as a single contiguous block
+            const startBlock = currentBlocks[0];
+            const endBlock = currentBlocks[duration - 1];
+            schedule.push({
+              courseId: course.id,
+              classroomId: classroom.id,
+              day,
+              timeRange: `${startBlock.start}-${endBlock.end}`,
+              sessionType: session.type,
+              sessionHours: duration,
+              isHardcoded: false
+            });
             
             // Soft constraint: Update lecturer load for balanced scheduling
             if (course.teacherId) {
@@ -827,7 +826,7 @@ export async function POST(request: Request) {
           name: c.name,
           code: c.code,
           total_hours: c.totalHours,
-          student_count: (c.departments as any[]).reduce((sum, d) => sum + d.studentCount, 0),
+          student_count: (c.departments as DepartmentData[]).reduce((sum, d) => sum + d.studentCount, 0),
           reason: 'Aktif derslik yok',
         })),
         perfect: false,
@@ -861,7 +860,7 @@ export async function POST(request: Request) {
     // Calculate total sessions
     const totalSessions = courses.reduce((sum, c) => {
       // Fix: cast c.sessions to any[] to avoid implicit any error
-      return sum + (c.sessions as any[]).reduce((sSum, session) => sSum + session.hours, 0);
+      return sum + (c.sessions as SessionData[]).reduce((sSum, session) => sSum + session.hours, 0);
     }, 0);
 
     const scheduledCount = schedule.length;
@@ -877,7 +876,7 @@ export async function POST(request: Request) {
       const classroom = (classrooms as ClassroomData[]).find(c => c.id === item.classroomId);
       
       if (course && classroom) {
-        const studentCount = (course.departments as any[]).reduce((sum: number, d: any) => sum + d.studentCount, 0);
+        const studentCount = (course.departments as DepartmentData[]).reduce((sum, d) => sum + d.studentCount, 0);
         const adjustedStudentCount = course.capacityMargin > 0
           ? Math.ceil(studentCount * (1 - course.capacityMargin / 100))
           : studentCount;
@@ -935,7 +934,7 @@ export async function POST(request: Request) {
         name: c.name,
         code: c.code,
         total_hours: c.totalHours,
-        student_count: (c.departments as any[]).reduce((sum, d) => sum + d.studentCount, 0),
+        student_count: (c.departments as DepartmentData[]).reduce((sum, d) => sum + d.studentCount, 0),
         reason: 'Uygun zaman/derslik bulunamadı (Blok yerleştirme)',
       })),
       perfect: unscheduled.length === 0,

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { coursesApi, teachersApi } from '@/lib/api';
+import { coursesApi, teachersApi, classroomsApi } from '@/lib/api';
 import { FACULTIES, getDepartmentsByFaculty } from '@/constants/faculties';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { CourseCreate, CourseSession, CourseDepartment, Teacher } from '@/types';
+import { HardcodedScheduleForm } from './hardcoded-schedule-form';
+import type { CourseCreate, CourseSession, CourseDepartment, Teacher, Classroom, HardcodedSchedule } from '@/types';
 
 interface CourseFormProps {
   courseId?: number;
@@ -30,6 +31,8 @@ export function CourseForm({ courseId: initialCourseId }: CourseFormProps) {
   const [currentCourseId, setCurrentCourseId] = useState<number | undefined>(initialCourseId);
   const [isFetching, setIsFetching] = useState(!!initialCourseId);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [hardcodedSchedules, setHardcodedSchedules] = useState<HardcodedSchedule[]>([]);
   const [isCheckingCode, setIsCheckingCode] = useState(false);
   const codeCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -63,7 +66,16 @@ export function CourseForm({ courseId: initialCourseId }: CourseFormProps) {
         toast.error('Öğretmenler yüklenirken bir hata oluştu');
       }
     };
+    const fetchClassrooms = async () => {
+      try {
+        const data = await classroomsApi.getAll();
+        setClassrooms(data);
+      } catch (error) {
+        toast.error('Derslikler yüklenirken bir hata oluştu');
+      }
+    };
     fetchTeachers();
+    fetchClassrooms();
   }, []);
 
   // Cleanup timeout on unmount
@@ -102,6 +114,19 @@ export function CourseForm({ courseId: initialCourseId }: CourseFormProps) {
           });
           setSessions(course.sessions.map((s) => ({ type: s.type, hours: s.hours })));
           setDepartments(course.departments.map((d) => ({ department: d.department, student_count: d.student_count })));
+          
+          // Fetch hardcoded schedules for this course
+          if (course.hardcoded_schedules) {
+            setHardcodedSchedules(course.hardcoded_schedules);
+          } else {
+            try {
+              const schedules = await coursesApi.getHardcodedSchedules(currentCourseId);
+              setHardcodedSchedules(schedules);
+            } catch {
+              // Hardcoded schedules might not be available
+              setHardcodedSchedules([]);
+            }
+          }
         } catch (error) {
           toast.error('Ders bilgileri yüklenirken bir hata oluştu');
           router.push('/courses');
@@ -483,6 +508,27 @@ export function CourseForm({ courseId: initialCourseId }: CourseFormProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Hardcoded Schedules - Only shown for existing courses */}
+      {currentCourseId && (
+        <HardcodedScheduleForm
+          courseId={currentCourseId}
+          schedules={hardcodedSchedules}
+          classrooms={classrooms}
+          onScheduleAdded={(schedule) => setHardcodedSchedules([...hardcodedSchedules, schedule])}
+          onScheduleRemoved={(scheduleId) => setHardcodedSchedules(hardcodedSchedules.filter(s => s.id !== scheduleId))}
+          disabled={isLoading}
+        />
+      )}
+      {!currentCourseId && (
+        <Card>
+          <CardContent className="py-6">
+            <p className="text-sm text-muted-foreground text-center">
+              💡 Sabit program eklemek için önce dersi kaydedin
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex gap-4">
         <Button type="submit" disabled={isLoading || isCheckingCode}>

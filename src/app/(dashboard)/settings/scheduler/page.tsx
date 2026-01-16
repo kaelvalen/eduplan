@@ -1,204 +1,185 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings, Save, Percent, AlertCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import { Settings, Cog, Zap, Clock, Users, Target, Shuffle, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
-import { settingsApi } from '@/lib/api';
 import { styles } from '@/lib/design-tokens';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { Slider } from '@/components/ui/slider';
 import { PageHeader } from '@/components/ui/page-header';
-import { CardSkeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 
 export default function SchedulerSettingsPage() {
     const { isAdmin } = useAuth();
     const router = useRouter();
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
-    const [hasChanges, setHasChanges] = useState(false);
-
-    // Capacity margin state
-    const [capacityMarginEnabled, setCapacityMarginEnabled] = useState(false);
-    const [capacityMarginPercent, setCapacityMarginPercent] = useState(0);
 
     useEffect(() => {
         if (!isAdmin) {
             router.push('/');
-            return;
         }
-        fetchSettings();
     }, [isAdmin, router]);
-
-    const fetchSettings = async () => {
-        try {
-            const data = await settingsApi.get();
-            setCapacityMarginEnabled(data.capacity_margin_enabled);
-            setCapacityMarginPercent(data.capacity_margin_percent);
-        } catch (error) {
-            console.error('Error fetching settings:', error);
-            toast.error('Ayarlar yüklenirken bir hata oluştu');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleSave = async () => {
-        setIsSaving(true);
-        try {
-            await settingsApi.update({
-                capacity_margin_enabled: capacityMarginEnabled,
-                capacity_margin_percent: capacityMarginPercent,
-            });
-            setHasChanges(false);
-            toast.success('Ayarlar kaydedildi');
-        } catch (error) {
-            console.error('Error saving settings:', error);
-            toast.error('Ayarlar kaydedilirken bir hata oluştu');
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleToggleMargin = (enabled: boolean) => {
-        setCapacityMarginEnabled(enabled);
-        setHasChanges(true);
-    };
-
-    const handlePercentChange = (value: number[]) => {
-        setCapacityMarginPercent(value[0]);
-        setHasChanges(true);
-    };
 
     if (!isAdmin) {
         return null;
     }
 
-    if (isLoading) {
-        return (
-            <div className={styles.pageContainer}>
-                <div className="flex items-center justify-between">
-                    <div className="space-y-2">
-                        <div className="h-8 w-48 bg-muted rounded-lg animate-pulse" />
-                        <div className="h-4 w-64 bg-muted rounded animate-pulse" />
-                    </div>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                    {[1, 2, 3].map((i) => (
-                        <CardSkeleton key={i} />
-                    ))}
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className={styles.pageContainer}>
-            {/* Header */}
             <PageHeader
-                title="Scheduler Ayarları"
-                description="Program oluşturma algoritmasının davranışını yapılandırın"
+                title="Scheduler Bilgileri"
+                description="Otomatik program oluşturma algoritması hakkında bilgi"
                 icon={Settings}
                 entity="scheduler"
-                action={
-                    <Button
-                        size="lg"
-                        onClick={handleSave}
-                        disabled={!hasChanges || isSaving}
-                    >
-                        <Save className="mr-2 h-5 w-5" />
-                        {isSaving ? 'Kaydediliyor...' : 'Kaydet'}
-                    </Button>
-                }
             />
 
-            {hasChanges && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800">
-                    <AlertCircle className="h-5 w-5 text-orange-500" />
-                    <span className="text-sm text-orange-700 dark:text-orange-300">
-                        Kaydedilmemiş değişiklikler var
-                    </span>
-                </div>
-            )}
-
-            {/* Settings Cards */}
             <div className="grid gap-6 md:grid-cols-2">
-
-                {/* Capacity Margin */}
-                <Card>
+                {/* Algorithm Overview */}
+                <Card className="md:col-span-2">
                     <CardHeader>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <Percent className="h-5 w-5 text-primary" />
-                                <CardTitle>Kapasite Marjı</CardTitle>
-                            </div>
-                            <Switch
-                                checked={capacityMarginEnabled}
-                                onCheckedChange={handleToggleMargin}
-                            />
+                        <div className="flex items-center gap-2">
+                            <Cog className="h-5 w-5 text-primary" />
+                            <CardTitle>Algoritma Özeti</CardTitle>
                         </div>
                         <CardDescription>
-                            Sınıf kapasitesinden daha fazla öğrenci sayısına sahip derslerin yerleştirilmesine izin ver
+                            Smart Greedy + Hill Climbing hibrit yaklaşımı
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className={capacityMarginEnabled ? '' : 'opacity-50 pointer-events-none'}>
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm">Marj Yüzdesi</span>
-                                <span className="text-2xl font-bold">{capacityMarginPercent}%</span>
+                    <CardContent>
+                        <div className="grid gap-4 md:grid-cols-3">
+                            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                                <Target className="h-5 w-5 text-blue-500 mt-0.5" />
+                                <div>
+                                    <p className="font-medium text-sm">Zorluk Bazlı Sıralama</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        En kısıtlı dersler önce yerleştirilir
+                                    </p>
+                                </div>
                             </div>
-                            <Slider
-                                value={[capacityMarginPercent]}
-                                onValueChange={handlePercentChange}
-                                max={30}
-                                step={5}
-                                className="w-full"
-                            />
-                            <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                                <span>0%</span>
-                                <span>30%</span>
+                            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                                <Shuffle className="h-5 w-5 text-purple-500 mt-0.5" />
+                                <div>
+                                    <p className="font-medium text-sm">Rastgele Keşif</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Gün ve saat seçiminde rastgelelik
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                                <TrendingUp className="h-5 w-5 text-green-500 mt-0.5" />
+                                <div>
+                                    <p className="font-medium text-sm">Yerel İyileştirme</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Hill Climbing ile optimizasyon
+                                    </p>
+                                </div>
                             </div>
                         </div>
-
-                        {capacityMarginEnabled && (
-                            <div className="p-3 rounded-lg bg-muted/50 text-sm">
-                                <strong>Örnek:</strong> %{capacityMarginPercent} marj ile
-                                <br />
-                                <span className="text-muted-foreground">
-                                    100 kişilik bir ders, {Math.ceil(100 * (1 - capacityMarginPercent / 100))} kapasiteli sınıfa yerleştirilebilir
-                                </span>
-                            </div>
-                        )}
                     </CardContent>
                 </Card>
 
-                {/* Info Card */}
+                {/* Hard Constraints */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>Algoritma Hakkında</CardTitle>
+                        <div className="flex items-center gap-2">
+                            <Zap className="h-5 w-5 text-red-500" />
+                            <CardTitle>Kesin Kısıtlar</CardTitle>
+                            <Badge variant="destructive" className="ml-auto">Zorunlu</Badge>
+                        </div>
                         <CardDescription>
-                            Otomatik program oluşturma hakkında bilgi
+                            İhlal edilemez kurallar
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-3 text-sm text-muted-foreground">
-                        <p>
-                            <strong>Zaman Blokları:</strong> 60 dakikalık periyotlar (08:00-18:00)
-                        </p>
-                        <p>
-                            <strong>Öğle Arası:</strong> 12:00-13:00 arası ders yerleştirilmez
-                        </p>
-                        <p>
-                            <strong>Oturum Bölme:</strong> Çok saatlik oturumlar 60 dakikalık bloklara bölünür
-                        </p>
-                        <p>
-                            <strong>Derslik Türleri:</strong> Lab oturumları laboratuvara, teorik oturumlar dersliğe yerleştirilir
-                        </p>
-                        <p>
-                            <strong>Öncelik:</strong> Derslik koduna göre bölüm önceliği uygulanır
-                        </p>
+                    <CardContent className="space-y-3 text-sm">
+                        <div className="flex items-start gap-2">
+                            <span className="text-red-500">•</span>
+                            <span><strong>Öğretmen çakışması:</strong> Bir öğretmen aynı anda bir yerde</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <span className="text-red-500">•</span>
+                            <span><strong>Derslik çakışması:</strong> Bir derslik aynı anda bir ders</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <span className="text-red-500">•</span>
+                            <span><strong>Zorunlu ders çakışması:</strong> Aynı dönem ve sınıfta çakışma yok</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <span className="text-red-500">•</span>
+                            <span><strong>Kapasite:</strong> Öğrenci sayısı ≤ Derslik kapasitesi</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <span className="text-red-500">•</span>
+                            <span><strong>Tür uyumu:</strong> Lab → Lab/Hibrit, Teorik → Teorik/Hibrit</span>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Soft Constraints */}
+                <Card>
+                    <CardHeader>
+                        <div className="flex items-center gap-2">
+                            <Users className="h-5 w-5 text-amber-500" />
+                            <CardTitle>Esnek Kısıtlar</CardTitle>
+                            <Badge variant="outline" className="ml-auto">Optimize</Badge>
+                        </div>
+                        <CardDescription>
+                            İyileştirme hedefleri
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-sm">
+                        <div className="flex items-start gap-2">
+                            <span className="text-amber-500">•</span>
+                            <span><strong>Kapasite kullanımı:</strong> %70-90 ideal doluluk oranı</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <span className="text-amber-500">•</span>
+                            <span><strong>Bölüm önceliği:</strong> Dersliklerin öncelikli bölümü tercih edilir</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <span className="text-amber-500">•</span>
+                            <span><strong>Öğretmen yükü dengesi:</strong> Saatler eşit dağıtılır</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <span className="text-amber-500">•</span>
+                            <span><strong>Gün dağılımı:</strong> Ders oturumları farklı günlere yayılır</span>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Special Features */}
+                <Card className="md:col-span-2">
+                    <CardHeader>
+                        <div className="flex items-center gap-2">
+                            <Clock className="h-5 w-5 text-primary" />
+                            <CardTitle>Özel Özellikler</CardTitle>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 text-sm">
+                            <div className="p-3 rounded-lg border">
+                                <p className="font-medium mb-1">📌 Sabit Programlar</p>
+                                <p className="text-xs text-muted-foreground">
+                                    Ders bazında önceden tanımlı zaman ve derslik
+                                </p>
+                            </div>
+                            <div className="p-3 rounded-lg border">
+                                <p className="font-medium mb-1">📊 Ders Bazlı Kapasite Marjı</p>
+                                <p className="text-xs text-muted-foreground">
+                                    Her ders için ayrı kapasite toleransı (0-30%)
+                                </p>
+                            </div>
+                            <div className="p-3 rounded-lg border">
+                                <p className="font-medium mb-1">🧩 Çok Bloklu Oturumlar</p>
+                                <p className="text-xs text-muted-foreground">
+                                    2+ saatlik dersler ardışık bloklara yerleştirilir
+                                </p>
+                            </div>
+                            <div className="p-3 rounded-lg border">
+                                <p className="font-medium mb-1">🕐 Uygunluk Saatleri</p>
+                                <p className="text-xs text-muted-foreground">
+                                    Öğretmen ve derslik bazlı uygunluk kontrolü
+                                </p>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
             </div>

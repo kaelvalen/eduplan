@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Trash2, Clock, Calendar } from 'lucide-react';
+import { Plus, Trash2, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +21,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { coursesApi } from '@/lib/api';
 import { DAYS_TR as DAYS, TIME_SLOTS } from '@/constants/time';
 import type { HardcodedSchedule, Classroom } from '@/types';
 
@@ -59,18 +60,7 @@ export function HardcodedScheduleForm({
 
         setIsLoading(true);
         try {
-            const response = await fetch(`/api/courses/${courseId}/hardcoded`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.detail || 'Bir hata oluştu');
-            }
-
-            const newSchedule = await response.json();
+            const newSchedule = await coursesApi.addHardcodedSchedule(courseId, formData);
             onScheduleAdded(newSchedule);
             setIsAddDialogOpen(false);
             toast.success('Sabit program eklendi');
@@ -83,8 +73,9 @@ export function HardcodedScheduleForm({
                 session_type: 'teorik',
                 classroom_id: undefined,
             });
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Bir hata oluştu');
+        } catch (error: unknown) {
+            const err = error as { detail?: string; message?: string };
+            toast.error(err?.detail || err?.message || 'Bir hata oluştu');
         } finally {
             setIsLoading(false);
         }
@@ -93,19 +84,12 @@ export function HardcodedScheduleForm({
     const handleRemove = async (scheduleId: number) => {
         setIsLoading(true);
         try {
-            const response = await fetch(`/api/courses/${courseId}/hardcoded?scheduleId=${scheduleId}`, {
-                method: 'DELETE',
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.detail || 'Bir hata oluştu');
-            }
-
+            await coursesApi.removeHardcodedSchedule(courseId, scheduleId);
             onScheduleRemoved(scheduleId);
             toast.success('Sabit program silindi');
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Bir hata oluştu');
+        } catch (error: unknown) {
+            const err = error as { detail?: string; message?: string };
+            toast.error(err?.detail || err?.message || 'Bir hata oluştu');
         } finally {
             setIsLoading(false);
         }
@@ -126,6 +110,7 @@ export function HardcodedScheduleForm({
                         Sabit Program
                     </CardTitle>
                     <Button
+                        type="button"
                         variant="outline"
                         size="sm"
                         onClick={() => setIsAddDialogOpen(true)}
@@ -168,6 +153,7 @@ export function HardcodedScheduleForm({
                                     </div>
                                 </div>
                                 <Button
+                                    type="button"
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => handleRemove(schedule.id)}
@@ -300,10 +286,10 @@ export function HardcodedScheduleForm({
                     </div>
 
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                        <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                             İptal
                         </Button>
-                        <Button onClick={handleAdd} disabled={isLoading}>
+                        <Button type="button" onClick={handleAdd} disabled={isLoading}>
                             {isLoading ? 'Ekleniyor...' : 'Ekle'}
                         </Button>
                     </DialogFooter>
