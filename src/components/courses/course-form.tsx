@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -24,11 +24,14 @@ interface CourseFormProps {
   courseId?: number;
 }
 
-export function CourseForm({ courseId }: CourseFormProps) {
+export function CourseForm({ courseId: initialCourseId }: CourseFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [isFetching, setIsFetching] = useState(!!courseId);
+  const [currentCourseId, setCurrentCourseId] = useState<number | undefined>(initialCourseId);
+  const [isFetching, setIsFetching] = useState(!!initialCourseId);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [isCheckingCode, setIsCheckingCode] = useState(false);
+  const codeCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -63,22 +66,39 @@ export function CourseForm({ courseId }: CourseFormProps) {
     fetchTeachers();
   }, []);
 
+  // Cleanup timeout on unmount
   useEffect(() => {
-    if (courseId) {
+    return () => {
+      if (codeCheckTimeoutRef.current) {
+        clearTimeout(codeCheckTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (currentCourseId) {
       const fetchCourse = async () => {
+        setIsFetching(true);
         try {
-          const course = await coursesApi.getById(courseId);
-          setFormData({
-            name: course.name,
-            code: course.code,
-            teacher_id: course.teacher_id,
-            faculty: course.faculty,
-            level: course.level,
-            category: course.category,
-            semester: course.semester,
-            ects: course.ects,
-            capacity_margin: course.capacity_margin || 0, // Fetch capacity margin
-            is_active: course.is_active,
+          const course = await coursesApi.getById(currentCourseId);
+          // Only update if the code matches (to avoid resetting user input)
+          setFormData(prev => {
+            // If user is typing and code doesn't match fetched course, don't update
+            if (prev.code && prev.code.toUpperCase() !== course.code.toUpperCase()) {
+              return prev;
+            }
+            return {
+              name: course.name,
+              code: course.code,
+              teacher_id: course.teacher_id || 0,
+              faculty: course.faculty,
+              level: course.level,
+              category: course.category,
+              semester: course.semester,
+              ects: course.ects,
+              capacity_margin: course.capacity_margin || 0,
+              is_active: course.is_active,
+            };
           });
           setSessions(course.sessions.map((s) => ({ type: s.type, hours: s.hours })));
           setDepartments(course.departments.map((d) => ({ department: d.department, student_count: d.student_count })));
@@ -91,7 +111,7 @@ export function CourseForm({ courseId }: CourseFormProps) {
       };
       fetchCourse();
     }
-  }, [courseId, router]);
+  }, [currentCourseId, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,8 +124,8 @@ export function CourseForm({ courseId }: CourseFormProps) {
         departments,
       };
 
-      if (courseId) {
-        await coursesApi.update(courseId, data);
+      if (currentCourseId) {
+        await coursesApi.update(currentCourseId, data);
         toast.success('Ders başarıyla güncellendi');
       } else {
         await coursesApi.create(data);
@@ -166,10 +186,73 @@ export function CourseForm({ courseId }: CourseFormProps) {
             <Input
               id="code"
               value={formData.code}
-              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+              onChange={(e) => {
+                const newCode = e.target.value.toUpperCase();
+                setFormData(prev => ({ ...prev, code: newCode }));
+                
+                // Clear existing timeout
+                if (codeCheckTimeoutRef.current) {
+                  clearTimeout(codeCheckTimeoutRef.current);
+                }
+                
+                // Clear courseId if code is being changed manually
+                if (currentCourseId && newCode.toUpperCase() !== formData.code.toUpperCase()) {
+                  setCurrentCourseId(undefined);
+                  router.replace('/courses/new');
+                }
+                
+                // Debounce: Check for existing course after user stops typing (800ms)
+                if (newCode && newCode.length >= 3 && !currentCourseId) {
+                  codeCheckTimeoutRef.current = setTimeout(async () => {
+                    setIsCheckingCode(true);
+                    try {
+                      const allCourses = await coursesApi.getAll();
+                      const existingCourse = allCourses.find(
+                        c => c.code.toUpperCase() === newCode.toUpperCase()
+                      );
+                      
+                      if (existingCourse) {
+                        setCurrentCourseId(existingCourse.id);
+                        router.replace(`/courses/${existingCourse.id}/edit`);
+                        toast.success(`"${existingCourse.code}" dersi bulundu ve otomatik dolduruldu. Düzenleme modunda.`);
+                      }
+                    } catch (error) {
+                      console.error('Error checking course code:', error);
+                    } finally {
+                      setIsCheckingCode(false);
+                    }
+                  }, 800);
+                }
+              }}
+              onBlur={async () => {
+                // Check on blur as well, but only if code is valid and not already editing
+                if (formData.code && formData.code.length >= 3 && !currentCourseId && !isCheckingCode) {
+                  setIsCheckingCode(true);
+                  try {
+                    const allCourses = await coursesApi.getAll();
+                    const existingCourse = allCourses.find(
+                      c => c.code.toUpperCase() === formData.code.toUpperCase()
+                    );
+                    
+                    if (existingCourse) {
+                      setCurrentCourseId(existingCourse.id);
+                      router.replace(`/courses/${existingCourse.id}`);
+                      toast.success(`"${existingCourse.code}" dersi bulundu ve otomatik dolduruldu. Düzenleme modunda.`);
+                    }
+                  } catch (error) {
+                    console.error('Error checking course code:', error);
+                  } finally {
+                    setIsCheckingCode(false);
+                  }
+                }
+              }}
               placeholder="BIL101"
               required
+              disabled={isCheckingCode}
             />
+            {isCheckingCode && (
+              <p className="text-xs text-muted-foreground">Kod kontrol ediliyor...</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -402,9 +485,9 @@ export function CourseForm({ courseId }: CourseFormProps) {
       </Card>
 
       <div className="flex gap-4">
-        <Button type="submit" disabled={isLoading}>
+        <Button type="submit" disabled={isLoading || isCheckingCode}>
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {courseId ? 'Güncelle' : 'Kaydet'}
+          {currentCourseId ? 'Güncelle' : 'Kaydet'}
         </Button>
         <Button type="button" variant="outline" onClick={() => router.push('/courses')}>
           İptal

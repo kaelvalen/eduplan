@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -24,10 +24,13 @@ interface ClassroomFormProps {
   classroomId?: number;
 }
 
-export function ClassroomForm({ classroomId }: ClassroomFormProps) {
+export function ClassroomForm({ classroomId: initialClassroomId }: ClassroomFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [isFetching, setIsFetching] = useState(!!classroomId);
+  const [currentClassroomId, setCurrentClassroomId] = useState<number | undefined>(initialClassroomId);
+  const [isFetching, setIsFetching] = useState(!!initialClassroomId);
+  const [isCheckingName, setIsCheckingName] = useState(false);
+  const nameCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [formData, setFormData] = useState<ClassroomCreate>({
     name: '',
@@ -40,18 +43,36 @@ export function ClassroomForm({ classroomId }: ClassroomFormProps) {
 
   const departments = formData.faculty ? getDepartmentsByFaculty(formData.faculty) : [];
 
+  // Cleanup timeout on unmount
   useEffect(() => {
-    if (classroomId) {
+    return () => {
+      if (nameCheckTimeoutRef.current) {
+        clearTimeout(nameCheckTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (currentClassroomId) {
       const fetchClassroom = async () => {
+        setIsFetching(true);
         try {
-          const classroom = await classroomsApi.getById(classroomId);
-          setFormData({
-            name: classroom.name,
-            capacity: classroom.capacity,
-            type: classroom.type,
-            faculty: classroom.faculty,
-            department: classroom.department,
-            is_active: classroom.is_active !== false,
+          const classroom = await classroomsApi.getById(currentClassroomId);
+          // Only update if name and department match (to avoid resetting user input)
+          setFormData(prev => {
+            // If user is typing and values don't match fetched classroom, don't update
+            if ((prev.name && prev.name.toLowerCase() !== classroom.name.toLowerCase()) ||
+                (prev.department && prev.department !== classroom.department)) {
+              return prev;
+            }
+            return {
+              name: classroom.name,
+              capacity: classroom.capacity,
+              type: classroom.type,
+              faculty: classroom.faculty,
+              department: classroom.department,
+              is_active: classroom.is_active !== false,
+            };
           });
         } catch (error) {
           toast.error('Derslik bilgileri yüklenirken bir hata oluştu');
@@ -62,15 +83,15 @@ export function ClassroomForm({ classroomId }: ClassroomFormProps) {
       };
       fetchClassroom();
     }
-  }, [classroomId, router]);
+  }, [currentClassroomId, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      if (classroomId) {
-        await classroomsApi.update(classroomId, formData);
+      if (currentClassroomId) {
+        await classroomsApi.update(currentClassroomId, formData);
         toast.success('Derslik başarıyla güncellendi');
       } else {
         await classroomsApi.create(formData);
@@ -106,10 +127,78 @@ export function ClassroomForm({ classroomId }: ClassroomFormProps) {
             <Input
               id="name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) => {
+                const newName = e.target.value;
+                setFormData(prev => {
+                  // Clear existing timeout
+                  if (nameCheckTimeoutRef.current) {
+                    clearTimeout(nameCheckTimeoutRef.current);
+                  }
+                  
+                  // Clear classroomId if name is being changed manually
+                  if (currentClassroomId && newName.toLowerCase() !== prev.name.toLowerCase()) {
+                    setCurrentClassroomId(undefined);
+                    router.replace('/classrooms/new');
+                  }
+                  
+                  // Debounce: Check for existing classroom after user stops typing (800ms)
+                  if (newName && prev.department && !currentClassroomId) {
+                    const department = prev.department; // Capture department value
+                    nameCheckTimeoutRef.current = setTimeout(async () => {
+                      setIsCheckingName(true);
+                      try {
+                        const allClassrooms = await classroomsApi.getAll();
+                        const existingClassroom = allClassrooms.find(
+                          c => c.name.toLowerCase() === newName.toLowerCase() && 
+                               c.department === department
+                        );
+                      
+                      if (existingClassroom) {
+                        setCurrentClassroomId(existingClassroom.id);
+                        router.replace(`/classrooms/${existingClassroom.id}/edit`);
+                        toast.success(`"${existingClassroom.name}" dersliği bulundu ve otomatik dolduruldu. Düzenleme modunda.`);
+                      }
+                    } catch (error) {
+                      console.error('Error checking classroom name:', error);
+                    } finally {
+                      setIsCheckingName(false);
+                    }
+                  }, 800);
+                  }
+                  
+                  return { ...prev, name: newName };
+                });
+              }}
+              onBlur={async () => {
+                // Check on blur as well
+                if (formData.name && formData.department && !currentClassroomId && !isCheckingName) {
+                  setIsCheckingName(true);
+                  try {
+                    const allClassrooms = await classroomsApi.getAll();
+                    const existingClassroom = allClassrooms.find(
+                      c => c.name.toLowerCase() === formData.name.toLowerCase() && 
+                           c.department === formData.department
+                    );
+                    
+                    if (existingClassroom) {
+                      setCurrentClassroomId(existingClassroom.id);
+                      router.replace(`/classrooms/${existingClassroom.id}`);
+                      toast.success(`"${existingClassroom.name}" dersliği bulundu ve otomatik dolduruldu. Düzenleme modunda.`);
+                    }
+                  } catch (error) {
+                    console.error('Error checking classroom name:', error);
+                  } finally {
+                    setIsCheckingName(false);
+                  }
+                }
+              }}
               placeholder="A101"
               required
+              disabled={isCheckingName}
             />
+            {isCheckingName && (
+              <p className="text-xs text-muted-foreground">Derslik kontrol ediliyor...</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -166,8 +255,48 @@ export function ClassroomForm({ classroomId }: ClassroomFormProps) {
             <Label htmlFor="department">Bölüm</Label>
             <Select
               value={formData.department}
-              onValueChange={(value) => setFormData({ ...formData, department: value })}
-              disabled={!formData.faculty}
+              onValueChange={(value) => {
+                setFormData(prev => {
+                  // Clear existing timeout
+                  if (nameCheckTimeoutRef.current) {
+                    clearTimeout(nameCheckTimeoutRef.current);
+                  }
+                  
+                  // Clear classroomId if department is being changed manually
+                  if (currentClassroomId && value !== prev.department) {
+                    setCurrentClassroomId(undefined);
+                    router.replace('/classrooms/new');
+                  }
+                  
+                  // Debounce: Check for existing classroom after user stops selecting (800ms)
+                  if (prev.name && value && !currentClassroomId) {
+                    const name = prev.name; // Capture name value
+                    nameCheckTimeoutRef.current = setTimeout(async () => {
+                      setIsCheckingName(true);
+                      try {
+                        const allClassrooms = await classroomsApi.getAll();
+                        const existingClassroom = allClassrooms.find(
+                          c => c.name.toLowerCase() === name.toLowerCase() && 
+                               c.department === value
+                        );
+                      
+                      if (existingClassroom) {
+                        setCurrentClassroomId(existingClassroom.id);
+                        router.replace(`/classrooms/${existingClassroom.id}/edit`);
+                        toast.success(`"${existingClassroom.name}" dersliği bulundu ve otomatik dolduruldu. Düzenleme modunda.`);
+                      }
+                    } catch (error) {
+                      console.error('Error checking classroom name:', error);
+                    } finally {
+                      setIsCheckingName(false);
+                    }
+                  }, 800);
+                  }
+                  
+                  return { ...prev, department: value };
+                });
+              }}
+              disabled={!formData.faculty || isCheckingName}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Bölüm seçin" />
@@ -194,9 +323,9 @@ export function ClassroomForm({ classroomId }: ClassroomFormProps) {
       </Card>
 
       <div className="flex gap-4">
-        <Button type="submit" disabled={isLoading}>
+        <Button type="submit" disabled={isLoading || isCheckingName}>
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {classroomId ? 'Güncelle' : 'Kaydet'}
+          {currentClassroomId ? 'Güncelle' : 'Kaydet'}
         </Button>
         <Button type="button" variant="outline" onClick={() => router.push('/classrooms')}>
           İptal
