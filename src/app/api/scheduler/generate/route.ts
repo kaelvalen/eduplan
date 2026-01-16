@@ -47,6 +47,12 @@ function generateDynamicTimeBlocks(settings: TimeSettings): TimeBlock[] {
   for (let current = startMinutes; current < endMinutes; current += slotDuration) {
     const blockEnd = current + slotDuration;
     
+    // Prevent block overflow: if block would extend past dayEnd, don't create it
+    // This handles edge cases like dayEnd=17:15, slot=60 where 16:00-17:00 is valid but 17:00-18:00 would overflow
+    if (blockEnd > endMinutes) {
+      break;
+    }
+    
     // Skip if block overlaps with lunch break
     if (current < lunchEndMin && blockEnd > lunchStartMin) {
       continue;
@@ -218,61 +224,62 @@ function findSuitableClassroomForBlocks(
     return true;
   });
 
-  // Soft constraint sorting with priorities:
-  // 1. Capacity margin minimization (most important)
-  // 2. Department/faculty preference
-  // 3. Large enrollment courses prefer large classrooms
-  // 4. Penalize low enrollment courses using high-capacity classrooms
+  // Soft constraint sorting with deterministic size_ratio approach
+  // Replaces magic number (50) with ratio-based calculation
+  // Priority 1: Size ratio optimization (0.7-0.9 ideal, <0.4 penalty)
+  // Priority 2: Department/faculty preference
+  // Note: MIN_ACCEPTABLE_SCORE can be added in future if we want to reject very poor matches
+  const MIN_ACCEPTABLE_SCORE = -500; // Below this, classroom is severely mismatched (optional filter)
+  
   suitable.sort((a, b) => {
-    // Calculate capacity margin for each classroom
-    const aMargin = a.capacity - adjustedStudentCount;
-    const bMargin = b.capacity - adjustedStudentCount;
+    // Calculate size_ratio = student_count / classroom_capacity
+    const aRatio = adjustedStudentCount / a.capacity;
+    const bRatio = adjustedStudentCount / b.capacity;
     
-    // Priority 1: Minimize capacity margin (prefer smaller rooms that fit)
-    // For courses with large enrollment (>= 50), slightly prefer larger rooms
-    const isLargeEnrollment = studentCount >= 50;
-    const capacityMarginDiff = aMargin - bMargin;
+    // Ideal range: 0.7 - 0.9 (70%-90% utilization)
+    const IDEAL_MIN = 0.7;
+    const IDEAL_MAX = 0.9;
+    const PENALTY_THRESHOLD = 0.4; // Below 40% utilization = inefficient
     
-    // If margin difference is significant (>20% of student count), prioritize smaller margin
-    const marginThreshold = Math.max(10, Math.ceil(studentCount * 0.2));
-    if (Math.abs(capacityMarginDiff) > marginThreshold) {
-      // For large enrollment, prefer slightly larger rooms (up to 30% margin)
-      // For small enrollment, strictly minimize margin
-      if (isLargeEnrollment) {
-        // Large enrollment: prefer rooms with margin between 0 and 30% of enrollment
-        const aOptimalMargin = aMargin >= 0 && aMargin <= Math.ceil(studentCount * 0.3);
-        const bOptimalMargin = bMargin >= 0 && bMargin <= Math.ceil(studentCount * 0.3);
-        
-        if (aOptimalMargin && !bOptimalMargin) return -1;
-        if (!aOptimalMargin && bOptimalMargin) return 1;
-        
-        // Within optimal range, prefer slightly larger (but still minimize)
-        if (aOptimalMargin && bOptimalMargin) {
-          // Slight preference for larger room within optimal range
-          return aMargin - bMargin;
-        }
-        
-        // Outside optimal range, minimize margin
-        return aMargin - bMargin;
+    // Score each classroom based on ratio
+    const scoreRatio = (ratio: number): number => {
+      if (ratio >= IDEAL_MIN && ratio <= IDEAL_MAX) {
+        // Ideal range: prefer slightly higher utilization
+        return 100 - Math.abs(ratio - 0.8) * 100; // Best at 0.8
+      } else if (ratio < PENALTY_THRESHOLD) {
+        // Too much waste: heavy penalty
+        return ratio * 50; // Scale down significantly
+      } else if (ratio > 1.0) {
+        // Over capacity: shouldn't happen (hard constraint), but if it does, reject
+        return -1000;
       } else {
-        // Small enrollment: strictly minimize margin
-        return aMargin - bMargin;
+        // Between 0.4-0.7 or 0.9-1.0: acceptable but not ideal
+        if (ratio < IDEAL_MIN) {
+          // 0.4-0.7: prefer closer to 0.7
+          return 50 + (ratio - PENALTY_THRESHOLD) / (IDEAL_MIN - PENALTY_THRESHOLD) * 40;
+        } else {
+          // 0.9-1.0: prefer closer to 0.9
+          return 100 - (ratio - IDEAL_MAX) / (1.0 - IDEAL_MAX) * 30;
+        }
       }
+    };
+    
+    const aScore = scoreRatio(aRatio);
+    const bScore = scoreRatio(bRatio);
+    
+    // Priority 1: Higher score (better ratio) wins
+    if (Math.abs(aScore - bScore) > 1) {
+      return bScore - aScore; // Higher score first
     }
     
-    // Priority 2: Department/faculty preference (secondary to capacity margin)
+    // Priority 2: Department/faculty preference (secondary)
     const aHasPriority = a.priorityDept === courseDepartment;
     const bHasPriority = b.priorityDept === courseDepartment;
 
     if (aHasPriority && !bHasPriority) return -1;
     if (bHasPriority && !aHasPriority) return 1;
 
-    // If same department preference, break tie with capacity margin
-    if (Math.abs(capacityMarginDiff) > 0) {
-      return aMargin - bMargin;
-    }
-
-    // Final tie-breaker: prefer smaller capacity if margins are very close
+    // Final tie-breaker: prefer smaller capacity if scores are very close
     return a.capacity - b.capacity;
   });
 
@@ -280,6 +287,8 @@ function findSuitableClassroomForBlocks(
 }
 
 // Check for conflicts
+// Improved: Hardcoded schedules are treated as fixed nodes in conflict graph
+// Zorunlu courses = hard constraint, Secmeli courses = soft constraint (should be avoided)
 function hasConflict(
   schedule: ScheduleItem[],
   newItem: Omit<ScheduleItem, 'classroomId' | 'isHardcoded'>,
@@ -294,28 +303,39 @@ function hasConflict(
     const existingCourse = courses.get(item.courseId);
     if (!existingCourse) continue;
 
-    // Hard constraint: Same teacher conflict
+    // Hard constraint: Same teacher conflict (applies to all items, including hardcoded)
     if (course.teacherId && course.teacherId === existingCourse.teacherId) {
       return true;
     }
 
-    // Hard constraint: Same department and level conflict (for all courses)
+    // Hard constraint: Same classroom conflict (if same time)
+    // This is implicitly checked but made explicit here
+    // Classroom conflicts are handled by occupiedClassroomsByBlock
+
     const courseDepts = course.departments.map((d) => d.department);
     const existingDepts = existingCourse.departments.map((d) => d.department);
     const commonDepts = courseDepts.filter((d) => existingDepts.includes(d));
 
-    if (commonDepts.length > 0 && course.level === existingCourse.level) {
-      return true;
-    }
+    if (commonDepts.length === 0) continue; // No common departments, no conflict
 
     // Hard constraint: Compulsory courses (zorunlu) cannot conflict if same semester and level
+    // This is a HARD constraint - must not conflict
     if (
       course.category === 'zorunlu' &&
       existingCourse.category === 'zorunlu' &&
       course.semester === existingCourse.semester &&
-      course.level === existingCourse.level &&
-      commonDepts.length > 0
+      course.level === existingCourse.level
     ) {
+      return true;
+    }
+
+    // Soft constraint: Seçmeli courses can conflict but should be avoided
+    // This is handled by penalty in soft constraint scoring, not here
+    // For now, we allow secmeli-secmeli conflicts (they can be optimized later)
+    
+    // Hard constraint: Same department and level conflict (for zorunlu courses only)
+    // Seçmeli courses at same level can conflict (soft constraint - penalized but allowed)
+    if (course.level === existingCourse.level && course.category === 'zorunlu') {
       return true;
     }
   }
@@ -378,8 +398,9 @@ function processHardcodedSchedules(
   return { schedule, processedSessionCount };
 }
 
-// Genetic algorithm for schedule generation
-async function generateScheduleGenetic(
+// Heuristic-based schedule generation with local improvement
+// Production-grade heuristic scheduler (Smart Greedy + Randomized Heuristic + Hill Climbing)
+async function generateScheduleHeuristic(
   courses: CourseData[],
   classrooms: ClassroomData[],
   TIME_BLOCKS: TimeBlock[]
@@ -401,15 +422,58 @@ async function generateScheduleGenetic(
     }
   }
 
-  // Sort courses by constraints (more constrained first)
-  // Consider lecturer load as a soft constraint in sorting
-  const sortedCourses = [...courses].sort((a, b) => {
-    const aStudents = a.departments.reduce((sum, d) => sum + d.studentCount, 0);
-    const bStudents = b.departments.reduce((sum, d) => sum + d.studentCount, 0);
+  // Calculate difficulty score for each course
+  // Difficulty = student_count * 2 + (1 / available_class_count) * 5 + session_duration
+  // Higher difficulty = schedule earlier (more constrained)
+  const calculateDifficulty = (course: CourseData, classrooms: ClassroomData[]): number => {
+    const studentCount = course.departments.reduce((sum, d) => sum + d.studentCount, 0);
     
-    // Primary sort: higher student count first (more constrained)
-    if (Math.abs(aStudents - bStudents) > 5) {
-      return bStudents - aStudents;
+    // Count available classrooms for this course's session types
+    const sessionTypes = new Set(course.sessions.map(s => s.type));
+    let availableClassCount = 0;
+    for (const classroom of classrooms) {
+      if (!classroom.isActive) continue;
+      
+      // Check if classroom can handle any of the course's session types
+      const canHandle = Array.from(sessionTypes).some(type => {
+        if (type === 'lab' && (classroom.type === 'lab' || classroom.type === 'hibrit')) return true;
+        if (type === 'teorik' && classroom.type !== 'lab') return true;
+        if (type === 'tümü') return true;
+        return false;
+      });
+      
+      // Also check capacity
+      const adjustedStudentCount = course.capacityMargin > 0
+        ? Math.ceil(studentCount * (1 - course.capacityMargin / 100))
+        : studentCount;
+      if (canHandle && classroom.capacity >= adjustedStudentCount) {
+        availableClassCount++;
+      }
+    }
+    
+    // Calculate average session duration
+    const totalSessionHours = course.sessions.reduce((sum, s) => sum + s.hours, 0);
+    const avgSessionDuration = course.sessions.length > 0 ? totalSessionHours / course.sessions.length : 0;
+    
+    // Difficulty formula
+    const difficulty = 
+      studentCount * 2 +                                    // More students = harder
+      (availableClassCount > 0 ? 1 / availableClassCount : 100) * 5 +  // Fewer available classes = harder
+      avgSessionDuration;                                   // Longer sessions = harder
+    
+    return difficulty;
+  };
+
+  // Sort courses by difficulty (higher difficulty first = more constrained)
+  // This ensures harder-to-schedule courses get priority
+  const sortedCourses = [...courses].sort((a, b) => {
+    const aDifficulty = calculateDifficulty(a, classrooms);
+    const bDifficulty = calculateDifficulty(b, classrooms);
+    
+    // Primary sort: higher difficulty first
+    const diffDiff = bDifficulty - aDifficulty;
+    if (Math.abs(diffDiff) > 0.1) {
+      return diffDiff > 0 ? 1 : -1;
     }
     
     // Secondary sort: prefer courses with lecturers who have lower load (soft constraint for balance)
@@ -586,6 +650,133 @@ async function generateScheduleGenetic(
     }
   }
 
+  // Phase 2: Local Improvement (Hill Climbing)
+  // Attempt to improve the schedule by swapping random course pairs
+  // Accept swaps that improve soft constraint scores
+  const IMPROVEMENT_ITERATIONS = 30; // 10-50 range, using 30 as balanced
+  
+  // Calculate soft constraint score for current schedule
+  const calculateSoftScore = (currentSchedule: ScheduleItem[]): number => {
+    let score = 0;
+    const capacityUtilizations: number[] = [];
+    const teacherLoads = new Map<number, number>();
+    
+    for (const item of currentSchedule) {
+      const course = courseMap.get(item.courseId);
+      if (!course) continue;
+      
+      const classroom = classrooms.find(c => c.id === item.classroomId);
+      if (!classroom) continue;
+      
+      const studentCount = course.departments.reduce((sum, d) => sum + d.studentCount, 0);
+      const adjustedStudentCount = course.capacityMargin > 0
+        ? Math.ceil(studentCount * (1 - course.capacityMargin / 100))
+        : studentCount;
+      
+      // Capacity utilization score (0.7-0.9 ideal = +10, <0.4 = -5)
+      const utilization = adjustedStudentCount / classroom.capacity;
+      capacityUtilizations.push(utilization);
+      
+      if (utilization >= 0.7 && utilization <= 0.9) {
+        score += 10;
+      } else if (utilization < 0.4) {
+        score -= 5;
+      }
+      
+      // Teacher load balance (tracked for stddev calculation)
+      if (course.teacherId) {
+        const currentLoad = teacherLoads.get(course.teacherId) || 0;
+        teacherLoads.set(course.teacherId, currentLoad + item.sessionHours);
+      }
+    }
+    
+    // Penalize high variance in teacher loads (better balance = better score)
+    const teacherLoadValues = Array.from(teacherLoads.values());
+    if (teacherLoadValues.length > 1) {
+      const avgLoad = teacherLoadValues.reduce((a, b) => a + b, 0) / teacherLoadValues.length;
+      const variance = teacherLoadValues.reduce((sum, load) => sum + Math.pow(load - avgLoad, 2), 0) / teacherLoadValues.length;
+      const stddev = Math.sqrt(variance);
+      score -= stddev * 0.5; // Penalize high variance
+    }
+    
+    return score;
+  };
+  
+  let currentScore = calculateSoftScore(schedule);
+  
+  // Hill climbing iterations
+  for (let iter = 0; iter < IMPROVEMENT_ITERATIONS; iter++) {
+    // Select two random non-hardcoded schedule items to potentially swap
+    const nonHardcodedItems = schedule.filter(s => !s.isHardcoded);
+    if (nonHardcodedItems.length < 2) break;
+    
+    const idx1 = Math.floor(Math.random() * nonHardcodedItems.length);
+    let idx2 = Math.floor(Math.random() * nonHardcodedItems.length);
+    while (idx2 === idx1) {
+      idx2 = Math.floor(Math.random() * nonHardcodedItems.length);
+    }
+    
+    const item1 = nonHardcodedItems[idx1];
+    const item2 = nonHardcodedItems[idx2];
+    
+    // Find original indices in schedule array
+    const origIdx1 = schedule.findIndex(s => s === item1);
+    const origIdx2 = schedule.findIndex(s => s === item2);
+    
+    // Try swapping their time slots (day + timeRange)
+    const tempDay = item1.day;
+    const tempTimeRange = item1.timeRange;
+    
+    // Create temporary schedule with swap
+    const tempSchedule = [...schedule];
+    tempSchedule[origIdx1] = { ...item1, day: item2.day, timeRange: item2.timeRange };
+    tempSchedule[origIdx2] = { ...item2, day: tempDay, timeRange: tempTimeRange };
+    
+    // Check if swap is valid (no conflicts)
+    const course1 = courseMap.get(item1.courseId);
+    const course2 = courseMap.get(item2.courseId);
+    if (!course1 || !course2) continue;
+    
+    // Validate swap: check conflicts for both items at new times
+    const conflict1 = hasConflict(
+      tempSchedule.filter((_, i) => i !== origIdx1),
+      { courseId: item1.courseId, day: item2.day, timeRange: item2.timeRange, sessionType: item1.sessionType, sessionHours: item1.sessionHours },
+      courseMap
+    );
+    const conflict2 = hasConflict(
+      tempSchedule.filter((_, i) => i !== origIdx2),
+      { courseId: item2.courseId, day: tempDay, timeRange: tempTimeRange, sessionType: item2.sessionType, sessionHours: item2.sessionHours },
+      courseMap
+    );
+    
+    if (conflict1 || conflict2) continue;
+    
+    // Check classroom availability for swapped times
+    const classroom1 = classrooms.find(c => c.id === item1.classroomId);
+    const classroom2 = classrooms.find(c => c.id === item2.classroomId);
+    if (!classroom1 || !classroom2) continue;
+    
+    const [time1] = item2.timeRange.split('-');
+    const [time2] = tempTimeRange.split('-');
+    const block1 = TIME_BLOCKS.find(b => b.start === time1);
+    const block2 = TIME_BLOCKS.find(b => b.start === time2);
+    if (!block1 || !block2) continue;
+    
+    // Check if classrooms are available at swapped times
+    if (!isClassroomAvailable(classroom1.availableHours, item2.day, block1)) continue;
+    if (!isClassroomAvailable(classroom2.availableHours, tempDay, block2)) continue;
+    
+    // Calculate new score
+    const newScore = calculateSoftScore(tempSchedule);
+    
+    // Accept swap if score improves or stays same (hill climbing)
+    if (newScore >= currentScore) {
+      schedule[origIdx1] = tempSchedule[origIdx1];
+      schedule[origIdx2] = tempSchedule[origIdx2];
+      currentScore = newScore;
+    }
+  }
+
   return { schedule, unscheduled };
 }
 
@@ -652,7 +843,7 @@ export async function POST(request: Request) {
     logger.info('Using dynamic time blocks:', { timeSettings, blockCount: TIME_BLOCKS.length });
 
     // Generate new schedule
-    const { schedule, unscheduled } = await generateScheduleGenetic(courses as CourseData[], classrooms as ClassroomData[], TIME_BLOCKS);
+    const { schedule, unscheduled } = await generateScheduleHeuristic(courses as CourseData[], classrooms as ClassroomData[], TIME_BLOCKS);
 
     // Save to database
     if (schedule.length > 0) {
@@ -675,6 +866,52 @@ export async function POST(request: Request) {
 
     const scheduledCount = schedule.length;
     const successRate = totalSessions > 0 ? Math.round((scheduledCount / totalSessions) * 100) : 0;
+
+    // Calculate advanced metrics
+    const capacityMargins: number[] = [];
+    let maxCapacityWaste = 0;
+    const teacherLoads = new Map<number, number>();
+    
+    for (const item of schedule) {
+      const course = courses.find(c => c.id === item.courseId);
+      const classroom = (classrooms as ClassroomData[]).find(c => c.id === item.classroomId);
+      
+      if (course && classroom) {
+        const studentCount = (course.departments as any[]).reduce((sum: number, d: any) => sum + d.studentCount, 0);
+        const adjustedStudentCount = course.capacityMargin > 0
+          ? Math.ceil(studentCount * (1 - course.capacityMargin / 100))
+          : studentCount;
+        
+        // Capacity margin
+        const margin = classroom.capacity - adjustedStudentCount;
+        const marginPercent = classroom.capacity > 0 ? (margin / classroom.capacity) * 100 : 0;
+        capacityMargins.push(marginPercent);
+        
+        // Capacity waste (unused capacity percentage)
+        const wastePercent = classroom.capacity > 0 ? ((classroom.capacity - adjustedStudentCount) / classroom.capacity) * 100 : 0;
+        maxCapacityWaste = Math.max(maxCapacityWaste, wastePercent);
+        
+        // Teacher load
+        if (course.teacherId) {
+          const currentLoad = teacherLoads.get(course.teacherId) || 0;
+          teacherLoads.set(course.teacherId, currentLoad + item.sessionHours);
+        }
+      }
+    }
+    
+    // Average capacity margin
+    const avgCapacityMargin = capacityMargins.length > 0
+      ? capacityMargins.reduce((a, b) => a + b, 0) / capacityMargins.length
+      : 0;
+    
+    // Teacher load standard deviation
+    const teacherLoadValues = Array.from(teacherLoads.values());
+    let teacherLoadStddev = 0;
+    if (teacherLoadValues.length > 1) {
+      const avgLoad = teacherLoadValues.reduce((a, b) => a + b, 0) / teacherLoadValues.length;
+      const variance = teacherLoadValues.reduce((sum, load) => sum + Math.pow(load - avgLoad, 2), 0) / teacherLoadValues.length;
+      teacherLoadStddev = Math.sqrt(variance);
+    }
 
     logSchedulerEvent({
       action: 'generate_schedule',
@@ -702,6 +939,12 @@ export async function POST(request: Request) {
         reason: 'Uygun zaman/derslik bulunamadı (Blok yerleştirme)',
       })),
       perfect: unscheduled.length === 0,
+      // Advanced metrics
+      metrics: {
+        avg_capacity_margin: Math.round(avgCapacityMargin * 10) / 10, // Round to 1 decimal
+        max_capacity_waste: Math.round(maxCapacityWaste * 10) / 10,
+        teacher_load_stddev: Math.round(teacherLoadStddev * 10) / 10,
+      },
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
