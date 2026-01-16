@@ -49,7 +49,7 @@ const pages: SearchResult[] = [
   { id: 'teachers', type: 'page', title: 'Öğretmenler', subtitle: 'Öğretmen listesi', icon: Users, href: '/teachers', entity: 'teachers' },
   { id: 'courses', type: 'page', title: 'Dersler', subtitle: 'Ders listesi', icon: BookOpen, href: '/courses', entity: 'courses' },
   { id: 'classrooms', type: 'page', title: 'Derslikler', subtitle: 'Derslik listesi', icon: Building2, href: '/classrooms', entity: 'classrooms' },
-  { id: 'schedules', type: 'page', title: 'Ders Programı', subtitle: 'Haftalık program', icon: Calendar, href: '/schedules', entity: 'schedules' },
+  { id: 'schedules', type: 'page', title: 'Ders Programı', subtitle: 'Haftalık program', icon: Calendar, href: '/programs', entity: 'schedules' },
   { id: 'scheduler', type: 'page', title: 'Program Oluşturucu', subtitle: 'Otomatik program', icon: Cog, href: '/scheduler', entity: 'scheduler' },
   { id: 'reports', type: 'page', title: 'Raporlar', subtitle: 'İstatistikler', icon: BarChart3, href: '/reports', entity: 'reports' },
   { id: 'import-export', type: 'page', title: 'İçe/Dışa Aktar', subtitle: 'Excel aktarım', icon: FileSpreadsheet, href: '/import-export', entity: 'import' },

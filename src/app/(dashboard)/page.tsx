@@ -28,7 +28,7 @@ const statCardsConfig = [
   { title: 'Öğretmenler', key: 'teacherCount' as const, icon: Users, href: '/teachers', entity: 'teachers' as EntityKey },
   { title: 'Dersler', key: 'courseCount' as const, icon: BookOpen, href: '/courses', entity: 'courses' as EntityKey },
   { title: 'Derslikler', key: 'classroomCount' as const, icon: Building2, href: '/classrooms', entity: 'classrooms' as EntityKey },
-  { title: 'Programlar', key: 'scheduleCount' as const, icon: Calendar, href: '/schedules', entity: 'schedules' as EntityKey },
+  { title: 'Programlar', key: 'scheduleCount' as const, icon: Calendar, href: '/programs', entity: 'schedules' as EntityKey },
 ];
 
 // Quick actions configuration

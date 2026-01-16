@@ -77,7 +77,7 @@ export default function DashboardLayout({
               break;
             case 's':
               event.preventDefault();
-              router.push('/schedules');
+              router.push('/programs');
               break;
           }
           document.removeEventListener('keydown', handleNavigation);

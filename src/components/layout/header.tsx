@@ -67,7 +67,7 @@ export function Header({ onMenuClick, showMenuButton = false, onSearchClick }: H
       '/teachers': 'Öğretmenler',
       '/courses': 'Dersler',
       '/classrooms': 'Derslikler',
-      '/schedules': 'Ders Programı',
+      '/programs': 'Ders Programı',
       '/scheduler': 'Program Oluşturucu',
       '/reports': 'Raporlar',
       '/settings': 'Ayarlar',
