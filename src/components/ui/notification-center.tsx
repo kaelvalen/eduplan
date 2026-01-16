@@ -19,7 +19,7 @@ interface NotificationCenterProps {
 }
 
 export function NotificationCenter({ className }: NotificationCenterProps) {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -99,10 +99,10 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
 
   // Setup SSE connection for real-time updates
   useEffect(() => {
-    if (!user) return;
+    if (!user || !token) return;
 
     const setupSSE = () => {
-      const eventSource = new EventSource(`/api/notifications/stream?lastId=${notifications.length > 0 ? notifications[0].id : 0}`);
+      const eventSource = new EventSource(`/api/notifications/stream?lastId=${notifications.length > 0 ? notifications[0].id : 0}&token=${encodeURIComponent(token)}`);
 
       eventSource.onmessage = (event) => {
         try {
@@ -151,7 +151,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         eventSourceRef.current = null;
       }
     };
-  }, [user]);
+  }, [user, token, notifications]);
 
   // Initial fetch
   useEffect(() => {

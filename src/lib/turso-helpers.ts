@@ -66,15 +66,16 @@ export async function findTeacherByEmail(email: string) {
   return prisma.teacher.findUnique({ where: { email } });
 }
 
-export async function createTeacher(data: { name: string; email: string; title?: string; faculty: string; department: string; working_hours?: string }) {
+export async function createTeacher(data: { name: string; email: string; title?: string; faculty: string; department: string; working_hours?: string; is_active?: boolean }) {
   const title = data.title || 'Öğr. Gör.';
+  const isActive = data.is_active !== undefined ? data.is_active : true;
 
   if (isTurso && db) {
     const result = await db.execute({
-      sql: 'INSERT INTO Teacher (name, email, title, faculty, department, workingHours, isActive) VALUES (?, ?, ?, ?, ?, ?, 1)',
-      args: [data.name, data.email, title, data.faculty, data.department, data.working_hours || '{}'],
+      sql: 'INSERT INTO Teacher (name, email, title, faculty, department, workingHours, isActive) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      args: [data.name, data.email, title, data.faculty, data.department, data.working_hours || '{}', isActive ? 1 : 0],
     });
-    return { id: Number(result.lastInsertRowid), ...data, title, is_active: true };
+    return { id: Number(result.lastInsertRowid), ...data, title, is_active: isActive };
   }
   // @ts-ignore - title field may not be in Prisma types until prisma generate
   const t = await prisma.teacher.create({
@@ -85,6 +86,7 @@ export async function createTeacher(data: { name: string; email: string; title?:
       faculty: data.faculty,
       department: data.department,
       workingHours: data.working_hours || '{}',
+      isActive: isActive,
     } as any,
   });
   return { id: t.id, name: t.name, email: t.email, title: (t as any).title || title, faculty: t.faculty, department: t.department, working_hours: t.workingHours, is_active: t.isActive };
@@ -189,19 +191,20 @@ export async function findClassroomByNameAndDept(name: string, department: strin
   return prisma.classroom.findFirst({ where: { name, department } });
 }
 
-export async function createClassroom(data: { name: string; capacity?: number; type?: string; faculty: string; department: string }) {
+export async function createClassroom(data: { name: string; capacity?: number; type?: string; faculty: string; department: string; is_active?: boolean }) {
+  const isActive = data.is_active !== undefined ? data.is_active : true;
   if (isTurso && db) {
     const result = await db.execute({
-      sql: 'INSERT INTO Classroom (name, capacity, type, faculty, department) VALUES (?, ?, ?, ?, ?)',
-      args: [data.name, data.capacity || 30, data.type || 'teorik', data.faculty, data.department],
+      sql: 'INSERT INTO Classroom (name, capacity, type, faculty, department, isActive) VALUES (?, ?, ?, ?, ?, ?)',
+      args: [data.name, data.capacity || 30, data.type || 'teorik', data.faculty, data.department, isActive ? 1 : 0],
     });
-    return { id: Number(result.lastInsertRowid), name: data.name, capacity: data.capacity || 30, type: data.type || 'teorik', faculty: data.faculty, department: data.department };
+    return { id: Number(result.lastInsertRowid), name: data.name, capacity: data.capacity || 30, type: data.type || 'teorik', faculty: data.faculty, department: data.department, is_active: isActive };
   }
-  const c = await prisma.classroom.create({ data: { name: data.name, capacity: data.capacity || 30, type: data.type || 'teorik', faculty: data.faculty, department: data.department } });
-  return { id: c.id, name: c.name, capacity: c.capacity, type: c.type, faculty: c.faculty, department: c.department };
+  const c = await prisma.classroom.create({ data: { name: data.name, capacity: data.capacity || 30, type: data.type || 'teorik', faculty: data.faculty, department: data.department, isActive: isActive } as any });
+  return { id: c.id, name: c.name, capacity: c.capacity, type: c.type, faculty: c.faculty, department: c.department, is_active: (c as any).isActive };
 }
 
-export async function updateClassroom(id: number, data: { name?: string; capacity?: number; type?: string; faculty?: string; department?: string }) {
+export async function updateClassroom(id: number, data: { name?: string; capacity?: number; type?: string; faculty?: string; department?: string; is_active?: boolean }) {
   if (isTurso && db) {
     const sets: string[] = [];
     const args: any[] = [];
@@ -210,12 +213,24 @@ export async function updateClassroom(id: number, data: { name?: string; capacit
     if (data.type !== undefined) { sets.push('type = ?'); args.push(data.type); }
     if (data.faculty !== undefined) { sets.push('faculty = ?'); args.push(data.faculty); }
     if (data.department !== undefined) { sets.push('department = ?'); args.push(data.department); }
+    if (data.is_active !== undefined) { sets.push('isActive = ?'); args.push(data.is_active ? 1 : 0); }
     args.push(id);
-    await db.execute({ sql: `UPDATE Classroom SET ${sets.join(', ')} WHERE id = ?`, args });
+    if (sets.length > 0) {
+      await db.execute({ sql: `UPDATE Classroom SET ${sets.join(', ')} WHERE id = ?`, args });
+    }
     return getClassroomById(id);
   }
-  const c = await prisma.classroom.update({ where: { id }, data });
-  return { id: c.id, name: c.name, capacity: c.capacity, type: c.type, faculty: c.faculty, department: c.department };
+  // Prisma uses camelCase (isActive), so we need to convert
+  const prismaData: any = {};
+  if (data.name !== undefined) prismaData.name = data.name;
+  if (data.capacity !== undefined) prismaData.capacity = data.capacity;
+  if (data.type !== undefined) prismaData.type = data.type;
+  if (data.faculty !== undefined) prismaData.faculty = data.faculty;
+  if (data.department !== undefined) prismaData.department = data.department;
+  if (data.is_active !== undefined) prismaData.isActive = data.is_active;
+  
+  const c = await prisma.classroom.update({ where: { id }, data: prismaData });
+  return { id: c.id, name: c.name, capacity: c.capacity, type: c.type, faculty: c.faculty, department: c.department, is_active: (c as any).isActive };
 }
 
 export async function deleteClassroom(id: number) {
@@ -350,6 +365,7 @@ export async function getCourseById(id: number) {
       semester: c.semester as string,
       ects: c.ects as number,
       total_hours: c.totalHours as number,
+      capacity_margin: (c.capacityMargin as number) || 0,
       is_active: Boolean(c.isActive),
       teacher: c.teacherId ? { id: c.teacherId as number, name: c.teacherName as string } : null,
       sessions: sessions.rows.map(s => ({ id: s.id, type: s.type, hours: s.hours })),
@@ -372,6 +388,7 @@ export async function getCourseById(id: number) {
     semester: c.semester,
     ects: c.ects,
     total_hours: c.totalHours,
+    capacity_margin: c.capacityMargin || 0,
     is_active: c.isActive,
     teacher: c.teacher ? { id: c.teacher.id, name: c.teacher.name } : null,
     sessions: c.sessions.map(s => ({ id: s.id, type: s.type, hours: s.hours })),
@@ -391,9 +408,10 @@ export async function createCourse(data: any) {
   const totalHours = data.sessions?.reduce((sum: number, s: { hours: number }) => sum + s.hours, 0) || 2;
 
   if (isTurso && db) {
+    const capacityMargin = data.capacity_margin !== undefined ? (Number(data.capacity_margin) || 0) : 0;
     const result = await db.execute({
-      sql: 'INSERT INTO Course (name, code, teacherId, faculty, level, category, semester, ects, totalHours, isActive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      args: [data.name, data.code, data.teacher_id || null, data.faculty, data.level || '1', data.category || 'zorunlu', data.semester || 'güz', data.ects || 3, totalHours, data.is_active !== false ? 1 : 0],
+      sql: 'INSERT INTO Course (name, code, teacherId, faculty, level, category, semester, ects, totalHours, capacityMargin, isActive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      args: [data.name, data.code, data.teacher_id || null, data.faculty, data.level || '1', data.category || 'zorunlu', data.semester || 'güz', data.ects || 3, totalHours, capacityMargin, data.is_active !== false ? 1 : 0],
     });
     const courseId = Number(result.lastInsertRowid);
 
@@ -410,6 +428,7 @@ export async function createCourse(data: any) {
     return getCourseById(courseId);
   }
 
+  const capacityMargin = data.capacity_margin !== undefined ? (Number(data.capacity_margin) || 0) : 0;
   const course = await prisma.course.create({
     data: {
       name: data.name,
@@ -421,6 +440,7 @@ export async function createCourse(data: any) {
       semester: data.semester || 'güz',
       ects: data.ects || 3,
       totalHours,
+      capacityMargin,
       isActive: data.is_active ?? true,
       sessions: { create: data.sessions?.map((s: any) => ({ type: s.type, hours: s.hours })) || [] },
       departments: { create: data.departments?.map((d: any) => ({ department: d.department, studentCount: d.student_count || 0 })) || [] },
@@ -466,6 +486,12 @@ export async function updateCourse(id: number, data: any) {
       args.push(totalHours);
     }
 
+    if (data.capacity_margin !== undefined) {
+      const capacityMargin = Number(data.capacity_margin) || 0;
+      sets.push('capacityMargin = ?');
+      args.push(capacityMargin);
+    }
+
     if (sets.length > 0) {
       args.push(id);
       await db.execute({ sql: `UPDATE Course SET ${sets.join(', ')} WHERE id = ?`, args });
@@ -492,22 +518,29 @@ export async function updateCourse(id: number, data: any) {
 
   const totalHours = data.sessions?.reduce((sum: number, s: { hours: number }) => sum + s.hours, 0);
 
+  const updateData: any = {
+    name: data.name,
+    code: data.code,
+    teacherId: data.teacher_id,
+    faculty: data.faculty,
+    level: data.level,
+    category: data.category,
+    semester: data.semester,
+    ects: data.ects,
+    totalHours: totalHours,
+    isActive: data.is_active,
+    sessions: data.sessions ? { deleteMany: {}, create: data.sessions.map((s: any) => ({ type: s.type, hours: s.hours })) } : undefined,
+    departments: data.departments ? { deleteMany: {}, create: data.departments.map((d: any) => ({ department: d.department, studentCount: d.student_count || 0 })) } : undefined,
+  };
+
+  // Only include capacityMargin if it's provided
+  if (data.capacity_margin !== undefined) {
+    updateData.capacityMargin = Number(data.capacity_margin) || 0;
+  }
+
   const course = await prisma.course.update({
     where: { id },
-    data: {
-      name: data.name,
-      code: data.code,
-      teacherId: data.teacher_id,
-      faculty: data.faculty,
-      level: data.level,
-      category: data.category,
-      semester: data.semester,
-      ects: data.ects,
-      totalHours: totalHours,
-      isActive: data.is_active,
-      sessions: data.sessions ? { deleteMany: {}, create: data.sessions.map((s: any) => ({ type: s.type, hours: s.hours })) } : undefined,
-      departments: data.departments ? { deleteMany: {}, create: data.departments.map((d: any) => ({ department: d.department, studentCount: d.student_count || 0 })) } : undefined,
-    },
+    data: updateData,
     include: { teacher: { select: { id: true, name: true } }, sessions: true, departments: true },
   });
 
@@ -718,6 +751,8 @@ export async function getActiveCoursesForScheduler() {
       teacherId: c.teacherId as number | null,
       faculty: c.faculty as string,
       level: c.level as string,
+      category: (c.category as string) || 'zorunlu',
+      semester: (c.semester as string) || 'güz',
       totalHours: c.totalHours as number,
       capacityMargin: (c.capacityMargin as number) || 0,
       sessions: sessions.filter(s => s.courseId === c.id).map(s => ({ type: s.type as string, hours: s.hours as number })),
@@ -751,6 +786,8 @@ export async function getActiveCoursesForScheduler() {
     teacherId: c.teacherId,
     faculty: c.faculty,
     level: c.level,
+    category: (c as any).category || 'zorunlu',
+    semester: (c as any).semester || 'güz',
     totalHours: c.totalHours,
     capacityMargin: (c as any).capacityMargin || 0,
     sessions: (c as any).sessions.map((s: any) => ({ type: s.type, hours: s.hours })),

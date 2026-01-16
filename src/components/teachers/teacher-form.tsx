@@ -47,6 +47,7 @@ export function TeacherForm({ teacherId }: TeacherFormProps) {
     title: 'Öğr. Gör.',
     faculty: '',
     department: '',
+    is_active: true,
   });
 
   const [workingHours, setWorkingHours] = useState<Record<string, string[]>>({
@@ -70,6 +71,7 @@ export function TeacherForm({ teacherId }: TeacherFormProps) {
             title: teacher.title || 'Öğr. Gör.',
             faculty: teacher.faculty,
             department: teacher.department,
+            is_active: teacher.is_active !== false,
           });
           setWorkingHours(parseWorkingHours(teacher.working_hours));
         } catch (error) {
@@ -89,8 +91,13 @@ export function TeacherForm({ teacherId }: TeacherFormProps) {
 
     try {
       const data: TeacherCreate = {
-        ...formData,
+        name: formData.name,
+        email: formData.email,
+        title: formData.title,
+        faculty: formData.faculty,
+        department: formData.department,
         working_hours: stringifyWorkingHours(workingHours),
+        is_active: formData.is_active,
       };
 
       if (teacherId) {
@@ -101,6 +108,7 @@ export function TeacherForm({ teacherId }: TeacherFormProps) {
         toast.success('Öğretmen başarıyla eklendi');
       }
       router.push('/teachers');
+      router.refresh(); // Force refresh to update the page
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bir hata oluştu';
       toast.error(message);
@@ -230,6 +238,15 @@ export function TeacherForm({ teacherId }: TeacherFormProps) {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex items-center space-x-2 md:col-span-2">
+            <Checkbox
+              id="is_active"
+              checked={formData.is_active}
+              onCheckedChange={(checked) => setFormData({ ...formData, is_active: !!checked })}
+            />
+            <Label htmlFor="is_active">Aktif</Label>
           </div>
         </CardContent>
       </Card>

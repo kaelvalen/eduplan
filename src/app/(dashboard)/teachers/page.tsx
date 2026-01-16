@@ -149,12 +149,20 @@ export default function TeachersPage() {
         icon={Users}
         entity="teachers"
         action={isAdmin ? (
-          <Link href="/teachers/new">
-            <Button size="lg" className={styles.buttonPrimary}>
-              <Plus className="mr-2 h-5 w-5" />
-              Yeni Öğretmen
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/teachers/bulk">
+              <Button size="lg" variant="outline" className={styles.buttonPrimary}>
+                <Plus className="mr-2 h-5 w-5" />
+                Toplu Ekle
+              </Button>
+            </Link>
+            <Link href="/teachers/new">
+              <Button size="lg" className={styles.buttonPrimary}>
+                <Plus className="mr-2 h-5 w-5" />
+                Yeni Öğretmen
+              </Button>
+            </Link>
+          </div>
         ) : undefined}
       />
 

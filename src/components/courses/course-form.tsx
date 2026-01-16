@@ -112,6 +112,7 @@ export function CourseForm({ courseId }: CourseFormProps) {
         toast.success('Ders başarıyla eklendi');
       }
       router.push('/courses');
+      router.refresh(); // Force refresh to update the page
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bir hata oluştu';
       toast.error(message);

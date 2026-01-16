@@ -67,8 +67,14 @@ export function ClassroomDetailModal({ classroom, open, onOpenChange }: Classroo
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <span>{classroom.name}</span>
-                        <Badge variant={classroom.type === 'teorik' ? 'default' : 'secondary'}>
-                            {classroom.type === 'teorik' ? 'Teorik' : 'Laboratuvar'}
+                        <Badge variant={
+                            classroom.type === 'teorik' ? 'default' : 
+                            classroom.type === 'lab' ? 'secondary' : 
+                            'outline'
+                        }>
+                            {classroom.type === 'teorik' ? 'Teorik' : 
+                             classroom.type === 'lab' ? 'Laboratuvar' : 
+                             'Hibrit'}
                         </Badge>
                         <Badge variant={classroom.is_active !== false ? 'success' : 'outline'}>
                             {classroom.is_active !== false ? 'Aktif' : 'Pasif'}

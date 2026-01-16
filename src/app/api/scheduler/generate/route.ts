@@ -89,6 +89,8 @@ interface CourseData {
   teacherId: number | null;
   faculty: string;
   level: string;
+  category: string; // "zorunlu" | "secmeli"
+  semester: string; // "güz" | "bahar" etc.
   totalHours: number;
   capacityMargin: number; // Per-course capacity margin (0-30%)
   sessions: { type: string; hours: number }[];
@@ -191,10 +193,10 @@ function findSuitableClassroomForBlocks(
     : studentCount;
 
   const suitable = classrooms.filter((c) => {
-    // Check if classroom is active
+    // Hard constraint: Check if classroom is active
     if (!c.isActive) return false;
 
-    // Check capacity
+    // Hard constraint: Check capacity (capacity >= student count)
     if (c.capacity < adjustedStudentCount) return false;
 
     // Check classroom type matching
@@ -216,16 +218,61 @@ function findSuitableClassroomForBlocks(
     return true;
   });
 
-  // Sort by priority department first, then by capacity (prefer smaller rooms)
+  // Soft constraint sorting with priorities:
+  // 1. Capacity margin minimization (most important)
+  // 2. Department/faculty preference
+  // 3. Large enrollment courses prefer large classrooms
+  // 4. Penalize low enrollment courses using high-capacity classrooms
   suitable.sort((a, b) => {
-    // Priority department matching
+    // Calculate capacity margin for each classroom
+    const aMargin = a.capacity - adjustedStudentCount;
+    const bMargin = b.capacity - adjustedStudentCount;
+    
+    // Priority 1: Minimize capacity margin (prefer smaller rooms that fit)
+    // For courses with large enrollment (>= 50), slightly prefer larger rooms
+    const isLargeEnrollment = studentCount >= 50;
+    const capacityMarginDiff = aMargin - bMargin;
+    
+    // If margin difference is significant (>20% of student count), prioritize smaller margin
+    const marginThreshold = Math.max(10, Math.ceil(studentCount * 0.2));
+    if (Math.abs(capacityMarginDiff) > marginThreshold) {
+      // For large enrollment, prefer slightly larger rooms (up to 30% margin)
+      // For small enrollment, strictly minimize margin
+      if (isLargeEnrollment) {
+        // Large enrollment: prefer rooms with margin between 0 and 30% of enrollment
+        const aOptimalMargin = aMargin >= 0 && aMargin <= Math.ceil(studentCount * 0.3);
+        const bOptimalMargin = bMargin >= 0 && bMargin <= Math.ceil(studentCount * 0.3);
+        
+        if (aOptimalMargin && !bOptimalMargin) return -1;
+        if (!aOptimalMargin && bOptimalMargin) return 1;
+        
+        // Within optimal range, prefer slightly larger (but still minimize)
+        if (aOptimalMargin && bOptimalMargin) {
+          // Slight preference for larger room within optimal range
+          return aMargin - bMargin;
+        }
+        
+        // Outside optimal range, minimize margin
+        return aMargin - bMargin;
+      } else {
+        // Small enrollment: strictly minimize margin
+        return aMargin - bMargin;
+      }
+    }
+    
+    // Priority 2: Department/faculty preference (secondary to capacity margin)
     const aHasPriority = a.priorityDept === courseDepartment;
     const bHasPriority = b.priorityDept === courseDepartment;
 
     if (aHasPriority && !bHasPriority) return -1;
     if (bHasPriority && !aHasPriority) return 1;
 
-    // Then sort by capacity (prefer smaller that fits)
+    // If same department preference, break tie with capacity margin
+    if (Math.abs(capacityMarginDiff) > 0) {
+      return aMargin - bMargin;
+    }
+
+    // Final tie-breaker: prefer smaller capacity if margins are very close
     return a.capacity - b.capacity;
   });
 
@@ -247,17 +294,28 @@ function hasConflict(
     const existingCourse = courses.get(item.courseId);
     if (!existingCourse) continue;
 
-    // Same teacher conflict
+    // Hard constraint: Same teacher conflict
     if (course.teacherId && course.teacherId === existingCourse.teacherId) {
       return true;
     }
 
-    // Same department and level conflict
+    // Hard constraint: Same department and level conflict (for all courses)
     const courseDepts = course.departments.map((d) => d.department);
     const existingDepts = existingCourse.departments.map((d) => d.department);
     const commonDepts = courseDepts.filter((d) => existingDepts.includes(d));
 
     if (commonDepts.length > 0 && course.level === existingCourse.level) {
+      return true;
+    }
+
+    // Hard constraint: Compulsory courses (zorunlu) cannot conflict if same semester and level
+    if (
+      course.category === 'zorunlu' &&
+      existingCourse.category === 'zorunlu' &&
+      course.semester === existingCourse.semester &&
+      course.level === existingCourse.level &&
+      commonDepts.length > 0
+    ) {
       return true;
     }
   }
@@ -331,11 +389,39 @@ async function generateScheduleGenetic(
   const unscheduled: CourseData[] = [];
   const courseMap = new Map(courses.map((c) => [c.id, c]));
 
+  // Soft constraint: Track lecturer load for balanced scheduling
+  const lecturerLoad = new Map<number, number>(); // teacherId -> total hours scheduled
+  
+  // Initialize lecturer load from hardcoded schedules
+  for (const item of schedule) {
+    const course = courseMap.get(item.courseId);
+    if (course?.teacherId) {
+      const currentLoad = lecturerLoad.get(course.teacherId) || 0;
+      lecturerLoad.set(course.teacherId, currentLoad + 1);
+    }
+  }
+
   // Sort courses by constraints (more constrained first)
+  // Consider lecturer load as a soft constraint in sorting
   const sortedCourses = [...courses].sort((a, b) => {
     const aStudents = a.departments.reduce((sum, d) => sum + d.studentCount, 0);
     const bStudents = b.departments.reduce((sum, d) => sum + d.studentCount, 0);
-    return bStudents - aStudents; // Higher student count first
+    
+    // Primary sort: higher student count first (more constrained)
+    if (Math.abs(aStudents - bStudents) > 5) {
+      return bStudents - aStudents;
+    }
+    
+    // Secondary sort: prefer courses with lecturers who have lower load (soft constraint for balance)
+    if (a.teacherId && b.teacherId) {
+      const aLoad = lecturerLoad.get(a.teacherId) || 0;
+      const bLoad = lecturerLoad.get(b.teacherId) || 0;
+      if (aLoad !== bLoad) {
+        return aLoad - bLoad; // Lower load first (to balance)
+      }
+    }
+    
+    return 0;
   });
 
   for (const course of sortedCourses) {
@@ -477,6 +563,13 @@ async function generateScheduleGenetic(
                 isHardcoded: false
               });
             }
+            
+            // Soft constraint: Update lecturer load for balanced scheduling
+            if (course.teacherId) {
+              const currentLoad = lecturerLoad.get(course.teacherId) || 0;
+              lecturerLoad.set(course.teacherId, currentLoad + duration);
+            }
+            
             sessionScheduled = true;
             scheduledDays.add(day);
           }

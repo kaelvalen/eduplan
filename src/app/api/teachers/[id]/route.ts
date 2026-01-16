@@ -43,9 +43,9 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, email, title, faculty, department, working_hours } = body;
+    const { name, email, title, faculty, department, working_hours, is_active } = body;
 
-    const teacher = await updateTeacher(parseInt(id), { name, email, title, faculty, department, working_hours });
+    const teacher = await updateTeacher(parseInt(id), { name, email, title, faculty, department, working_hours, is_active });
     return NextResponse.json(teacher);
   } catch (error) {
     console.error('Update teacher error:', error);

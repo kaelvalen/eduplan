@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, capacity, type, faculty, department } = body;
+    const { name, capacity, type, faculty, department, is_active } = body;
 
     // Check if classroom already exists in this department
     const existing = await findClassroomByNameAndDept(name, department);
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const classroom = await createClassroom({ name, capacity, type, faculty, department });
+    const classroom = await createClassroom({ name, capacity, type, faculty, department, is_active });
     return NextResponse.json(classroom);
   } catch (error) {
     console.error('Create classroom error:', error);

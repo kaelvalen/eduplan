@@ -8,7 +8,25 @@ const clients = new Map<number, { controller: ReadableStreamDefaultController; l
 // GET /api/notifications/stream - Server-Sent Events stream for real-time notifications
 export async function GET(request: Request) {
   try {
-    const user = await getCurrentUser(request);
+    // Try to get user from Authorization header first, then from token query parameter
+    let user = await getCurrentUser(request);
+
+    // If no user from header, try token query parameter (for EventSource compatibility)
+    if (!user) {
+      const { searchParams } = new URL(request.url);
+      const token = searchParams.get('token');
+      if (token) {
+        // Create a mock request with Authorization header for getCurrentUser
+        const mockRequest = new Request(request.url, {
+          headers: {
+            ...Object.fromEntries(request.headers.entries()),
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        user = await getCurrentUser(mockRequest);
+      }
+    }
+
     if (!user) {
       return new Response('Unauthorized', { status: 401 });
     }

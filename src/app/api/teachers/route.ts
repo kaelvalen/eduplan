@@ -55,7 +55,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name, email, title, faculty, department, working_hours } = validation.data;
+    const { name, email, title, faculty, department, working_hours, is_active } = validation.data;
 
     // Check if email already exists
     const existing = await findTeacherByEmail(email);
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const teacher = await createTeacher({ name, email, title, faculty, department, working_hours });
+    const teacher = await createTeacher({ name, email, title, faculty, department, working_hours, is_active });
 
     // Invalidate teachers cache
     cache.invalidate('teachers');

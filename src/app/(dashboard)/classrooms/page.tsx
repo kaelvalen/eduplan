@@ -149,12 +149,20 @@ export default function ClassroomsPage() {
         icon={Building2}
         entity="classrooms"
         action={isAdmin ? (
-          <Link href="/classrooms/new">
-            <Button size="lg" className={styles.buttonPrimary}>
-              <Plus className="mr-2 h-5 w-5" />
-              Yeni Derslik
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/classrooms/bulk">
+              <Button size="lg" variant="outline" className={styles.buttonPrimary}>
+                <Plus className="mr-2 h-5 w-5" />
+                Toplu Ekle
+              </Button>
+            </Link>
+            <Link href="/classrooms/new">
+              <Button size="lg" className={styles.buttonPrimary}>
+                <Plus className="mr-2 h-5 w-5" />
+                Yeni Derslik
+              </Button>
+            </Link>
+          </div>
         ) : undefined}
       />
 
@@ -325,8 +333,14 @@ export default function ClassroomsPage() {
                 <div className="flex items-start justify-between">
                   <CardTitle className="text-lg">{classroom.name}</CardTitle>
                   <div className="flex gap-1">
-                    <Badge variant={classroom.type === 'teorik' ? 'default' : 'secondary'}>
-                      {classroom.type === 'teorik' ? 'Teorik' : 'Lab'}
+                    <Badge variant={
+                      classroom.type === 'teorik' ? 'default' : 
+                      classroom.type === 'lab' ? 'secondary' : 
+                      'outline'
+                    }>
+                      {classroom.type === 'teorik' ? 'Teorik' : 
+                       classroom.type === 'lab' ? 'Lab' : 
+                       'Hibrit'}
                     </Badge>
                     <Badge variant={classroom.is_active !== false ? 'success' : 'outline'}>
                       {classroom.is_active !== false ? 'Aktif' : 'Pasif'}

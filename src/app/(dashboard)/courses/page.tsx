@@ -179,12 +179,20 @@ export default function CoursesPage() {
         icon={BookOpen}
         entity="courses"
         action={isAdmin ? (
-          <Link href="/courses/new">
-            <Button size="lg" className={styles.buttonPrimary}>
-              <Plus className="mr-2 h-5 w-5" />
-              Yeni Ders
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/courses/bulk">
+              <Button size="lg" variant="outline" className={styles.buttonPrimary}>
+                <Plus className="mr-2 h-5 w-5" />
+                Toplu Ekle
+              </Button>
+            </Link>
+            <Link href="/courses/new">
+              <Button size="lg" className={styles.buttonPrimary}>
+                <Plus className="mr-2 h-5 w-5" />
+                Yeni Ders
+              </Button>
+            </Link>
+          </div>
         ) : undefined}
       />
 

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -34,6 +35,7 @@ export function ClassroomForm({ classroomId }: ClassroomFormProps) {
     type: 'teorik' as 'teorik' | 'lab' | 'hibrit',
     faculty: '',
     department: '',
+    is_active: true,
   });
 
   const departments = formData.faculty ? getDepartmentsByFaculty(formData.faculty) : [];
@@ -49,6 +51,7 @@ export function ClassroomForm({ classroomId }: ClassroomFormProps) {
             type: classroom.type,
             faculty: classroom.faculty,
             department: classroom.department,
+            is_active: classroom.is_active !== false,
           });
         } catch (error) {
           toast.error('Derslik bilgileri yüklenirken bir hata oluştu');
@@ -74,6 +77,7 @@ export function ClassroomForm({ classroomId }: ClassroomFormProps) {
         toast.success('Derslik başarıyla eklendi');
       }
       router.push('/classrooms');
+      router.refresh(); // Force refresh to update the page
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bir hata oluştu';
       toast.error(message);
@@ -176,6 +180,15 @@ export function ClassroomForm({ classroomId }: ClassroomFormProps) {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex items-center space-x-2 md:col-span-2">
+            <Checkbox
+              id="is_active"
+              checked={formData.is_active}
+              onCheckedChange={(checked) => setFormData({ ...formData, is_active: !!checked })}
+            />
+            <Label htmlFor="is_active">Aktif</Label>
           </div>
         </CardContent>
       </Card>
