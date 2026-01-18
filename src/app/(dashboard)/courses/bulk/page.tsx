@@ -48,9 +48,10 @@ type CourseRow = {
 };
 
 const LEVELS = [
-  { value: 'Lisans', label: 'Lisans' },
-  { value: 'Yüksek Lisans', label: 'Yüksek Lisans' },
-  { value: 'Doktora', label: 'Doktora' },
+  { value: '1', label: '1. Sınıf' },
+  { value: '2', label: '2. Sınıf' },
+  { value: '3', label: '3. Sınıf' },
+  { value: '4', label: '4. Sınıf' },
 ];
 
 const CATEGORIES = [
@@ -241,7 +242,7 @@ export default function BulkCoursesPage() {
     },
     {
       key: 'level',
-      header: 'Seviye',
+      header: 'Sınıf',
       type: 'select',
       options: LEVELS,
       required: true,
@@ -396,7 +397,7 @@ export default function BulkCoursesPage() {
     name: '',
     teacher_id: null,
     faculty: '',
-    level: 'Lisans',
+    level: '1',
     category: 'zorunlu',
     semester: 'güz',
     ects: 5,

@@ -23,8 +23,8 @@ const BaseCourseSchema = z.object({
   code: z.string().regex(/^[A-Z]{2,4}\d{3,4}$/, 'Kod formatı hatalı (örn: BIL101, CENG1001)'),
   teacher_id: z.number().positive('Geçerli bir öğretmen seçin').nullable().optional(),
   faculty: z.string().min(1, 'Fakülte seçimi zorunludur'),
-  level: z.enum(['1', '2', '3', '4', 'Yüksek Lisans', 'Doktora'], {
-    errorMap: () => ({ message: 'Geçerli bir seviye seçin' })
+  level: z.enum(['1', '2', '3', '4'], {
+    errorMap: () => ({ message: 'Geçerli bir sınıf seçin (1-4)' })
   }),
   category: z.enum(['zorunlu', 'secmeli'], {
     errorMap: () => ({ message: 'Kategori zorunlu veya seçmeli olmalıdır' })
