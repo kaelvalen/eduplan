@@ -8,8 +8,9 @@ Bu dokümantasyon, EduPlan projesine yapılan teknik iyileştirmeleri ve refacto
 2. [Database Optimizasyonu](#2-database-optimizasyonu)
 3. [API Validasyon ve Hata Yönetimi](#3-api-validasyon-ve-hata-yönetimi)
 4. [Frontend State Yönetimi](#4-frontend-state-yönetimi)
-5. [Kullanım Örnekleri](#5-kullanım-örnekleri)
-6. [Migration](#6-migration)
+5. [Scheduler Optimizasyonu](#5-scheduler-optimizasyonu)
+6. [Kullanım Örnekleri](#6-kullanım-örnekleri)
+7. [Migration](#7-migration)
 
 ---
 
@@ -244,7 +245,104 @@ export function useCreateCourse() {
 
 ---
 
-## 5. Kullanım Örnekleri
+## 5. Scheduler Optimizasyonu
+
+### Modülerleştirme
+
+Scheduler algoritması (966 satır) 5 ayrı modüle bölündü:
+
+```
+src/lib/scheduler/
+├── types.ts          # Tüm tip tanımlamaları
+├── time-utils.ts     # Zaman işlemleri  
+├── constraints.ts    # Kısıtlama kontrolleri
+├── engine.ts         # Ana algoritma + progress tracking
+└── index.ts          # Merkezi export
+```
+
+#### Avantajları:
+
+- ✅ **Daha Okunabilir:** 200 satır/modül vs 966 satır
+- ✅ **Test Edilebilir:** Her modül ayrı test edilebilir
+- ✅ **Bakım Kolaylığı:** Değişiklikler izole edilmiş
+- ✅ **Yeniden Kullanılabilir:** Modüller başka yerlerde kullanılabilir
+
+### Progress Tracking
+
+Async generator pattern ile real-time progress:
+
+```typescript
+async function* generateSchedule(config): AsyncGenerator<SchedulerProgress> {
+  yield {
+    stage: 'initializing',
+    progress: 0,
+    message: 'Başlatılıyor...'
+  };
+
+  yield {
+    stage: 'scheduling',
+    progress: 45,
+    message: 'Dersler programlanıyor...',
+    currentCourse: 'BIL101'
+  };
+
+  yield {
+    stage: 'complete',
+    progress: 100,
+    message: 'Tamamlandı!'
+  };
+}
+```
+
+### Stream API
+
+Server-Sent Events (SSE) ile real-time updates:
+
+```typescript
+// API Route
+const stream = new ReadableStream({
+  async start(controller) {
+    for await (const progress of generateSchedule(config)) {
+      controller.enqueue(
+        new TextEncoder().encode(`data: ${JSON.stringify(progress)}\n\n`)
+      );
+    }
+  }
+});
+
+return new Response(stream, {
+  headers: { 'Content-Type': 'text/event-stream' }
+});
+```
+
+#### Client Kullanımı:
+
+```typescript
+const response = await fetch('/api/scheduler/generate-stream');
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+
+  const chunk = decoder.decode(value);
+  // Parse SSE events and update UI
+}
+```
+
+#### Avantajları:
+
+- ✅ **Real-time Feedback:** Kullanıcı her adımı görür
+- ✅ **Timeout Yok:** Stream açık kaldığı sürece timeout olmaz
+- ✅ **Cancelable:** Kullanıcı işlemi iptal edebilir
+- ✅ **Better UX:** Loading yerine progress bar
+
+Detaylı bilgi için: `SCHEDULER_OPTIMIZATION.md`
+
+---
+
+## 6. Kullanım Örnekleri
 
 ### Component'lerde Kullanım
 
@@ -311,7 +409,7 @@ function CourseCard({ course }) {
 
 ---
 
-## 6. Migration
+## 7. Migration
 
 ### Database Migration Çalıştırma
 
