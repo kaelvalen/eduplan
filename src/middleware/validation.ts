@@ -27,6 +27,10 @@ export async function validateRequest<T>(
 ): Promise<T> {
   try {
     const body = await request.json();
+    
+    // Log incoming request body for debugging
+    console.log('📥 Incoming request body:', JSON.stringify(body, null, 2));
+    
     return schema.parse(body);
   } catch (error) {
     if (error instanceof ZodError) {
@@ -35,6 +39,8 @@ export async function validateRequest<T>(
         message: err.message,
       }));
 
+      console.error('❌ Zod Validation Failed:', validationErrors);
+
       throw {
         error: 'Geçersiz veri formatı',
         details: validationErrors,
@@ -42,8 +48,11 @@ export async function validateRequest<T>(
       } as ApiError;
     }
 
+    // Handle JSON parse errors
+    console.error('❌ Request parsing error:', error);
+    
     throw {
-      error: 'İstek verisi okunamadı',
+      error: 'İstek verisi okunamadı veya geçersiz JSON formatı',
       statusCode: 400,
     } as ApiError;
   }

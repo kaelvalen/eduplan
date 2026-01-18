@@ -76,7 +76,7 @@ export interface Course {
   id: number;
   name: string;
   code: string;
-  teacher_id: number;
+  teacher_id: number | null;
   faculty: string;
   level: string;
   type?: string;
@@ -100,7 +100,7 @@ export interface Course {
 export interface CourseCreate {
   name: string;
   code: string;
-  teacher_id: number;
+  teacher_id: number | null;
   faculty: string;
   level: string;
   category: 'zorunlu' | 'secmeli';

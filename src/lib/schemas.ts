@@ -17,7 +17,8 @@ export const CourseDepartmentSchema = z.object({
   student_count: z.number().min(0).max(1000),
 });
 
-export const CreateCourseSchema = z.object({
+// Base course schema without refinements (for Update to work with .partial())
+const BaseCourseSchema = z.object({
   name: z.string().min(2, 'Ders adı en az 2 karakter olmalıdır').max(200, 'Ders adı en fazla 200 karakter olabilir'),
   code: z.string().regex(/^[A-Z]{2,4}\d{3,4}$/, 'Kod formatı hatalı (örn: BIL101, CENG1001)'),
   teacher_id: z.number().positive('Geçerli bir öğretmen seçin').nullable().optional(),
@@ -35,7 +36,10 @@ export const CreateCourseSchema = z.object({
   is_active: z.boolean().default(true),
   sessions: z.array(CourseSessionSchema).min(1, 'En az bir oturum gerekli').max(10, 'En fazla 10 oturum olabilir'),
   departments: z.array(CourseDepartmentSchema).min(1, 'En az bir bölüm gerekli').max(20, 'En fazla 20 bölüm olabilir'),
-}).refine(
+});
+
+// Create schema with refinement for validation
+export const CreateCourseSchema = BaseCourseSchema.refine(
   (data) => {
     const totalSessionHours = data.sessions.reduce((sum, s) => sum + s.hours, 0);
     return totalSessionHours === data.total_hours;
@@ -46,10 +50,12 @@ export const CreateCourseSchema = z.object({
   }
 );
 
-export const UpdateCourseSchema = CreateCourseSchema.partial();
+// Update schema without refinement (partial can be used)
+export const UpdateCourseSchema = BaseCourseSchema.partial();
 
 // ==================== TEACHER SCHEMAS ====================
-export const CreateTeacherSchema = z.object({
+// Base schema without refinements
+const BaseTeacherSchema = z.object({
   name: z.string().min(2, 'İsim en az 2 karakter olmalıdır').max(200, 'İsim en fazla 200 karakter olabilir'),
   email: z.string().email('Geçerli bir e-posta adresi girin').toLowerCase(),
   title: z.enum(['Prof. Dr.', 'Doç. Dr.', 'Dr. Öğr. Üyesi', 'Öğr. Gör.', 'Arş. Gör.'], {
@@ -57,22 +63,26 @@ export const CreateTeacherSchema = z.object({
   }).default('Öğr. Gör.'),
   faculty: z.string().min(1, 'Fakülte seçimi zorunludur'),
   department: z.string().min(1, 'Bölüm seçimi zorunludur'),
-  working_hours: z.string().optional().refine(
-    (val) => {
-      if (!val) return true;
-      try {
-        JSON.parse(val);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    { message: 'Çalışma saatleri geçerli JSON formatında olmalıdır' }
-  ),
+  working_hours: z.string().optional(),
   is_active: z.boolean().default(true),
 });
 
-export const UpdateTeacherSchema = CreateTeacherSchema.partial();
+// Create schema with refinement
+export const CreateTeacherSchema = BaseTeacherSchema.refine(
+  (data) => {
+    if (!data.working_hours) return true;
+    try {
+      JSON.parse(data.working_hours);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  { message: 'Çalışma saatleri geçerli JSON formatında olmalıdır', path: ['working_hours'] }
+);
+
+// Update schema without refinement
+export const UpdateTeacherSchema = BaseTeacherSchema.partial();
 
 // ==================== CLASSROOM SCHEMAS ====================
 export const CreateClassroomSchema = z.object({

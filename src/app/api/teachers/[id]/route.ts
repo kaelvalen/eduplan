@@ -7,9 +7,12 @@ import { withAuth, withAdminAndValidation, withAdmin } from '@/middleware';
  * GET /api/teachers/[id] - Get teacher by ID
  * Requires authentication
  */
-export const GET = withAuth(async (request: NextRequest, user, { params }: any) => {
+export const GET = withAuth(async (request: NextRequest, user, context: any) => {
   try {
-    const id = Number(params.id);
+    // Next.js 15+: params is a Promise
+    const { params } = context;
+    const resolvedParams = await params;
+    const id = Number(resolvedParams.id);
     
     if (isNaN(id)) {
       return NextResponse.json(
@@ -43,9 +46,12 @@ export const GET = withAuth(async (request: NextRequest, user, { params }: any) 
  */
 export const PUT = withAdminAndValidation(
   UpdateTeacherSchema,
-  async (request: NextRequest, user, validated, { params }: any) => {
+  async (request: NextRequest, user, validated, context: any) => {
     try {
-      const id = Number(params.id);
+      // Next.js 15+: params is a Promise
+      const { params } = context;
+      const resolvedParams = await params;
+      const id = Number(resolvedParams.id);
       
       if (isNaN(id)) {
         return NextResponse.json(
@@ -70,9 +76,12 @@ export const PUT = withAdminAndValidation(
  * DELETE /api/teachers/[id] - Delete teacher
  * Requires admin authentication
  */
-export const DELETE = withAdmin(async (request: NextRequest, user, { params }: any) => {
+export const DELETE = withAdmin(async (request: NextRequest, user, context: any) => {
   try {
-    const id = Number(params.id);
+    // Next.js 15+: params is a Promise
+    const { params } = context;
+    const resolvedParams = await params;
+    const id = Number(resolvedParams.id);
     
     if (isNaN(id)) {
       return NextResponse.json(

@@ -113,6 +113,14 @@ export function withAuthAndValidation<T>(
       
       return await handler(request, user, validated, context);
     } catch (error: any) {
+      // Log validation errors to console for debugging
+      if (error.statusCode === 400 && error.details) {
+        console.error('❌ Validation Error:', error.error);
+        console.error('📋 Details:', JSON.stringify(error.details, null, 2));
+      } else {
+        console.error('❌ Request Error:', error);
+      }
+      
       const { errorResponse } = await import('./validation');
       return errorResponse(error);
     }
@@ -136,6 +144,14 @@ export function withAdminAndValidation<T>(
       
       return await handler(request, user, validated, context);
     } catch (error: any) {
+      // Log validation errors to console for debugging
+      if (error.statusCode === 400 && error.details) {
+        console.error('❌ Validation Error:', error.error);
+        console.error('📋 Details:', JSON.stringify(error.details, null, 2));
+      } else {
+        console.error('❌ Request Error:', error);
+      }
+      
       const { errorResponse } = await import('./validation');
       return errorResponse(error);
     }

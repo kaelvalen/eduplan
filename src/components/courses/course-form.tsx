@@ -143,8 +143,12 @@ export function CourseForm({ courseId: initialCourseId }: CourseFormProps) {
     setIsLoading(true);
 
     try {
+      // Calculate total_hours from sessions
+      const totalHours = sessions.reduce((sum, session) => sum + session.hours, 0);
+
       const data: CourseCreate = {
         ...formData,
+        total_hours: totalHours,
         sessions,
         departments,
       };
