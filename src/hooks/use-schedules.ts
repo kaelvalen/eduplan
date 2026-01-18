@@ -1,64 +1,66 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { schedulesApi } from '@/lib/api';
 import type { Schedule } from '@/types';
 
+// Query keys for React Query
+export const scheduleKeys = {
+  all: ['schedules'] as const,
+  lists: () => [...scheduleKeys.all, 'list'] as const,
+  list: (filters?: any) => [...scheduleKeys.lists(), filters] as const,
+  details: () => [...scheduleKeys.all, 'detail'] as const,
+  detail: (id: number) => [...scheduleKeys.details(), id] as const,
+};
+
 export function useSchedules() {
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchSchedules = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
+  const { data: schedules = [], isLoading, error } = useQuery({
+    queryKey: scheduleKeys.lists(),
+    queryFn: async () => {
+      console.log('🔍 Fetching schedules from API...');
       const data = await schedulesApi.getAll();
-      setSchedules(data);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Ders programı yüklenirken bir hata oluştu';
-      setError(message);
-      toast.error(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+      console.log('✅ Schedules fetched:', data.length, 'items');
+      console.log('📋 First schedule:', data[0]);
+      return data;
+    },
+    staleTime: 30 * 1000, // 30 seconds
+  });
 
-  useEffect(() => {
-    fetchSchedules();
-  }, [fetchSchedules]);
-
-  const deleteSchedule = async (id: number) => {
-    try {
-      await schedulesApi.delete(id);
-      setSchedules((prev) => prev.filter((s) => s.id !== id));
+  const deleteScheduleMutation = useMutation({
+    mutationFn: (id: number) => schedulesApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.lists() });
       toast.success('Program başarıyla silindi');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Program silinirken bir hata oluştu';
-      toast.error(message);
-      throw err;
-    }
-  };
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Program silinirken bir hata oluştu');
+    },
+  });
 
-  const deleteByDays = async (days: string[]) => {
-    try {
-      await schedulesApi.deleteByDays(days);
-      setSchedules((prev) => prev.filter((s) => !days.includes(s.day)));
+  const deleteByDaysMutation = useMutation({
+    mutationFn: (days: string[]) => schedulesApi.deleteByDays(days),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.lists() });
       toast.success('Programlar başarıyla silindi');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Programlar silinirken bir hata oluştu';
-      toast.error(message);
-      throw err;
-    }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Programlar silinirken bir hata oluştu');
+    },
+  });
+
+  const fetchSchedules = () => {
+    queryClient.invalidateQueries({ queryKey: scheduleKeys.lists() });
   };
 
   return {
     schedules,
     isLoading,
-    error,
+    error: error?.message || null,
     fetchSchedules,
-    deleteSchedule,
-    deleteByDays,
+    deleteSchedule: deleteScheduleMutation.mutate,
+    deleteByDays: deleteByDaysMutation.mutate,
   };
 }

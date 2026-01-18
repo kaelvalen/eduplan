@@ -47,7 +47,7 @@ const LEVELS = ['1', '2', '3', '4'] as const;
 
 export default function ProgramViewPage() {
     const { schedules, isLoading: schedulesLoading, deleteByDays, fetchSchedules } = useSchedules();
-    const { courses, isLoading: coursesLoading } = useCourses();
+    const { data: courses = [], isLoading: coursesLoading } = useCourses();
     const { isAdmin } = useAuth();
     const [settings, setSettings] = useState<SystemSettings | null>(null);
 
@@ -115,13 +115,20 @@ export default function ProgramViewPage() {
 
     // Group schedules by department and level
     const groupedSchedules = useMemo(() => {
-        if (!schedules || !courses) return {};
+        console.log('🔄 Grouping schedules...', { schedulesCount: schedules?.length, coursesCount: courses?.length });
+        
+        if (!schedules || !courses) {
+            console.log('⚠️ Missing data:', { schedules: !!schedules, courses: !!courses });
+            return {};
+        }
 
         // Search filter
         let filteredSchedules = [...schedules];
+        console.log('📊 Total schedules before filtering:', filteredSchedules.length);
 
         // Create course map for level and department lookup
-        const courseMap = new Map((courses || []).filter(c => c.id !== undefined).map((c: Course) => [c.id!, c]));
+        const courseMap = new Map((courses || []).filter((c: Course) => c.id !== undefined).map((c: Course) => [c.id!, c]));
+        console.log('🗺️ Course map size:', courseMap.size);
 
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
@@ -135,21 +142,36 @@ export default function ProgramViewPage() {
         // Group by department, then by level
         const grouped: Record<string, Record<string, Schedule[]>> = {};
 
-        filteredSchedules.forEach((schedule: Schedule) => {
+        filteredSchedules.forEach((schedule: Schedule, index: number) => {
             // Get course data
             const sCourse = schedule.course;
             const fullCourse = schedule.course_id ? courseMap.get(schedule.course_id) : null;
             
-            // Faculty filter
-            if (selectedFaculty && fullCourse && fullCourse.faculty !== selectedFaculty) return;
+            if (index === 0) {
+                console.log('📖 First schedule details:', {
+                    schedule_id: schedule.id,
+                    course_id: schedule.course_id,
+                    sCourse,
+                    fullCourse,
+                    faculty: (fullCourse as Course | undefined)?.faculty,
+                    level: (fullCourse as Course | undefined)?.level,
+                    departments: (fullCourse as Course | undefined)?.departments,
+                });
+            }
+            
+            // Faculty filter - ALLOW if no faculty selected OR faculty matches
+            if (selectedFaculty && fullCourse && (fullCourse as Course).faculty !== selectedFaculty) {
+                console.log('❌ Filtered by faculty:', schedule.id, (fullCourse as Course).faculty, '!==', selectedFaculty);
+                return;
+            }
 
             // Get all departments for this course
-            const courseDepts = fullCourse?.departments || [];
+            const courseDepts = (fullCourse as Course | undefined)?.departments || [];
 
             const processDept = (deptName: string) => {
                 if (selectedDepartment && deptName !== selectedDepartment) return;
 
-                const levelKey = fullCourse?.level || (sCourse as Course)?.level || '1';
+                const levelKey = (fullCourse as Course | undefined)?.level || (sCourse as Course)?.level || '1';
 
                 if (!grouped[deptName]) {
                     grouped[deptName] = {};
@@ -165,13 +187,20 @@ export default function ProgramViewPage() {
             };
 
             if (courseDepts.length > 0) {
-                courseDepts.forEach(dept => processDept(dept.department));
+                courseDepts.forEach((dept: { department: string; student_count: number }) => processDept(dept.department));
             } else if (fullCourse) {
                 processDept('Genel');
             } else if (sCourse) {
                 processDept('Genel');
             }
         });
+
+        console.log('✅ Grouped schedules result:', Object.keys(grouped).length, 'departments');
+        console.log('📦 Grouped structure:', Object.keys(grouped).map(dept => ({
+            dept,
+            levels: Object.keys(grouped[dept]),
+            totalSchedules: Object.values(grouped[dept]).flat().length
+        })));
 
         return grouped;
     }, [schedules, courses, selectedFaculty, selectedDepartment, searchTerm]);
@@ -190,7 +219,7 @@ export default function ProgramViewPage() {
 
     const handleExport = () => {
         // Create course map for lookup during export
-        const courseMap = new Map(courses.filter(c => c.id !== undefined).map((c: Course) => [c.id!, c]));
+        const courseMap = new Map(courses.filter((c: Course) => c.id !== undefined).map((c: Course) => [c.id!, c]));
 
         // Flatten the groupedSchedules for export
         const exportData = Object.values(groupedSchedules).flatMap(levels => 
@@ -198,8 +227,8 @@ export default function ProgramViewPage() {
         ).map(s => {
             const fullCourse = s.course_id ? courseMap.get(s.course_id) : null;
             return {
-                'Bölüm': fullCourse?.departments?.[0]?.department || '',
-                'Sınıf': fullCourse?.level || '',
+                'Bölüm': (fullCourse as Course | undefined)?.departments?.[0]?.department || '',
+                'Sınıf': (fullCourse as Course | undefined)?.level || '',
                 'Gün': DAYS_EN_TO_TR[s.day] || s.day,
                 'Saat': s.time_range,
                 'Ders Kodu': s.course?.code || '',

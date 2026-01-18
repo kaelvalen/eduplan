@@ -148,7 +148,6 @@ export function CourseForm({ courseId: initialCourseId }: CourseFormProps) {
 
       const data: CourseCreate = {
         ...formData,
-        total_hours: totalHours,
         sessions,
         departments,
       };
