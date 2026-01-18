@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Plus, ChevronRight, Pencil, Trash2, BookOpen, Building2, GraduationCap } from 'lucide-react';
-import { useCourses } from '@/hooks/use-courses';
+import { useCourses, useDeleteCourse } from '@/hooks/use-courses';
 import { useAuth } from '@/contexts/auth-context';
 import { getFacultyName, getDepartmentName } from '@/constants/faculties';
 import { styles } from '@/lib/design-tokens';
@@ -34,7 +34,8 @@ import type { Course } from '@/types';
 type ViewLevel = 'faculties' | 'departments' | 'courses';
 
 export default function CoursesPage() {
-  const { courses, isLoading, deleteCourse } = useCourses();
+  const { data: courses = [], isLoading } = useCourses();
+  const { mutate: deleteCourse } = useDeleteCourse();
   const { isAdmin } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFaculty, setSelectedFaculty] = useState<string | null>(null);

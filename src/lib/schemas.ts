@@ -18,31 +18,57 @@ export const CourseDepartmentSchema = z.object({
 });
 
 export const CreateCourseSchema = z.object({
-  name: z.string().min(1).max(255),
-  code: z.string().regex(/^[A-Z]{2,4}\d{3,4}$/, 'Kod formatı hatalı (örn: CSE101)'),
-  teacher_id: z.number().nullable().optional(),
-  faculty: z.string().min(1),
-  level: z.enum(['Lisans', 'Yüksek Lisans', 'Doktora']),
-  category: z.enum(['zorunlu', 'seçmeli']),
-  semester: z.string().min(1),
-  ects: z.number().min(0).max(30),
-  total_hours: z.number().min(0).max(100),
-  capacity_margin: z.number().min(0).max(30).default(0), // Opsiyonel kapasite marjı
+  name: z.string().min(2, 'Ders adı en az 2 karakter olmalıdır').max(200, 'Ders adı en fazla 200 karakter olabilir'),
+  code: z.string().regex(/^[A-Z]{2,4}\d{3,4}$/, 'Kod formatı hatalı (örn: BIL101, CENG1001)'),
+  teacher_id: z.number().positive('Geçerli bir öğretmen seçin').nullable().optional(),
+  faculty: z.string().min(1, 'Fakülte seçimi zorunludur'),
+  level: z.enum(['1', '2', '3', '4', 'Yüksek Lisans', 'Doktora'], {
+    errorMap: () => ({ message: 'Geçerli bir seviye seçin' })
+  }),
+  category: z.enum(['zorunlu', 'secmeli'], {
+    errorMap: () => ({ message: 'Kategori zorunlu veya seçmeli olmalıdır' })
+  }),
+  semester: z.string().min(1, 'Dönem seçimi zorunludur'),
+  ects: z.number().min(0, 'ECTS 0\'dan küçük olamaz').max(30, 'ECTS 30\'dan büyük olamaz'),
+  total_hours: z.number().min(1, 'Toplam saat en az 1 olmalıdır').max(100, 'Toplam saat 100\'den büyük olamaz'),
+  capacity_margin: z.number().min(0).max(30, 'Kapasite marjı 0-30 arasında olmalıdır').default(0),
   is_active: z.boolean().default(true),
-  sessions: z.array(CourseSessionSchema).min(1, 'En az bir oturum gerekli'),
-  departments: z.array(CourseDepartmentSchema).min(1, 'En az bir bölüm gerekli'),
-});
+  sessions: z.array(CourseSessionSchema).min(1, 'En az bir oturum gerekli').max(10, 'En fazla 10 oturum olabilir'),
+  departments: z.array(CourseDepartmentSchema).min(1, 'En az bir bölüm gerekli').max(20, 'En fazla 20 bölüm olabilir'),
+}).refine(
+  (data) => {
+    const totalSessionHours = data.sessions.reduce((sum, s) => sum + s.hours, 0);
+    return totalSessionHours === data.total_hours;
+  },
+  {
+    message: 'Oturum saatlerinin toplamı total_hours ile eşleşmelidir',
+    path: ['sessions'],
+  }
+);
 
 export const UpdateCourseSchema = CreateCourseSchema.partial();
 
 // ==================== TEACHER SCHEMAS ====================
 export const CreateTeacherSchema = z.object({
-  name: z.string().min(1).max(255),
-  email: z.string().email('Geçerli bir email adresi girin'),
-  title: z.string().default('Öğr. Gör.'), // Akademik ünvan, default to "Öğr. Gör."
-  faculty: z.string().min(1),
-  department: z.string().min(1),
-  working_hours: z.string().optional(), // JSON string
+  name: z.string().min(2, 'İsim en az 2 karakter olmalıdır').max(200, 'İsim en fazla 200 karakter olabilir'),
+  email: z.string().email('Geçerli bir e-posta adresi girin').toLowerCase(),
+  title: z.enum(['Prof. Dr.', 'Doç. Dr.', 'Dr. Öğr. Üyesi', 'Öğr. Gör.', 'Arş. Gör.'], {
+    errorMap: () => ({ message: 'Geçerli bir akademik ünvan seçin' })
+  }).default('Öğr. Gör.'),
+  faculty: z.string().min(1, 'Fakülte seçimi zorunludur'),
+  department: z.string().min(1, 'Bölüm seçimi zorunludur'),
+  working_hours: z.string().optional().refine(
+    (val) => {
+      if (!val) return true;
+      try {
+        JSON.parse(val);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    { message: 'Çalışma saatleri geçerli JSON formatında olmalıdır' }
+  ),
   is_active: z.boolean().default(true),
 });
 
@@ -50,11 +76,13 @@ export const UpdateTeacherSchema = CreateTeacherSchema.partial();
 
 // ==================== CLASSROOM SCHEMAS ====================
 export const CreateClassroomSchema = z.object({
-  name: z.string().min(1).max(100),
-  capacity: z.number().min(1).max(1000),
-  type: z.enum(['teorik', 'lab']),
-  faculty: z.string().min(1),
-  department: z.string().min(1),
+  name: z.string().min(1, 'Derslik adı zorunludur').max(100, 'Derslik adı en fazla 100 karakter olabilir'),
+  capacity: z.number().min(1, 'Kapasite en az 1 olmalıdır').max(1000, 'Kapasite en fazla 1000 olabilir'),
+  type: z.enum(['teorik', 'lab'], {
+    errorMap: () => ({ message: 'Tip teorik veya lab olmalıdır' })
+  }),
+  faculty: z.string().min(1, 'Fakülte seçimi zorunludur'),
+  department: z.string().min(1, 'Bölüm seçimi zorunludur'),
   priority_dept: z.string().optional(),
   available_hours: AvailableHoursSchema.optional(),
   is_active: z.boolean().default(true),

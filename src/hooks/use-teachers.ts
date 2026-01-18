@@ -1,81 +1,148 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+/**
+ * Teacher Hooks - React Query based
+ * Manages teacher data fetching, mutations, and cache
+ */
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { teachersApi } from '@/lib/api';
-import type { Teacher, TeacherCreate } from '@/types';
+import type { Teacher, TeacherCreate, FilterOptions } from '@/types';
 
-export function useTeachers() {
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+// Query keys
+export const teacherKeys = {
+  all: ['teachers'] as const,
+  lists: () => [...teacherKeys.all, 'list'] as const,
+  list: (filters?: FilterOptions) => [...teacherKeys.lists(), { filters }] as const,
+  details: () => [...teacherKeys.all, 'detail'] as const,
+  detail: (id: number) => [...teacherKeys.details(), id] as const,
+  schedule: (id: number) => [...teacherKeys.detail(id), 'schedule'] as const,
+};
 
-  const fetchTeachers = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await teachersApi.getAll();
-      setTeachers(data);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Öğretmenler yüklenirken bir hata oluştu';
-      setError(message);
-      toast.error(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+/**
+ * Get all teachers with optional filters
+ */
+export function useTeachers(filters?: FilterOptions) {
+  return useQuery({
+    queryKey: teacherKeys.list(filters),
+    queryFn: () => teachersApi.getAll(filters),
+    staleTime: 10 * 60 * 1000, // 10 minutes (teachers change less frequently)
+  });
+}
 
-  useEffect(() => {
-    fetchTeachers();
-  }, [fetchTeachers]);
+/**
+ * Get single teacher by ID
+ */
+export function useTeacher(id: number, enabled = true) {
+  return useQuery({
+    queryKey: teacherKeys.detail(id),
+    queryFn: () => teachersApi.getById(id),
+    enabled: enabled && !!id,
+    staleTime: 10 * 60 * 1000,
+  });
+}
 
-  const createTeacher = async (data: TeacherCreate) => {
-    try {
-      const newTeacher = await teachersApi.create(data);
-      setTeachers((prev) => [...prev, newTeacher]);
+/**
+ * Get teacher schedule
+ */
+export function useTeacherSchedule(id: number, enabled = true) {
+  return useQuery({
+    queryKey: teacherKeys.schedule(id),
+    queryFn: () => teachersApi.getSchedule(id),
+    enabled: enabled && !!id,
+    staleTime: 3 * 60 * 1000, // 3 minutes for schedules
+  });
+}
+
+/**
+ * Create new teacher
+ */
+export function useCreateTeacher() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: TeacherCreate) => teachersApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: teacherKeys.lists() });
       toast.success('Öğretmen başarıyla eklendi');
-      return newTeacher;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Öğretmen eklenirken bir hata oluştu';
-      toast.error(message);
-      throw err;
-    }
-  };
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Öğretmen eklenirken bir hata oluştu');
+    },
+  });
+}
 
-  const updateTeacher = async (id: number, data: TeacherCreate) => {
-    try {
-      const updatedTeacher = await teachersApi.update(id, data);
-      setTeachers((prev) =>
-        prev.map((t) => (t.id === id ? updatedTeacher : t))
+/**
+ * Update existing teacher
+ */
+export function useUpdateTeacher() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: TeacherCreate }) =>
+      teachersApi.update(id, data),
+    onSuccess: (updatedTeacher, variables) => {
+      queryClient.setQueryData(
+        teacherKeys.detail(variables.id),
+        updatedTeacher
       );
+      queryClient.invalidateQueries({ queryKey: teacherKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: teacherKeys.schedule(variables.id) });
       toast.success('Öğretmen başarıyla güncellendi');
-      return updatedTeacher;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Öğretmen güncellenirken bir hata oluştu';
-      toast.error(message);
-      throw err;
-    }
-  };
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Öğretmen güncellenirken bir hata oluştu');
+    },
+  });
+}
 
-  const deleteTeacher = async (id: number) => {
-    try {
-      await teachersApi.delete(id);
-      setTeachers((prev) => prev.filter((t) => t.id !== id));
+/**
+ * Delete teacher
+ */
+export function useDeleteTeacher() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => teachersApi.delete(id),
+    onSuccess: (_, deletedId) => {
+      queryClient.removeQueries({ queryKey: teacherKeys.detail(deletedId) });
+      queryClient.removeQueries({ queryKey: teacherKeys.schedule(deletedId) });
+      queryClient.invalidateQueries({ queryKey: teacherKeys.lists() });
       toast.success('Öğretmen başarıyla silindi');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Öğretmen silinirken bir hata oluştu';
-      toast.error(message);
-      throw err;
-    }
-  };
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Öğretmen silinirken bir hata oluştu');
+    },
+  });
+}
 
-  return {
-    teachers,
-    isLoading,
-    error,
-    fetchTeachers,
-    createTeacher,
-    updateTeacher,
-    deleteTeacher,
+/**
+ * Prefetch teachers
+ */
+export function usePrefetchTeachers() {
+  const queryClient = useQueryClient();
+
+  return (filters?: FilterOptions) => {
+    queryClient.prefetchQuery({
+      queryKey: teacherKeys.list(filters),
+      queryFn: () => teachersApi.getAll(filters),
+      staleTime: 10 * 60 * 1000,
+    });
+  };
+}
+
+/**
+ * Prefetch single teacher
+ */
+export function usePrefetchTeacher() {
+  const queryClient = useQueryClient();
+
+  return (id: number) => {
+    queryClient.prefetchQuery({
+      queryKey: teacherKeys.detail(id),
+      queryFn: () => teachersApi.getById(id),
+      staleTime: 10 * 60 * 1000,
+    });
   };
 }

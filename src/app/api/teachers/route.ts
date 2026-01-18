@@ -1,82 +1,51 @@
-import { NextResponse } from 'next/server';
-import { getCurrentUser, isAdmin } from '@/lib/auth';
-import { getAllTeachers, findTeacherByEmail, createTeacher } from '@/lib/turso-helpers';
-import { cache } from '@/lib/cache';
+import { NextRequest, NextResponse } from 'next/server';
+import { teacherService } from '@/services';
 import { CreateTeacherSchema } from '@/lib/schemas';
+import { withAuth, withAdminAndValidation } from '@/middleware';
 
-// GET /api/teachers - Get all teachers
-export async function GET(request: Request) {
+/**
+ * GET /api/teachers - Get all teachers
+ * Requires authentication
+ */
+export const GET = withAuth(async (request: NextRequest, user) => {
   try {
-    const user = await getCurrentUser(request);
-    if (!user) {
-      return NextResponse.json({ detail: 'Yetkisiz erişim' }, { status: 401 });
-    }
+    // Parse query parameters for filtering
+    const { searchParams } = new URL(request.url);
+    const filters = {
+      isActive: searchParams.get('isActive') === 'true' ? true : 
+                searchParams.get('isActive') === 'false' ? false : undefined,
+      faculty: searchParams.get('faculty') || undefined,
+      department: searchParams.get('department') || undefined,
+      searchTerm: searchParams.get('search') || undefined,
+    };
 
-    // Check cache first
-    const cached = cache.get('teachers:all');
-    if (cached) {
-      return NextResponse.json(cached);
-    }
-
-    const teachers = await getAllTeachers();
-
-    // Cache for 10 minutes
-    cache.set('teachers:all', teachers, 600);
-
+    const teachers = await teacherService.getTeachers(filters);
     return NextResponse.json(teachers);
   } catch (error) {
     console.error('Get teachers error:', error);
     return NextResponse.json(
-      { detail: 'Öğretmenler yüklenirken bir hata oluştu' },
+      { error: 'Öğretmenler yüklenirken bir hata oluştu' },
       { status: 500 }
     );
   }
-}
+});
 
-// POST /api/teachers - Create a new teacher
-export async function POST(request: Request) {
-  try {
-    const user = await getCurrentUser(request);
-    if (!user || !isAdmin(user)) {
-      return NextResponse.json({ detail: 'Yetkisiz erişim' }, { status: 403 });
-    }
-
-    const body = await request.json();
-
-    // Validate request body
-    const validation = CreateTeacherSchema.safeParse(body);
-    if (!validation.success) {
+/**
+ * POST /api/teachers - Create a new teacher
+ * Requires admin authentication and validates input
+ */
+export const POST = withAdminAndValidation(
+  CreateTeacherSchema,
+  async (request: NextRequest, user, validated) => {
+    try {
+      const teacher = await teacherService.createTeacher(validated);
+      return NextResponse.json(teacher, { status: 201 });
+    } catch (error) {
+      console.error('Create teacher error:', error);
       return NextResponse.json(
-        {
-          detail: 'Geçersiz veri formatı',
-          errors: validation.error.flatten().fieldErrors
-        },
-        { status: 400 }
+        { error: error instanceof Error ? error.message : 'Öğretmen eklenirken bir hata oluştu' },
+        { status: error instanceof Error && error.message.includes('zaten') ? 400 : 500 }
       );
     }
-
-    const { name, email, title, faculty, department, working_hours, is_active } = validation.data;
-
-    // Check if email already exists
-    const existing = await findTeacherByEmail(email);
-    if (existing) {
-      return NextResponse.json(
-        { detail: 'Bu e-posta adresi zaten kullanılıyor' },
-        { status: 400 }
-      );
-    }
-
-    const teacher = await createTeacher({ name, email, title, faculty, department, working_hours, is_active });
-
-    // Invalidate teachers cache
-    cache.invalidate('teachers');
-
-    return NextResponse.json(teacher);
-  } catch (error) {
-    console.error('Create teacher error:', error);
-    return NextResponse.json(
-      { detail: 'Öğretmen eklenirken bir hata oluştu' },
-      { status: 500 }
-    );
   }
-}
+);

@@ -1,78 +1,93 @@
-import { NextResponse } from 'next/server';
-import { getCurrentUser, isAdmin } from '@/lib/auth';
-import { getCourseById, updateCourse, deleteCourse } from '@/lib/turso-helpers';
+import { NextRequest, NextResponse } from 'next/server';
+import { courseService } from '@/services';
+import { UpdateCourseSchema } from '@/lib/schemas';
+import { withAuth, withAdminAndValidation, withAdmin } from '@/middleware';
 
-// GET /api/courses/[id] - Get a single course
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+/**
+ * GET /api/courses/[id] - Get course by ID
+ * Requires authentication
+ */
+export const GET = withAuth(async (request: NextRequest, user, { params }: any) => {
   try {
-    const user = await getCurrentUser(request);
-    if (!user) {
-      return NextResponse.json({ detail: 'Yetkisiz erişim' }, { status: 401 });
+    const id = Number(params.id);
+    
+    if (isNaN(id)) {
+      return NextResponse.json(
+        { error: 'Geçersiz ders ID' },
+        { status: 400 }
+      );
     }
 
-    const { id } = await params;
-    const course = await getCourseById(parseInt(id));
-
+    const course = await courseService.getCourseById(id);
+    
     if (!course) {
-      return NextResponse.json({ detail: 'Ders bulunamadı' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Ders bulunamadı' },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json(course);
   } catch (error) {
     console.error('Get course error:', error);
     return NextResponse.json(
-      { detail: 'Ders bilgileri alınamadı' },
+      { error: 'Ders yüklenirken bir hata oluştu' },
       { status: 500 }
     );
   }
-}
+});
 
-// PUT /api/courses/[id] - Update a course
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const user = await getCurrentUser(request);
-    if (!user || !isAdmin(user)) {
-      return NextResponse.json({ detail: 'Yetkisiz erişim' }, { status: 403 });
+/**
+ * PUT /api/courses/[id] - Update course
+ * Requires admin authentication and validates input
+ */
+export const PUT = withAdminAndValidation(
+  UpdateCourseSchema,
+  async (request: NextRequest, user, validated, { params }: any) => {
+    try {
+      const id = Number(params.id);
+      
+      if (isNaN(id)) {
+        return NextResponse.json(
+          { error: 'Geçersiz ders ID' },
+          { status: 400 }
+        );
+      }
+
+      const course = await courseService.updateCourse(id, validated);
+      return NextResponse.json(course);
+    } catch (error) {
+      console.error('Update course error:', error);
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Ders güncellenirken bir hata oluştu' },
+        { status: error instanceof Error && error.message.includes('zaten') ? 400 : 500 }
+      );
     }
-
-    const { id } = await params;
-    const body = await request.json();
-    const course = await updateCourse(parseInt(id), body);
-    return NextResponse.json(course);
-  } catch (error) {
-    console.error('Update course error:', error);
-    return NextResponse.json(
-      { detail: 'Ders güncellenirken bir hata oluştu' },
-      { status: 500 }
-    );
   }
-}
+);
 
-// DELETE /api/courses/[id] - Delete a course
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+/**
+ * DELETE /api/courses/[id] - Delete course
+ * Requires admin authentication
+ */
+export const DELETE = withAdmin(async (request: NextRequest, user, { params }: any) => {
   try {
-    const user = await getCurrentUser(request);
-    if (!user || !isAdmin(user)) {
-      return NextResponse.json({ detail: 'Yetkisiz erişim' }, { status: 403 });
+    const id = Number(params.id);
+    
+    if (isNaN(id)) {
+      return NextResponse.json(
+        { error: 'Geçersiz ders ID' },
+        { status: 400 }
+      );
     }
 
-    const { id } = await params;
-    await deleteCourse(parseInt(id));
-    return NextResponse.json({ message: 'Ders silindi' });
+    await courseService.deleteCourse(id);
+    return NextResponse.json({ message: 'Ders başarıyla silindi' });
   } catch (error) {
     console.error('Delete course error:', error);
     return NextResponse.json(
-      { detail: 'Ders silinirken bir hata oluştu' },
+      { error: error instanceof Error ? error.message : 'Ders silinirken bir hata oluştu' },
       { status: 500 }
     );
   }
-}
+});

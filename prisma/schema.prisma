@@ -35,6 +35,9 @@ model Teacher {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   courses      Course[]
+
+  @@index([faculty, department])
+  @@index([isActive])
 }
 
 // ==================== COURSE ====================
@@ -58,6 +61,11 @@ model Course {
   departments        CourseDepartment[]
   schedules          Schedule[]
   hardcodedSchedules HardcodedSchedule[]
+
+  @@index([faculty, level])
+  @@index([isActive])
+  @@index([teacherId])
+  @@index([category])
 }
 
 // ==================== COURSE SESSION ====================
@@ -95,6 +103,9 @@ model Classroom {
   hardcodedSchedules HardcodedSchedule[]
 
   @@unique([name, department])
+  @@index([faculty, department])
+  @@index([type])
+  @@index([isActive])
 }
 
 // ==================== SCHEDULE ====================
@@ -109,6 +120,11 @@ model Schedule {
   isHardcoded Boolean   @default(false) // Hardcoded mi?
   sessionType String    @default("teorik") // "teorik" | "lab"
   createdAt   DateTime  @default(now())
+
+  @@index([day, timeRange])
+  @@index([courseId, classroomId])
+  @@index([isHardcoded])
+  @@index([day])
 }
 
 // ==================== HARDCODED SCHEDULE ====================
@@ -139,6 +155,10 @@ model Notification {
   data        String?   // JSON string - ek veriler için
   createdAt   DateTime  @default(now())
   readAt      DateTime?
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@index([category])
 }
 
 // ==================== USER DASHBOARD PREFERENCES ====================

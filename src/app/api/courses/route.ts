@@ -1,52 +1,54 @@
-import { NextResponse } from 'next/server';
-import { getCurrentUser, isAdmin } from '@/lib/auth';
-import { getAllCourses, findCourseByCode, createCourse } from '@/lib/turso-helpers';
+import { NextRequest, NextResponse } from 'next/server';
+import { courseService } from '@/services';
+import { CreateCourseSchema } from '@/lib/schemas';
+import { withAuth, withAdminAndValidation } from '@/middleware';
 
-// GET /api/courses - Get all courses
-export async function GET(request: Request) {
+/**
+ * GET /api/courses - Get all courses
+ * Requires authentication
+ */
+export const GET = withAuth(async (request: NextRequest, user) => {
   try {
-    const user = await getCurrentUser(request);
-    if (!user) {
-      return NextResponse.json({ detail: 'Yetkisiz erişim' }, { status: 401 });
-    }
+    // Parse query parameters for filtering
+    const { searchParams } = new URL(request.url);
+    const filters = {
+      isActive: searchParams.get('isActive') === 'true' ? true : 
+                searchParams.get('isActive') === 'false' ? false : undefined,
+      faculty: searchParams.get('faculty') || undefined,
+      department: searchParams.get('department') || undefined,
+      teacherId: searchParams.get('teacherId') ? Number(searchParams.get('teacherId')) : undefined,
+      level: searchParams.get('level') || undefined,
+      category: (searchParams.get('category') as 'zorunlu' | 'secmeli') || undefined,
+      searchTerm: searchParams.get('search') || undefined,
+    };
 
-    const courses = await getAllCourses();
+    const courses = await courseService.getCourses(filters);
     return NextResponse.json(courses);
   } catch (error) {
     console.error('Get courses error:', error);
     return NextResponse.json(
-      { detail: 'Dersler yüklenirken bir hata oluştu' },
+      { error: error instanceof Error ? error.message : 'Dersler yüklenirken bir hata oluştu' },
       { status: 500 }
     );
   }
-}
+});
 
-// POST /api/courses - Create a new course
-export async function POST(request: Request) {
-  try {
-    const user = await getCurrentUser(request);
-    if (!user || !isAdmin(user)) {
-      return NextResponse.json({ detail: 'Yetkisiz erişim' }, { status: 403 });
-    }
-
-    const body = await request.json();
-
-    // Check if code already exists
-    const existing = await findCourseByCode(body.code);
-    if (existing) {
+/**
+ * POST /api/courses - Create a new course
+ * Requires admin authentication and validates input
+ */
+export const POST = withAdminAndValidation(
+  CreateCourseSchema,
+  async (request: NextRequest, user, validated) => {
+    try {
+      const course = await courseService.createCourse(validated);
+      return NextResponse.json(course, { status: 201 });
+    } catch (error) {
+      console.error('Create course error:', error);
       return NextResponse.json(
-        { detail: 'Bu ders kodu zaten kullanılıyor' },
-        { status: 400 }
+        { error: error instanceof Error ? error.message : 'Ders eklenirken bir hata oluştu' },
+        { status: error instanceof Error && error.message.includes('zaten') ? 400 : 500 }
       );
     }
-
-    const course = await createCourse(body);
-    return NextResponse.json(course);
-  } catch (error) {
-    console.error('Create course error:', error);
-    return NextResponse.json(
-      { detail: 'Ders eklenirken bir hata oluştu' },
-      { status: 500 }
-    );
   }
-}
+);

@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Plus, ChevronRight, Pencil, Trash2, Users, Building2, GraduationCap } from 'lucide-react';
-import { useTeachers } from '@/hooks/use-teachers';
+import { useTeachers, useDeleteTeacher } from '@/hooks/use-teachers';
 import { useAuth } from '@/contexts/auth-context';
 import { getFacultyName, getDepartmentName } from '@/constants/faculties';
 import { styles } from '@/lib/design-tokens';
@@ -35,7 +35,8 @@ import type { Teacher } from '@/types';
 type ViewLevel = 'faculties' | 'departments' | 'teachers';
 
 export default function TeachersPage() {
-  const { teachers, isLoading, deleteTeacher } = useTeachers();
+  const { data: teachers = [], isLoading } = useTeachers();
+  const { mutate: deleteTeacher } = useDeleteTeacher();
   const { isAdmin } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFaculty, setSelectedFaculty] = useState<string | null>(null);

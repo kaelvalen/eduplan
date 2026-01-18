@@ -1,91 +1,93 @@
-import { NextResponse } from 'next/server';
-import { getCurrentUser, isAdmin } from '@/lib/auth';
-import { getClassroomById, updateClassroom, deleteClassroom, countSchedulesByClassroom } from '@/lib/turso-helpers';
+import { NextRequest, NextResponse } from 'next/server';
+import { classroomService } from '@/services';
+import { UpdateClassroomSchema } from '@/lib/schemas';
+import { withAuth, withAdminAndValidation, withAdmin } from '@/middleware';
 
-// GET /api/classrooms/[id] - Get a single classroom
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+/**
+ * GET /api/classrooms/[id] - Get classroom by ID
+ * Requires authentication
+ */
+export const GET = withAuth(async (request: NextRequest, user, { params }: any) => {
   try {
-    const user = await getCurrentUser(request);
-    if (!user) {
-      return NextResponse.json({ detail: 'Yetkisiz erişim' }, { status: 401 });
+    const id = Number(params.id);
+    
+    if (isNaN(id)) {
+      return NextResponse.json(
+        { error: 'Geçersiz derslik ID' },
+        { status: 400 }
+      );
     }
 
-    const { id } = await params;
-    const classroom = await getClassroomById(parseInt(id));
-
+    const classroom = await classroomService.getClassroomById(id);
+    
     if (!classroom) {
-      return NextResponse.json({ detail: 'Derslik bulunamadı' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Derslik bulunamadı' },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json(classroom);
   } catch (error) {
     console.error('Get classroom error:', error);
     return NextResponse.json(
-      { detail: 'Derslik bilgileri alınamadı' },
+      { error: 'Derslik yüklenirken bir hata oluştu' },
       { status: 500 }
     );
   }
-}
+});
 
-// PUT /api/classrooms/[id] - Update a classroom
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const user = await getCurrentUser(request);
-    if (!user || !isAdmin(user)) {
-      return NextResponse.json({ detail: 'Yetkisiz erişim' }, { status: 403 });
-    }
+/**
+ * PUT /api/classrooms/[id] - Update classroom
+ * Requires admin authentication and validates input
+ */
+export const PUT = withAdminAndValidation(
+  UpdateClassroomSchema,
+  async (request: NextRequest, user, validated, { params }: any) => {
+    try {
+      const id = Number(params.id);
+      
+      if (isNaN(id)) {
+        return NextResponse.json(
+          { error: 'Geçersiz derslik ID' },
+          { status: 400 }
+        );
+      }
 
-    const { id } = await params;
-    const body = await request.json();
-    const { name, capacity, type, faculty, department, is_active } = body;
-
-    const classroom = await updateClassroom(parseInt(id), { name, capacity, type, faculty, department, is_active });
-    return NextResponse.json(classroom);
-  } catch (error) {
-    console.error('Update classroom error:', error);
-    return NextResponse.json(
-      { detail: 'Derslik güncellenirken bir hata oluştu' },
-      { status: 500 }
-    );
-  }
-}
-
-// DELETE /api/classrooms/[id] - Delete a classroom
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const user = await getCurrentUser(request);
-    if (!user || !isAdmin(user)) {
-      return NextResponse.json({ detail: 'Yetkisiz erişim' }, { status: 403 });
-    }
-
-    const { id } = await params;
-    const classroomId = parseInt(id);
-
-    // Check if classroom is used in schedules
-    const scheduleCount = await countSchedulesByClassroom(classroomId);
-    if (scheduleCount > 0) {
+      const classroom = await classroomService.updateClassroom(id, validated);
+      return NextResponse.json(classroom);
+    } catch (error) {
+      console.error('Update classroom error:', error);
       return NextResponse.json(
-        { detail: 'Bu derslik ders programında kullanılıyor, silinemez' },
+        { error: error instanceof Error ? error.message : 'Derslik güncellenirken bir hata oluştu' },
+        { status: error instanceof Error && error.message.includes('zaten') ? 400 : 500 }
+      );
+    }
+  }
+);
+
+/**
+ * DELETE /api/classrooms/[id] - Delete classroom
+ * Requires admin authentication
+ */
+export const DELETE = withAdmin(async (request: NextRequest, user, { params }: any) => {
+  try {
+    const id = Number(params.id);
+    
+    if (isNaN(id)) {
+      return NextResponse.json(
+        { error: 'Geçersiz derslik ID' },
         { status: 400 }
       );
     }
 
-    await deleteClassroom(classroomId);
-    return NextResponse.json({ message: 'Derslik silindi' });
+    await classroomService.deleteClassroom(id);
+    return NextResponse.json({ message: 'Derslik başarıyla silindi' });
   } catch (error) {
     console.error('Delete classroom error:', error);
     return NextResponse.json(
-      { detail: 'Derslik silinirken bir hata oluştu' },
-      { status: 500 }
+      { error: error instanceof Error ? error.message : 'Derslik silinirken bir hata oluştu' },
+      { status: error instanceof Error && error.message.includes('programları') ? 400 : 500 }
     );
   }
-}
+});

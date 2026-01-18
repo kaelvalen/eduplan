@@ -1,81 +1,193 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+/**
+ * Course Hooks - React Query based
+ * Manages course data fetching, mutations, and cache
+ */
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { coursesApi } from '@/lib/api';
-import type { Course, CourseCreate } from '@/types';
+import type { Course, CourseCreate, FilterOptions } from '@/types';
 
-export function useCourses() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+// Query keys
+export const courseKeys = {
+  all: ['courses'] as const,
+  lists: () => [...courseKeys.all, 'list'] as const,
+  list: (filters?: FilterOptions) => [...courseKeys.lists(), { filters }] as const,
+  details: () => [...courseKeys.all, 'detail'] as const,
+  detail: (id: number) => [...courseKeys.details(), id] as const,
+};
 
-  const fetchCourses = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await coursesApi.getAll();
-      setCourses(data);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Dersler yüklenirken bir hata oluştu';
-      setError(message);
-      toast.error(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+/**
+ * Get all courses with optional filters
+ */
+export function useCourses(filters?: FilterOptions) {
+  return useQuery({
+    queryKey: courseKeys.list(filters),
+    queryFn: () => coursesApi.getAll(filters),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
 
-  useEffect(() => {
-    fetchCourses();
-  }, [fetchCourses]);
+/**
+ * Get single course by ID
+ */
+export function useCourse(id: number, enabled = true) {
+  return useQuery({
+    queryKey: courseKeys.detail(id),
+    queryFn: () => coursesApi.getById(id),
+    enabled: enabled && !!id,
+    staleTime: 5 * 60 * 1000,
+  });
+}
 
-  const createCourse = async (data: CourseCreate) => {
-    try {
-      const newCourse = await coursesApi.create(data);
-      setCourses((prev) => [...prev, newCourse]);
+/**
+ * Create new course
+ */
+export function useCreateCourse() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CourseCreate) => coursesApi.create(data),
+    onSuccess: (newCourse) => {
+      // Invalidate and refetch all course lists
+      queryClient.invalidateQueries({ queryKey: courseKeys.lists() });
       toast.success('Ders başarıyla eklendi');
-      return newCourse;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Ders eklenirken bir hata oluştu';
-      toast.error(message);
-      throw err;
-    }
-  };
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Ders eklenirken bir hata oluştu');
+    },
+  });
+}
 
-  const updateCourse = async (id: number, data: CourseCreate) => {
-    try {
-      const updatedCourse = await coursesApi.update(id, data);
-      setCourses((prev) =>
-        prev.map((c) => (c.id === id ? updatedCourse : c))
+/**
+ * Update existing course
+ */
+export function useUpdateCourse() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: CourseCreate }) =>
+      coursesApi.update(id, data),
+    onSuccess: (updatedCourse, variables) => {
+      // Update the specific course in cache
+      queryClient.setQueryData(
+        courseKeys.detail(variables.id),
+        updatedCourse
       );
+      // Invalidate all course lists
+      queryClient.invalidateQueries({ queryKey: courseKeys.lists() });
       toast.success('Ders başarıyla güncellendi');
-      return updatedCourse;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Ders güncellenirken bir hata oluştu';
-      toast.error(message);
-      throw err;
-    }
-  };
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Ders güncellenirken bir hata oluştu');
+    },
+  });
+}
 
-  const deleteCourse = async (id: number) => {
-    try {
-      await coursesApi.delete(id);
-      setCourses((prev) => prev.filter((c) => c.id !== id));
+/**
+ * Delete course
+ */
+export function useDeleteCourse() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => coursesApi.delete(id),
+    onSuccess: (_, deletedId) => {
+      // Remove from cache
+      queryClient.removeQueries({ queryKey: courseKeys.detail(deletedId) });
+      // Invalidate all course lists
+      queryClient.invalidateQueries({ queryKey: courseKeys.lists() });
       toast.success('Ders başarıyla silindi');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Ders silinirken bir hata oluştu';
-      toast.error(message);
-      throw err;
-    }
-  };
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Ders silinirken bir hata oluştu');
+    },
+  });
+}
 
-  return {
-    courses,
-    isLoading,
-    error,
-    fetchCourses,
-    createCourse,
-    updateCourse,
-    deleteCourse,
+/**
+ * Get hardcoded schedules for a course
+ */
+export function useCourseHardcodedSchedules(courseId: number, enabled = true) {
+  return useQuery({
+    queryKey: [...courseKeys.detail(courseId), 'hardcoded-schedules'],
+    queryFn: () => coursesApi.getHardcodedSchedules(courseId),
+    enabled: enabled && !!courseId,
+    staleTime: 3 * 60 * 1000, // 3 minutes
+  });
+}
+
+/**
+ * Create hardcoded schedule for course
+ */
+export function useCreateHardcodedSchedule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ courseId, data }: { courseId: number; data: any }) =>
+      coursesApi.createHardcodedSchedule(courseId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: [...courseKeys.detail(variables.courseId), 'hardcoded-schedules'],
+      });
+      queryClient.invalidateQueries({ queryKey: courseKeys.detail(variables.courseId) });
+      toast.success('Sabit program başarıyla eklendi');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Sabit program eklenirken bir hata oluştu');
+    },
+  });
+}
+
+/**
+ * Delete hardcoded schedule
+ */
+export function useDeleteHardcodedSchedule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ courseId, scheduleId }: { courseId: number; scheduleId: number }) =>
+      coursesApi.deleteHardcodedSchedule(courseId, scheduleId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: [...courseKeys.detail(variables.courseId), 'hardcoded-schedules'],
+      });
+      toast.success('Sabit program başarıyla silindi');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Sabit program silinirken bir hata oluştu');
+    },
+  });
+}
+
+/**
+ * Prefetch courses (useful for hover states, navigation)
+ */
+export function usePrefetchCourses() {
+  const queryClient = useQueryClient();
+
+  return (filters?: FilterOptions) => {
+    queryClient.prefetchQuery({
+      queryKey: courseKeys.list(filters),
+      queryFn: () => coursesApi.getAll(filters),
+      staleTime: 5 * 60 * 1000,
+    });
+  };
+}
+
+/**
+ * Prefetch single course
+ */
+export function usePrefetchCourse() {
+  const queryClient = useQueryClient();
+
+  return (id: number) => {
+    queryClient.prefetchQuery({
+      queryKey: courseKeys.detail(id),
+      queryFn: () => coursesApi.getById(id),
+      staleTime: 5 * 60 * 1000,
+    });
   };
 }

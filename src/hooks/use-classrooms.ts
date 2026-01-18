@@ -1,81 +1,148 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+/**
+ * Classroom Hooks - React Query based
+ * Manages classroom data fetching, mutations, and cache
+ */
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { classroomsApi } from '@/lib/api';
-import type { Classroom, ClassroomCreate } from '@/types';
+import type { Classroom, ClassroomCreate, FilterOptions } from '@/types';
 
-export function useClassrooms() {
-  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+// Query keys
+export const classroomKeys = {
+  all: ['classrooms'] as const,
+  lists: () => [...classroomKeys.all, 'list'] as const,
+  list: (filters?: FilterOptions) => [...classroomKeys.lists(), { filters }] as const,
+  details: () => [...classroomKeys.all, 'detail'] as const,
+  detail: (id: number) => [...classroomKeys.details(), id] as const,
+  schedule: (id: number) => [...classroomKeys.detail(id), 'schedule'] as const,
+};
 
-  const fetchClassrooms = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await classroomsApi.getAll();
-      setClassrooms(data);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Derslikler yüklenirken bir hata oluştu';
-      setError(message);
-      toast.error(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+/**
+ * Get all classrooms with optional filters
+ */
+export function useClassrooms(filters?: FilterOptions) {
+  return useQuery({
+    queryKey: classroomKeys.list(filters),
+    queryFn: () => classroomsApi.getAll(filters),
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+}
 
-  useEffect(() => {
-    fetchClassrooms();
-  }, [fetchClassrooms]);
+/**
+ * Get single classroom by ID
+ */
+export function useClassroom(id: number, enabled = true) {
+  return useQuery({
+    queryKey: classroomKeys.detail(id),
+    queryFn: () => classroomsApi.getById(id),
+    enabled: enabled && !!id,
+    staleTime: 10 * 60 * 1000,
+  });
+}
 
-  const createClassroom = async (data: ClassroomCreate) => {
-    try {
-      const newClassroom = await classroomsApi.create(data);
-      setClassrooms((prev) => [...prev, newClassroom]);
+/**
+ * Get classroom schedule
+ */
+export function useClassroomSchedule(id: number, enabled = true) {
+  return useQuery({
+    queryKey: classroomKeys.schedule(id),
+    queryFn: () => classroomsApi.getSchedule(id),
+    enabled: enabled && !!id,
+    staleTime: 3 * 60 * 1000, // 3 minutes for schedules
+  });
+}
+
+/**
+ * Create new classroom
+ */
+export function useCreateClassroom() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: ClassroomCreate) => classroomsApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: classroomKeys.lists() });
       toast.success('Derslik başarıyla eklendi');
-      return newClassroom;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Derslik eklenirken bir hata oluştu';
-      toast.error(message);
-      throw err;
-    }
-  };
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Derslik eklenirken bir hata oluştu');
+    },
+  });
+}
 
-  const updateClassroom = async (id: number, data: ClassroomCreate) => {
-    try {
-      const updatedClassroom = await classroomsApi.update(id, data);
-      setClassrooms((prev) =>
-        prev.map((c) => (c.id === id ? updatedClassroom : c))
+/**
+ * Update existing classroom
+ */
+export function useUpdateClassroom() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: ClassroomCreate }) =>
+      classroomsApi.update(id, data),
+    onSuccess: (updatedClassroom, variables) => {
+      queryClient.setQueryData(
+        classroomKeys.detail(variables.id),
+        updatedClassroom
       );
+      queryClient.invalidateQueries({ queryKey: classroomKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: classroomKeys.schedule(variables.id) });
       toast.success('Derslik başarıyla güncellendi');
-      return updatedClassroom;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Derslik güncellenirken bir hata oluştu';
-      toast.error(message);
-      throw err;
-    }
-  };
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Derslik güncellenirken bir hata oluştu');
+    },
+  });
+}
 
-  const deleteClassroom = async (id: number) => {
-    try {
-      await classroomsApi.delete(id);
-      setClassrooms((prev) => prev.filter((c) => c.id !== id));
+/**
+ * Delete classroom
+ */
+export function useDeleteClassroom() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => classroomsApi.delete(id),
+    onSuccess: (_, deletedId) => {
+      queryClient.removeQueries({ queryKey: classroomKeys.detail(deletedId) });
+      queryClient.removeQueries({ queryKey: classroomKeys.schedule(deletedId) });
+      queryClient.invalidateQueries({ queryKey: classroomKeys.lists() });
       toast.success('Derslik başarıyla silindi');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Derslik silinirken bir hata oluştu';
-      toast.error(message);
-      throw err;
-    }
-  };
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Derslik silinirken bir hata oluştu');
+    },
+  });
+}
 
-  return {
-    classrooms,
-    isLoading,
-    error,
-    fetchClassrooms,
-    createClassroom,
-    updateClassroom,
-    deleteClassroom,
+/**
+ * Prefetch classrooms
+ */
+export function usePrefetchClassrooms() {
+  const queryClient = useQueryClient();
+
+  return (filters?: FilterOptions) => {
+    queryClient.prefetchQuery({
+      queryKey: classroomKeys.list(filters),
+      queryFn: () => classroomsApi.getAll(filters),
+      staleTime: 10 * 60 * 1000,
+    });
+  };
+}
+
+/**
+ * Prefetch single classroom
+ */
+export function usePrefetchClassroom() {
+  const queryClient = useQueryClient();
+
+  return (id: number) => {
+    queryClient.prefetchQuery({
+      queryKey: classroomKeys.detail(id),
+      queryFn: () => classroomsApi.getById(id),
+      staleTime: 10 * 60 * 1000,
+    });
   };
 }
