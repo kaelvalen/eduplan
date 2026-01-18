@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, Play, CheckCircle, XCircle, AlertCircle, Cog } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/auth-context';
 import { schedulerApi } from '@/lib/api';
+import { scheduleKeys } from '@/hooks/use-schedules';
 import { styles } from '@/lib/design-tokens';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +29,7 @@ import type { SchedulerStatus, SchedulerResult } from '@/types';
 export default function SchedulerPage() {
   const { isAdmin } = useAuth();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState<SchedulerStatus | null>(null);
   const [result, setResult] = useState<SchedulerResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,8 +62,13 @@ export default function SchedulerPage() {
       const data = await schedulerApi.generate();
       setResult(data);
       await fetchStatus();
+      
+      // ✅ Invalidate schedules cache - programs page will auto-update!
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.all });
+      console.log('✅ Schedules cache invalidated - programs page will refresh!');
+      
       if (data.success) {
-        toast.success(data.message);
+        toast.success(data.message + ' - Programlar sayfası otomatik güncellenecek!');
       } else {
         toast.error(data.message);
       }

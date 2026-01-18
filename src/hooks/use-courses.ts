@@ -51,12 +51,20 @@ export function useCreateCourse() {
   return useMutation({
     mutationFn: (data: CourseCreate) => coursesApi.create(data),
     onSuccess: (newCourse) => {
-      // Invalidate and refetch all course lists
+      // Add optimistically to cache
+      queryClient.setQueriesData(
+        { queryKey: courseKeys.lists() },
+        (old: any) => old ? [...old, newCourse] : [newCourse]
+      );
+      // Invalidate to refetch and ensure consistency
       queryClient.invalidateQueries({ queryKey: courseKeys.lists() });
       toast.success('Ders başarıyla eklendi');
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Ders eklenirken bir hata oluştu');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: courseKeys.lists() });
     },
   });
 }
@@ -70,18 +78,48 @@ export function useUpdateCourse() {
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: CourseCreate }) =>
       coursesApi.update(id, data),
-    onSuccess: (updatedCourse, variables) => {
-      // Update the specific course in cache
-      queryClient.setQueryData(
-        courseKeys.detail(variables.id),
-        updatedCourse
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: courseKeys.lists() });
+      await queryClient.cancelQueries({ queryKey: courseKeys.detail(variables.id) });
+      
+      const previousDetail = queryClient.getQueryData(courseKeys.detail(variables.id));
+      const previousLists = queryClient.getQueriesData({ queryKey: courseKeys.lists() });
+      
+      // Optimistically update detail
+      queryClient.setQueryData(courseKeys.detail(variables.id), (old: any) => ({
+        ...old,
+        ...variables.data,
+      }));
+      
+      // Optimistically update lists
+      queryClient.setQueriesData(
+        { queryKey: courseKeys.lists() },
+        (old: any) => old ? old.map((course: any) => 
+          course.id === variables.id ? { ...course, ...variables.data } : course
+        ) : []
       );
-      // Invalidate all course lists
+      
+      return { previousDetail, previousLists };
+    },
+    onSuccess: (updatedCourse, variables) => {
+      queryClient.setQueryData(courseKeys.detail(variables.id), updatedCourse);
       queryClient.invalidateQueries({ queryKey: courseKeys.lists() });
       toast.success('Ders başarıyla güncellendi');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables, context) => {
+      if (context?.previousDetail) {
+        queryClient.setQueryData(courseKeys.detail(variables.id), context.previousDetail);
+      }
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
       toast.error(error.message || 'Ders güncellenirken bir hata oluştu');
+    },
+    onSettled: (_, __, variables) => {
+      queryClient.invalidateQueries({ queryKey: courseKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: courseKeys.lists() });
     },
   });
 }
@@ -94,15 +132,40 @@ export function useDeleteCourse() {
 
   return useMutation({
     mutationFn: (id: number) => coursesApi.delete(id),
+    onMutate: async (deletedId) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: courseKeys.lists() });
+      
+      // Snapshot previous value for rollback
+      const previousCourses = queryClient.getQueriesData({ queryKey: courseKeys.lists() });
+      
+      // Optimistically remove from cache
+      queryClient.setQueriesData(
+        { queryKey: courseKeys.lists() },
+        (old: any) => old ? old.filter((course: any) => course.id !== deletedId) : []
+      );
+      
+      return { previousCourses };
+    },
     onSuccess: (_, deletedId) => {
       // Remove from cache
       queryClient.removeQueries({ queryKey: courseKeys.detail(deletedId) });
-      // Invalidate all course lists
+      // Refetch to ensure consistency
       queryClient.invalidateQueries({ queryKey: courseKeys.lists() });
       toast.success('Ders başarıyla silindi');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _, context) => {
+      // Rollback on error
+      if (context?.previousCourses) {
+        context.previousCourses.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
       toast.error(error.message || 'Ders silinirken bir hata oluştu');
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: courseKeys.lists() });
     },
   });
 }

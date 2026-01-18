@@ -42,12 +42,32 @@ export function useSchedules() {
 
   const deleteByDaysMutation = useMutation({
     mutationFn: (days: string[]) => schedulesApi.deleteByDays(days),
+    onMutate: async (daysToDelete) => {
+      await queryClient.cancelQueries({ queryKey: scheduleKeys.lists() });
+      const previousSchedules = queryClient.getQueriesData({ queryKey: scheduleKeys.lists() });
+      
+      // Optimistically remove schedules
+      queryClient.setQueriesData(
+        { queryKey: scheduleKeys.lists() },
+        (old: any) => old ? old.filter((s: any) => !daysToDelete.includes(s.day)) : []
+      );
+      
+      return { previousSchedules };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: scheduleKeys.lists() });
       toast.success('Programlar başarıyla silindi');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _, context) => {
+      if (context?.previousSchedules) {
+        context.previousSchedules.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
       toast.error(error.message || 'Programlar silinirken bir hata oluştu');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.lists() });
     },
   });
 

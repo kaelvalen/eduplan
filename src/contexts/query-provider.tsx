@@ -16,15 +16,19 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
         defaultOptions: {
           queries: {
             // Global query options
-            staleTime: 5 * 60 * 1000, // 5 minutes
+            staleTime: 1 * 60 * 1000, // 1 minute (was 5, reduced for faster updates)
             gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
             retry: 1,
-            refetchOnWindowFocus: false,
+            refetchOnWindowFocus: true, // ✅ Changed to true for better UX
+            refetchOnMount: 'always', // ✅ Always refetch on mount
             refetchOnReconnect: true,
           },
           mutations: {
             // Global mutation options
             retry: 0,
+            onError: (error) => {
+              console.error('❌ Mutation error:', error);
+            },
           },
         },
       })

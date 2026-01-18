@@ -105,14 +105,33 @@ export function useDeleteClassroom() {
 
   return useMutation({
     mutationFn: (id: number) => classroomsApi.delete(id),
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: classroomKeys.lists() });
+      const previousClassrooms = queryClient.getQueriesData({ queryKey: classroomKeys.lists() });
+      
+      queryClient.setQueriesData(
+        { queryKey: classroomKeys.lists() },
+        (old: any) => old ? old.filter((classroom: any) => classroom.id !== deletedId) : []
+      );
+      
+      return { previousClassrooms };
+    },
     onSuccess: (_, deletedId) => {
       queryClient.removeQueries({ queryKey: classroomKeys.detail(deletedId) });
       queryClient.removeQueries({ queryKey: classroomKeys.schedule(deletedId) });
       queryClient.invalidateQueries({ queryKey: classroomKeys.lists() });
       toast.success('Derslik başarıyla silindi');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _, context) => {
+      if (context?.previousClassrooms) {
+        context.previousClassrooms.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
       toast.error(error.message || 'Derslik silinirken bir hata oluştu');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: classroomKeys.lists() });
     },
   });
 }
