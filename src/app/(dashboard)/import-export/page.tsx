@@ -224,6 +224,7 @@ export default function ImportExportPage() {
                   await teachersApi.create({
                     name: (row as any)['Ad Soyad'] || '',
                     email: (row as any)['E-posta'] || '',
+                    title: (row as any)['Ünvan'] || 'Öğr. Gör.',
                     faculty: (row as any)['Fakülte'] || '',
                     department: (row as any)['Bölüm'] || '',
                     working_hours: '{}',
