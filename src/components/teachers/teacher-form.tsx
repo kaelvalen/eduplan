@@ -73,7 +73,7 @@ export function TeacherForm({ teacherId }: TeacherFormProps) {
             department: teacher.department,
             is_active: teacher.is_active !== false,
           });
-          setWorkingHours(parseWorkingHours(teacher.working_hours));
+          setWorkingHours(parseWorkingHours(teacher.working_hours ?? '{}'));
         } catch (error) {
           toast.error('Öğretmen bilgileri yüklenirken bir hata oluştu');
           router.push('/teachers');

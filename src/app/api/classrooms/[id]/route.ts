@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { classroomService } from '@/services';
-import { UpdateClassroomSchema } from '@/lib/schemas';
+import { UpdateClassroomSchema, type UpdateClassroomInput } from '@/lib/schemas';
 import { withAuth, withAdminAndValidation, withAdmin } from '@/middleware';
 
 /**
@@ -44,7 +44,7 @@ export const GET = withAuth(async (request: NextRequest, user, context: any) => 
  * PUT /api/classrooms/[id] - Update classroom
  * Requires admin authentication and validates input
  */
-export const PUT = withAdminAndValidation(
+export const PUT = withAdminAndValidation<UpdateClassroomInput>(
   UpdateClassroomSchema,
   async (request: NextRequest, user, validated, context: any) => {
     try {
@@ -60,7 +60,7 @@ export const PUT = withAdminAndValidation(
         );
       }
 
-      const classroom = await classroomService.updateClassroom(id, validated);
+      const classroom = await classroomService.updateClassroom(id, validated as UpdateClassroomInput);
       return NextResponse.json(classroom);
     } catch (error) {
       console.error('Update classroom error:', error);

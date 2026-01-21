@@ -57,7 +57,7 @@ export function TeacherProfileModal({ teacher, open, onOpenChange }: TeacherProf
         });
     };
 
-    const workingHours = teacher ? parseAvailableHours(teacher.working_hours) : {};
+    const workingHours = teacher ? parseAvailableHours(teacher.working_hours || '{}') : {};
 
     const checkAvailability = (day: string, time: string) => {
         return isAvailableAt(workingHours, day, time);

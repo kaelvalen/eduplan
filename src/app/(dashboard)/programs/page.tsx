@@ -125,10 +125,9 @@ export default function ProgramViewPage() {
         const errors: string[] = [];
         
         console.log('🔍 Validating teacher:', {
-            teacher: schedule.course?.teacher,
+            teacher: schedule.course?.teacher?.name,
             day,
             time: `${newStartTime}-${newEndTime}`,
-            working_hours: schedule.course?.teacher?.working_hours,
         });
         
         const teacherValid = validateTeacherAvailability(
@@ -641,7 +640,7 @@ export default function ProgramViewPage() {
                                                                             const [sStart] = (s.time_range || '').split('-');
                                                                             const [slotStart] = slot.split('-');
                                                                             return sStart.trim() === slotStart.trim();
-                                                                        });
+                                                                        }) || null;
 
                                                                          const isOccupied = levels[level].some(s => {
                                                                             const sDay = (s.day || '').toLowerCase();

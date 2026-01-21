@@ -23,12 +23,8 @@ const BaseCourseSchema = z.object({
   code: z.string().regex(/^[A-Z]{2,4}\d{3,4}$/, 'Kod formatı hatalı (örn: BIL101, CENG1001)'),
   teacher_id: z.number().positive('Geçerli bir öğretmen seçin').nullable().optional(),
   faculty: z.string().min(1, 'Fakülte seçimi zorunludur'),
-  level: z.enum(['1', '2', '3', '4'], {
-    errorMap: () => ({ message: 'Geçerli bir sınıf seçin (1-4)' })
-  }),
-  category: z.enum(['zorunlu', 'secmeli'], {
-    errorMap: () => ({ message: 'Kategori zorunlu veya seçmeli olmalıdır' })
-  }),
+  level: z.enum(['1', '2', '3', '4'], 'Geçerli bir sınıf seçin (1-4)'),
+  category: z.enum(['zorunlu', 'secmeli'], 'Kategori zorunlu veya seçmeli olmalıdır'),
   semester: z.string().min(1, 'Dönem seçimi zorunludur'),
   ects: z.number().min(0, 'ECTS 0\'dan küçük olamaz').max(30, 'ECTS 30\'dan büyük olamaz'),
   total_hours: z.number().min(1, 'Toplam saat en az 1 olmalıdır').max(100, 'Toplam saat 100\'den büyük olamaz'),
@@ -58,9 +54,7 @@ export const UpdateCourseSchema = BaseCourseSchema.partial();
 const BaseTeacherSchema = z.object({
   name: z.string().min(2, 'İsim en az 2 karakter olmalıdır').max(200, 'İsim en fazla 200 karakter olabilir'),
   email: z.string().email('Geçerli bir e-posta adresi girin').toLowerCase(),
-  title: z.enum(['Prof. Dr.', 'Doç. Dr.', 'Dr. Öğr. Üyesi', 'Öğr. Gör.', 'Arş. Gör.'], {
-    errorMap: () => ({ message: 'Geçerli bir akademik ünvan seçin' })
-  }).default('Öğr. Gör.'),
+  title: z.enum(['Prof. Dr.', 'Doç. Dr.', 'Dr. Öğr. Üyesi', 'Öğr. Gör.', 'Arş. Gör.'], 'Geçerli bir akademik ünvan seçin').default('Öğr. Gör.'),
   faculty: z.string().min(1, 'Fakülte seçimi zorunludur'),
   department: z.string().min(1, 'Bölüm seçimi zorunludur'),
   working_hours: z.string().optional(),
@@ -88,9 +82,7 @@ export const UpdateTeacherSchema = BaseTeacherSchema.partial();
 export const CreateClassroomSchema = z.object({
   name: z.string().min(1, 'Derslik adı zorunludur').max(100, 'Derslik adı en fazla 100 karakter olabilir'),
   capacity: z.number().min(1, 'Kapasite en az 1 olmalıdır').max(1000, 'Kapasite en fazla 1000 olabilir'),
-  type: z.enum(['teorik', 'lab'], {
-    errorMap: () => ({ message: 'Tip teorik veya lab olmalıdır' })
-  }),
+  type: z.enum(['teorik', 'lab'], 'Tip teorik veya lab olmalıdır'),
   faculty: z.string().min(1, 'Fakülte seçimi zorunludur'),
   department: z.string().min(1, 'Bölüm seçimi zorunludur'),
   priority_dept: z.string().optional(),

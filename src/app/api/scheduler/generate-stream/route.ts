@@ -127,8 +127,8 @@ export async function GET(request: NextRequest) {
             const metrics = calculateScheduleMetrics(schedule, courses, classrooms);
 
             // Calculate success rate
-            const totalSessions = courses.reduce((sum, c) => {
-              return sum + c.sessions.reduce((sSum, session) => sSum + session.hours, 0);
+            const totalSessions = courses.reduce((sum: number, c: any) => {
+              return sum + c.sessions.reduce((sSum: number, session: any) => sSum + session.hours, 0);
             }, 0);
 
             const scheduledCount = schedule.length;
@@ -145,12 +145,12 @@ export async function GET(request: NextRequest) {
                 scheduled_count: scheduledCount,
                 unscheduled_count: unscheduled.length,
                 success_rate: successRate,
-                unscheduled: unscheduled.map((c) => ({
+                unscheduled: unscheduled.map((c: any) => ({
                   id: c.id,
                   name: c.name,
                   code: c.code,
                   total_hours: c.totalHours,
-                  student_count: c.departments.reduce((sum, d) => sum + d.studentCount, 0),
+                  student_count: c.departments.reduce((sum: number, d: any) => sum + d.studentCount, 0),
                   reason: 'Uygun zaman/derslik bulunamadı',
                 })),
                 perfect: unscheduled.length === 0,

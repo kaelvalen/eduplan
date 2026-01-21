@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { classroomService } from '@/services';
-import { CreateClassroomSchema } from '@/lib/schemas';
+import { CreateClassroomSchema, type CreateClassroomInput } from '@/lib/schemas';
 import { withAuth, withAdminAndValidation } from '@/middleware';
 
 /**
@@ -35,9 +35,9 @@ export const GET = withAuth(async (request: NextRequest, user) => {
  * POST /api/classrooms - Create a new classroom
  * Requires admin authentication and validates input
  */
-export const POST = withAdminAndValidation(
+export const POST = withAdminAndValidation<CreateClassroomInput>(
   CreateClassroomSchema,
-  async (request: NextRequest, user, validated) => {
+  async (request: NextRequest, user, validated: CreateClassroomInput) => {
     try {
       const classroom = await classroomService.createClassroom(validated);
       return NextResponse.json(classroom, { status: 201 });

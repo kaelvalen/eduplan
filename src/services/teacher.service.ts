@@ -100,6 +100,8 @@ export class TeacherService extends BaseService<Teacher, CreateTeacherInput, Upd
       include: {
         courses: {
           include: {
+            sessions: true,
+            departments: true,
             schedules: {
               include: {
                 classroom: true,
@@ -125,13 +127,42 @@ export class TeacherService extends BaseService<Teacher, CreateTeacherInput, Upd
           id: course.id,
           name: course.name,
           code: course.code,
-          teacher_id: course.teacherId,
+          teacher_id: course.teacherId || 0,
+          faculty: course.faculty,
+          level: course.level,
+          category: (course.category as 'zorunlu' | 'secmeli') || 'zorunlu',
+          semester: course.semester,
+          ects: course.ects,
+          is_active: course.isActive,
+          teacher: teacher ? {
+            id: teacher.id,
+            name: teacher.name,
+            title: teacher.title || undefined,
+            email: teacher.email,
+            faculty: teacher.faculty,
+            department: teacher.department,
+            working_hours: (teacher as any).workingHours || null,
+          } : null,
+          total_hours: course.totalHours,
+          departments: course.departments?.map((d: any) => ({
+            id: d.id,
+            department: d.department,
+            student_count: d.studentCount,
+          })) || [],
+          sessions: course.sessions?.map((sess: any) => ({
+            id: sess.id,
+            type: (sess.type as 'teorik' | 'lab' | 'tümü') || 'teorik',
+            hours: sess.hours,
+          })) || [],
         },
         classroom: s.classroom ? {
           id: s.classroom.id,
           name: s.classroom.name,
-          type: s.classroom.type,
+          type: (s.classroom.type as 'teorik' | 'lab' | 'hibrit') || 'teorik',
           capacity: s.classroom.capacity,
+          faculty: s.classroom.faculty,
+          department: s.classroom.department,
+          available_hours: (s.classroom as any).availableHours || null,
         } : null,
       }))
     );

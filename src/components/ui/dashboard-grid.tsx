@@ -117,7 +117,6 @@ function WidgetContainer({
                   id={`widget-${widget.id}-visible`}
                   checked={widget.visible}
                   onCheckedChange={(checked) => onToggleVisibility(widget.id, checked)}
-                  size="sm"
                 />
               </div>
             )}

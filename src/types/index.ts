@@ -38,10 +38,10 @@ export interface Teacher {
   id: number;
   name: string;
   email: string;
-  title: string; // Akademik ünvan
+  title?: string; // Akademik ünvan (optional)
   faculty: string;
   department: string;
-  working_hours: string; // JSON string of AvailableHours
+  working_hours?: string | null; // JSON string of AvailableHours (optional)
   is_active?: boolean;
 }
 
@@ -94,6 +94,7 @@ export interface Course {
     id: number;
     name: string;
     title?: string;
+    working_hours?: string | null;
   } | null;
 }
 
@@ -121,7 +122,7 @@ export interface Classroom {
   faculty: string;
   department: string;
   priority_dept?: string; // Öncelikli bölüm kodu
-  available_hours?: string; // JSON string of AvailableHours
+  available_hours?: string | null; // JSON string of AvailableHours
   is_active?: boolean;
 }
 
@@ -178,6 +179,12 @@ export interface Schedule {
     name: string;
     code: string;
     teacher_id: number;
+    faculty: string;
+    level: string;
+    category: 'zorunlu' | 'secmeli';
+    semester: string;
+    ects: number;
+    is_active: boolean;
     teacher?: {
       id: number;
       name: string;
@@ -185,15 +192,21 @@ export interface Schedule {
       email: string;
       faculty: string;
       department: string;
+      working_hours?: string | null;
     } | null;
     total_hours?: number;
     student_count?: number;
+    departments: Array<{ id?: number; department: string; student_count: number }>;
+    sessions: Array<{ id?: number; type: 'teorik' | 'lab' | 'tümü'; hours: number }>;
   } | null;
   classroom?: {
     id: number;
     name: string;
-    type: string;
+    type: 'teorik' | 'lab' | 'hibrit';
     capacity: number;
+    faculty: string;
+    department: string;
+    available_hours?: string | null;
   } | null;
 }
 

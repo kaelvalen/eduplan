@@ -31,7 +31,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     try {
       const data = await notificationApi.getAll();
       setNotifications(data);
-      setUnreadCount(data.filter(n => !n.isRead).length);
+      setUnreadCount(data.filter((n: Notification) => !n.isRead).length);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     }

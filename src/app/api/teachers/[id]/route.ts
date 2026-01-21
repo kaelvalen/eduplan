@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { teacherService } from '@/services';
-import { UpdateTeacherSchema } from '@/lib/schemas';
+import { UpdateTeacherSchema, type UpdateTeacherInput } from '@/lib/schemas';
 import { withAuth, withAdminAndValidation, withAdmin } from '@/middleware';
 
 /**
@@ -44,9 +44,9 @@ export const GET = withAuth(async (request: NextRequest, user, context: any) => 
  * PUT /api/teachers/[id] - Update teacher
  * Requires admin authentication and validates input
  */
-export const PUT = withAdminAndValidation(
+export const PUT = withAdminAndValidation<UpdateTeacherInput>(
   UpdateTeacherSchema,
-  async (request: NextRequest, user, validated, context: any) => {
+  async (request: NextRequest, user, validated: UpdateTeacherInput, context: any) => {
     try {
       // Next.js 15+: params is a Promise
       const { params } = context;

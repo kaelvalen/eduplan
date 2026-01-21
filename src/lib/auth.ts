@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { db, prisma, isTurso } from './db';
+import type { User } from '@/types';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this';
 
@@ -38,7 +39,7 @@ export async function getTokenFromRequest(request: Request): Promise<string | nu
   return null;
 }
 
-export async function getCurrentUser(request: Request) {
+export async function getCurrentUser(request: Request): Promise<User & { id: number } | null> {
   const token = await getTokenFromRequest(request);
   if (!token) return null;
 
@@ -52,10 +53,12 @@ export async function getCurrentUser(request: Request) {
     });
     if (result.rows.length === 0) return null;
     const row = result.rows[0];
+    const role = (row.role as 'admin' | 'teacher') || 'teacher';
     return {
       id: row.id as number,
       username: row.username as string,
-      role: row.role as string,
+      role: role,
+      permissions: role === 'admin' ? ['admin'] : ['teacher'],
     };
   }
 
@@ -68,7 +71,15 @@ export async function getCurrentUser(request: Request) {
     },
   });
 
-  return user;
+  if (!user) return null;
+
+  const role = (user.role as 'admin' | 'teacher') || 'teacher';
+  return {
+    id: user.id,
+    username: user.username,
+    role: role,
+    permissions: role === 'admin' ? ['admin'] : ['teacher'],
+  };
 }
 
 export function isAdmin(user: { role: string } | null): boolean {

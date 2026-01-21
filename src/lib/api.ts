@@ -19,6 +19,7 @@ import type {
   HardcodedScheduleCreate,
   TeacherWithSchedule,
   ClassroomWithSchedule,
+  FilterOptions,
 } from '@/types';
 
 const API_URL = '/api';
@@ -69,8 +70,21 @@ export const authApi = {
 
 // ==================== TEACHERS ====================
 export const teachersApi = {
-  getAll: async (): Promise<Teacher[]> => {
-    const response = await api.get<Teacher[]>('/teachers');
+  getAll: async (filters?: FilterOptions): Promise<Teacher[]> => {
+    const params: Record<string, string> = {};
+    if (filters?.isActive !== undefined && filters.isActive !== null) {
+      params.isActive = String(filters.isActive);
+    }
+    if (filters?.faculty) {
+      params.faculty = filters.faculty;
+    }
+    if (filters?.department) {
+      params.department = filters.department;
+    }
+    if (filters?.searchTerm) {
+      params.search = filters.searchTerm;
+    }
+    const response = await api.get<Teacher[]>('/teachers', { params });
     return response.data;
   },
 
@@ -101,8 +115,24 @@ export const teachersApi = {
 
 // ==================== COURSES ====================
 export const coursesApi = {
-  getAll: async (): Promise<Course[]> => {
-    const response = await api.get<Course[]>('/courses');
+  getAll: async (filters?: FilterOptions): Promise<Course[]> => {
+    const params: Record<string, string> = {};
+    if (filters?.isActive !== undefined && filters.isActive !== null) {
+      params.isActive = String(filters.isActive);
+    }
+    if (filters?.faculty) {
+      params.faculty = filters.faculty;
+    }
+    if (filters?.department) {
+      params.department = filters.department;
+    }
+    if (filters?.type) {
+      params.type = filters.type;
+    }
+    if (filters?.searchTerm) {
+      params.search = filters.searchTerm;
+    }
+    const response = await api.get<Course[]>('/courses', { params });
     return response.data;
   },
 
@@ -148,8 +178,24 @@ export const coursesApi = {
 
 // ==================== CLASSROOMS ====================
 export const classroomsApi = {
-  getAll: async (): Promise<Classroom[]> => {
-    const response = await api.get<Classroom[]>('/classrooms');
+  getAll: async (filters?: FilterOptions): Promise<Classroom[]> => {
+    const params: Record<string, string> = {};
+    if (filters?.isActive !== undefined && filters.isActive !== null) {
+      params.isActive = String(filters.isActive);
+    }
+    if (filters?.faculty) {
+      params.faculty = filters.faculty;
+    }
+    if (filters?.department) {
+      params.department = filters.department;
+    }
+    if (filters?.type) {
+      params.type = filters.type;
+    }
+    if (filters?.searchTerm) {
+      params.search = filters.searchTerm;
+    }
+    const response = await api.get<Classroom[]>('/classrooms', { params });
     return response.data;
   },
 

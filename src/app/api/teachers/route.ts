@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { teacherService } from '@/services';
-import { CreateTeacherSchema } from '@/lib/schemas';
+import { CreateTeacherSchema, type CreateTeacherInput } from '@/lib/schemas';
 import { withAuth, withAdminAndValidation } from '@/middleware';
 
 /**
@@ -34,11 +34,11 @@ export const GET = withAuth(async (request: NextRequest, user) => {
  * POST /api/teachers - Create a new teacher
  * Requires admin authentication and validates input
  */
-export const POST = withAdminAndValidation(
+export const POST = withAdminAndValidation<CreateTeacherInput>(
   CreateTeacherSchema,
-  async (request: NextRequest, user, validated) => {
+  async (request: NextRequest, user, validated: CreateTeacherInput) => {
     try {
-      const teacher = await teacherService.createTeacher(validated);
+      const teacher = await teacherService.createTeacher(validated as CreateTeacherInput);
       return NextResponse.json(teacher, { status: 201 });
     } catch (error) {
       console.error('Create teacher error:', error);

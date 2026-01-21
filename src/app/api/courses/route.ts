@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { courseService } from '@/services';
-import { CreateCourseSchema } from '@/lib/schemas';
+import { CreateCourseSchema, type CreateCourseInput } from '@/lib/schemas';
 import { withAuth, withAdminAndValidation } from '@/middleware';
 
 /**
@@ -37,11 +37,11 @@ export const GET = withAuth(async (request: NextRequest, user) => {
  * POST /api/courses - Create a new course
  * Requires admin authentication and validates input
  */
-export const POST = withAdminAndValidation(
+export const POST = withAdminAndValidation<CreateCourseInput>(
   CreateCourseSchema,
-  async (request: NextRequest, user, validated) => {
+  async (request: NextRequest, user, validated: CreateCourseInput) => {
     try {
-      const course = await courseService.createCourse(validated);
+      const course = await courseService.createCourse(validated as CreateCourseInput);
       return NextResponse.json(course, { status: 201 });
     } catch (error) {
       console.error('Create course error:', error);

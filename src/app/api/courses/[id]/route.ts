@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { courseService } from '@/services';
-import { UpdateCourseSchema } from '@/lib/schemas';
+import { UpdateCourseSchema, type UpdateCourseInput } from '@/lib/schemas';
 import { withAuth, withAdminAndValidation, withAdmin } from '@/middleware';
 
 /**
@@ -44,9 +44,9 @@ export const GET = withAuth(async (request: NextRequest, user, context: any) => 
  * PUT /api/courses/[id] - Update course
  * Requires admin authentication and validates input
  */
-export const PUT = withAdminAndValidation(
+export const PUT = withAdminAndValidation<UpdateCourseInput>(
   UpdateCourseSchema,
-  async (request: NextRequest, user, validated, context: any) => {
+  async (request: NextRequest, user, validated: UpdateCourseInput, context: any) => {
     try {
       // Next.js 15+: params is a Promise
       const { params } = context;
@@ -60,7 +60,7 @@ export const PUT = withAdminAndValidation(
         );
       }
 
-      const course = await courseService.updateCourse(id, validated);
+      const course = await courseService.updateCourse(id, validated as UpdateCourseInput);
       return NextResponse.json(course);
     } catch (error) {
       console.error('Update course error:', error);

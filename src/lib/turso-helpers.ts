@@ -579,14 +579,63 @@ export async function getAllSchedules() {
     const result = await db.execute(`
       SELECT s.*, 
              c.code as courseCode, c.name as courseName, c.teacherId, c.level as courseLevel,
+             c.faculty as courseFaculty, c.category as courseCategory, c.semester as courseSemester,
+             c.ects as courseEcts, c.totalHours as courseTotalHours, c.isActive as courseIsActive,
              t.name as teacherName, t.workingHours as teacherWorkingHours,
-             cr.name as classroomName, cr.availableHours as classroomAvailableHours
+             cr.name as classroomName, cr.type as classroomType, cr.capacity as classroomCapacity,
+             cr.faculty as classroomFaculty, cr.department as classroomDepartment,
+             cr.availableHours as classroomAvailableHours
       FROM Schedule s
       LEFT JOIN Course c ON s.courseId = c.id
       LEFT JOIN Teacher t ON c.teacherId = t.id
       LEFT JOIN Classroom cr ON s.classroomId = cr.id
       ORDER BY s.day, s.timeRange
     `);
+    
+    // Get all course IDs to fetch departments and sessions
+    const courseIds = [...new Set(result.rows.map((r: any) => r.courseId).filter(Boolean))];
+    
+    // Fetch departments for all courses
+    const departmentsMap = new Map<number, Array<{ id?: number; department: string; student_count: number }>>();
+    if (courseIds.length > 0) {
+      const deptResult = await db.execute(`
+        SELECT courseId, id, department, studentCount
+        FROM CourseDepartment
+        WHERE courseId IN (${courseIds.map(() => '?').join(',')})
+      `, courseIds);
+      for (const row of deptResult.rows as any[]) {
+        const courseId = row.courseId as number;
+        if (!departmentsMap.has(courseId)) {
+          departmentsMap.set(courseId, []);
+        }
+        departmentsMap.get(courseId)!.push({
+          id: row.id,
+          department: row.department as string,
+          student_count: row.studentCount as number,
+        });
+      }
+    }
+    
+    // Fetch sessions for all courses
+    const sessionsMap = new Map<number, Array<{ id?: number; type: 'teorik' | 'lab' | 'tümü'; hours: number }>>();
+    if (courseIds.length > 0) {
+      const sessResult = await db.execute(`
+        SELECT courseId, id, type, hours
+        FROM CourseSession
+        WHERE courseId IN (${courseIds.map(() => '?').join(',')})
+      `, courseIds);
+      for (const row of sessResult.rows as any[]) {
+        const courseId = row.courseId as number;
+        if (!sessionsMap.has(courseId)) {
+          sessionsMap.set(courseId, []);
+        }
+        sessionsMap.get(courseId)!.push({
+          id: row.id,
+          type: (row.type as 'teorik' | 'lab' | 'tümü') || 'teorik',
+          hours: row.hours as number,
+        });
+      }
+    }
     return result.rows.map(row => ({
       id: row.id as number,
       day: row.day as string,
@@ -599,18 +648,30 @@ export async function getAllSchedules() {
         id: row.courseId as number,
         code: row.courseCode as string,
         name: row.courseName as string,
-        level: row.courseLevel as string,
         teacher_id: row.teacherId as number | null,
+        faculty: (row.courseFaculty as string) || '',
+        level: row.courseLevel as string,
+        category: ((row.courseCategory as string) || 'zorunlu') as 'zorunlu' | 'secmeli',
+        semester: (row.courseSemester as string) || 'güz',
+        ects: (row.courseEcts as number) || 3,
+        is_active: (row.courseIsActive as boolean | null | undefined) ?? true,
         teacher: row.teacherId ? { 
           id: row.teacherId as number, 
           name: row.teacherName as string,
           working_hours: row.teacherWorkingHours as string | null,
         } : null,
+        total_hours: row.courseTotalHours as number | undefined,
+        departments: departmentsMap.get(row.courseId as number) || [],
+        sessions: sessionsMap.get(row.courseId as number) || [],
       } : null,
       classroom: row.classroomId ? { 
         id: row.classroomId as number, 
         name: row.classroomName as string,
-        available_hours: row.classroomAvailableHours ? JSON.parse(row.classroomAvailableHours as string) : null,
+        type: (row.classroomType as 'teorik' | 'lab' | 'hibrit') || 'teorik',
+        capacity: row.classroomCapacity as number,
+        faculty: (row.classroomFaculty as string) || '',
+        department: (row.classroomDepartment as string) || '',
+        available_hours: row.classroomAvailableHours ? (typeof row.classroomAvailableHours === 'string' ? JSON.parse(row.classroomAvailableHours) : row.classroomAvailableHours) : null,
       } : null,
     }));
   }
@@ -625,13 +686,19 @@ export async function getAllSchedules() {
               name: true,
               workingHours: true,
             } 
-          } 
+          },
+          departments: true,
+          sessions: true,
         } 
       },
       classroom: {
         select: {
           id: true,
           name: true,
+          type: true,
+          capacity: true,
+          faculty: true,
+          department: true,
           availableHours: true,
         }
       },
@@ -651,17 +718,37 @@ export async function getAllSchedules() {
       id: s.course.id,
       code: s.course.code,
       name: s.course.name,
-      level: s.course.level,
       teacher_id: s.course.teacherId,
+      faculty: s.course.faculty,
+      level: s.course.level,
+      category: (s.course.category as 'zorunlu' | 'secmeli') || 'zorunlu',
+      semester: s.course.semester,
+      ects: s.course.ects,
+      is_active: s.course.isActive,
       teacher: s.course.teacher ? { 
         id: s.course.teacher.id, 
         name: s.course.teacher.name,
         working_hours: s.course.teacher.workingHours,
       } : null,
+      total_hours: s.course.totalHours,
+      departments: s.course.departments?.map((d: any) => ({
+        id: d.id,
+        department: d.department,
+        student_count: d.studentCount,
+      })) || [],
+      sessions: s.course.sessions?.map((sess: any) => ({
+        id: sess.id,
+        type: (sess.type as 'teorik' | 'lab' | 'tümü') || 'teorik',
+        hours: sess.hours,
+      })) || [],
     } : null,
     classroom: s.classroom ? { 
       id: s.classroom.id, 
       name: s.classroom.name,
+      type: ((s.classroom as any).type as 'teorik' | 'lab' | 'hibrit') || 'teorik',
+      capacity: (s.classroom as any).capacity || 30,
+      faculty: (s.classroom as any).faculty || '',
+      department: (s.classroom as any).department || '',
       available_hours: s.classroom.availableHours,
     } : null,
   }));
@@ -1199,26 +1286,75 @@ export async function getAllNotifications(userId?: number) {
       : 'SELECT * FROM Notification ORDER BY createdAt DESC';
     const args = userId ? [userId] : [];
     const result = await db.execute({ sql, args });
-    return result.rows.map(row => ({
-      id: row.id as number,
-      title: row.title as string,
-      message: row.message as string,
-      type: row.type as string,
-      category: row.category as string,
-      userId: row.userId as number | undefined,
-      isRead: Boolean(row.isRead),
-      actionUrl: row.actionUrl as string | undefined,
-      data: row.data as string | undefined,
-      createdAt: row.createdAt as string,
-      readAt: row.readAt as string | undefined,
-    }));
+    return result.rows.map(row => {
+      const createdAt = row.createdAt;
+      const readAt = row.readAt;
+      
+      let createdAtStr: string;
+      if (typeof createdAt === 'string') {
+        createdAtStr = createdAt;
+      } else if (createdAt instanceof Date) {
+        createdAtStr = createdAt.toISOString();
+      } else if (createdAt !== null && createdAt !== undefined) {
+        // Handle number, bigint, or other numeric types
+        const numValue = typeof createdAt === 'bigint' ? Number(createdAt) : Number(createdAt);
+        if (!isNaN(numValue)) {
+          createdAtStr = new Date(numValue).toISOString();
+        } else {
+          createdAtStr = new Date().toISOString(); // fallback
+        }
+      } else {
+        createdAtStr = new Date().toISOString(); // fallback
+      }
+      
+      let readAtStr: string | undefined;
+      if (readAt !== null && readAt !== undefined) {
+        if (typeof readAt === 'string') {
+          readAtStr = readAt;
+        } else if (readAt instanceof Date) {
+          readAtStr = readAt.toISOString();
+        } else {
+          // Handle number, bigint, or other numeric types
+          const numValue = typeof readAt === 'bigint' ? Number(readAt) : Number(readAt);
+          if (!isNaN(numValue)) {
+            readAtStr = new Date(numValue).toISOString();
+          }
+        }
+      }
+      
+      return {
+        id: row.id as number,
+        title: row.title as string,
+        message: row.message as string,
+        type: row.type as string,
+        category: row.category as string,
+        userId: (row.userId as number | null) ?? undefined,
+        isRead: Boolean(row.isRead),
+        actionUrl: (row.actionUrl as string | null) ?? undefined,
+        data: (row.data as string | null) ?? undefined,
+        createdAt: createdAtStr,
+        readAt: readAtStr,
+      };
+    });
   }
   const where = userId ? { OR: [{ userId: null }, { userId }] } : {};
   const notifications = await prisma.notification.findMany({
     where,
     orderBy: { createdAt: 'desc' }
   });
-  return notifications;
+  return notifications.map(n => ({
+    id: n.id,
+    title: n.title,
+    message: n.message,
+    type: n.type as 'info' | 'success' | 'warning' | 'error',
+    category: n.category as 'schedule' | 'teacher' | 'course' | 'classroom' | 'general',
+    userId: n.userId ?? undefined,
+    isRead: n.isRead,
+    actionUrl: n.actionUrl ?? undefined,
+    data: n.data ?? undefined,
+    createdAt: n.createdAt.toISOString(),
+    readAt: n.readAt?.toISOString() ?? undefined,
+  }));
 }
 
 export async function getNotificationById(id: number) {

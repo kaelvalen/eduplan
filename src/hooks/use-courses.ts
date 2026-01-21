@@ -190,7 +190,7 @@ export function useCreateHardcodedSchedule() {
 
   return useMutation({
     mutationFn: ({ courseId, data }: { courseId: number; data: any }) =>
-      coursesApi.createHardcodedSchedule(courseId, data),
+      coursesApi.addHardcodedSchedule(courseId, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: [...courseKeys.detail(variables.courseId), 'hardcoded-schedules'],
@@ -212,7 +212,7 @@ export function useDeleteHardcodedSchedule() {
 
   return useMutation({
     mutationFn: ({ courseId, scheduleId }: { courseId: number; scheduleId: number }) =>
-      coursesApi.deleteHardcodedSchedule(courseId, scheduleId),
+      coursesApi.removeHardcodedSchedule(courseId, scheduleId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: [...courseKeys.detail(variables.courseId), 'hardcoded-schedules'],

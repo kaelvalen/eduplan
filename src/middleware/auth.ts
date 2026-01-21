@@ -111,7 +111,7 @@ export function withAuthAndValidation<T>(
       const { validateRequest } = await import('./validation');
       const validated = await validateRequest(request, schema);
       
-      return await handler(request, user, validated, context);
+      return await handler(request, user, validated as T, context);
     } catch (error: any) {
       // Log validation errors to console for debugging
       if (error.statusCode === 400 && error.details) {
@@ -142,7 +142,7 @@ export function withAdminAndValidation<T>(
       const { validateRequest } = await import('./validation');
       const validated = await validateRequest(request, schema);
       
-      return await handler(request, user, validated, context);
+      return await handler(request, user, validated as T, context);
     } catch (error: any) {
       // Log validation errors to console for debugging
       if (error.statusCode === 400 && error.details) {
