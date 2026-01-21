@@ -1,11 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, MapPin, Calendar } from 'lucide-react';
+import { Clock, MapPin, Calendar, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useClassrooms } from '@/hooks/use-classrooms';
+import { useSchedules } from '@/hooks/use-schedules';
 import { schedulesApi } from '@/lib/api';
 import { DAYS_TR } from '@/constants/time';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import {
+  validateTeacherAvailability,
+  validateClassroomAvailability,
+  validateDepartmentConflicts,
+} from '@/lib/schedule-validation';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -41,7 +49,10 @@ export function ScheduleEditModal({
   onSuccess,
 }: ScheduleEditModalProps) {
   const { data: classrooms = [] } = useClassrooms();
+  const { schedules } = useSchedules();
   const [isSaving, setIsSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   
   const [formData, setFormData] = useState({
     day: '',
@@ -63,10 +74,90 @@ export function ScheduleEditModal({
     }
   }, [schedule]);
 
-  const handleSave = async () => {
+  // Validate on form change
+  useEffect(() => {
+    if (!schedule || !formData.day || !formData.startTime || !formData.endTime) {
+      setValidationErrors([]);
+      return;
+    }
+
+    const errors: string[] = [];
+    const selectedClassroom = classrooms.find((c) => c.id === formData.classroom_id);
+
+    // Teacher validation
+    const teacherValidation = validateTeacherAvailability(
+      schedule.course?.teacher,
+      formData.day,
+      formData.startTime,
+      formData.endTime,
+      schedules,
+      schedule.id
+    );
+    errors.push(...teacherValidation.errors);
+
+    // Classroom validation
+    const classroomValidation = validateClassroomAvailability(
+      selectedClassroom,
+      formData.day,
+      formData.startTime,
+      formData.endTime,
+      schedules,
+      schedule.id
+    );
+    errors.push(...classroomValidation.errors);
+
+    // Department conflicts validation
+    const departmentValidation = validateDepartmentConflicts(
+      schedule.course,
+      formData.day,
+      formData.startTime,
+      formData.endTime,
+      schedules,
+      schedule.id
+    );
+    errors.push(...departmentValidation.errors);
+
+    setValidationErrors(errors);
+  }, [formData, schedule, classrooms, schedules]);
+
+  const performSave = async () => {
     if (!schedule) return;
 
-    // Validation
+    setIsSaving(true);
+    try {
+      console.log('💾 Modal: Updating schedule via API...', {
+        id: schedule.id,
+        day: formData.day,
+        time_range: `${formData.startTime}-${formData.endTime}`,
+        classroom_id: formData.classroom_id,
+      });
+      
+      await schedulesApi.update(schedule.id, {
+        day: formData.day,
+        time_range: `${formData.startTime}-${formData.endTime}`,
+        classroom_id: formData.classroom_id,
+        course_id: schedule.course_id,
+        session_type: schedule.session_type,
+        is_hardcoded: schedule.is_hardcoded,
+      });
+
+      console.log('✅ Modal: Update successful');
+      toast.success('Ders saati güncellendi');
+      onSuccess();
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error('❌ Modal: Update failed', error);
+      const message = error?.response?.data?.error || error?.message || 'Güncelleme başarısız';
+      toast.error(message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSave = () => {
+    if (!schedule) return;
+
+    // Basic validation
     if (!formData.day || !formData.startTime || !formData.endTime || !formData.classroom_id) {
       toast.error('Tüm alanları doldurun');
       return;
@@ -81,26 +172,14 @@ export function ScheduleEditModal({
       return;
     }
 
-    setIsSaving(true);
-    try {
-      await schedulesApi.update(schedule.id, {
-        day: formData.day,
-        time_range: `${formData.startTime}-${formData.endTime}`,
-        classroom_id: formData.classroom_id,
-        course_id: schedule.course_id,
-        session_type: schedule.session_type,
-        is_hardcoded: schedule.is_hardcoded,
-      });
-
-      toast.success('Ders saati güncellendi');
-      onSuccess();
-      onOpenChange(false);
-    } catch (error: any) {
-      const message = error?.response?.data?.error || error?.message || 'Güncelleme başarısız';
-      toast.error(message);
-    } finally {
-      setIsSaving(false);
+    // Check validation errors - show confirmation dialog
+    if (validationErrors.length > 0) {
+      setShowConfirmDialog(true);
+      return;
     }
+
+    // No errors, save directly
+    performSave();
   };
 
   // Helper: Convert time string to minutes
@@ -135,6 +214,20 @@ export function ScheduleEditModal({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Validation Errors */}
+          {validationErrors.length > 0 && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                <ul className="list-disc list-inside space-y-1 text-sm">
+                  {validationErrors.map((error, idx) => (
+                    <li key={idx}>{error}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Course Info */}
           <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
             <div className="text-sm">
@@ -226,10 +319,26 @@ export function ScheduleEditModal({
             İptal
           </Button>
           <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? 'Kaydediliyor...' : 'Kaydet'}
+            {isSaving ? 'Kaydediliyor...' : validationErrors.length > 0 ? 'Uyarılarla Devam Et' : 'Kaydet'}
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        open={showConfirmDialog}
+        onOpenChange={setShowConfirmDialog}
+        title="Uyarılar Var"
+        description="Aşağıdaki uyarıları göz ardı ederek kaydetmek istiyor musun?"
+        warnings={validationErrors}
+        onConfirm={() => {
+          setShowConfirmDialog(false);
+          performSave();
+        }}
+        onCancel={() => {
+          setShowConfirmDialog(false);
+        }}
+      />
     </Dialog>
   );
 }

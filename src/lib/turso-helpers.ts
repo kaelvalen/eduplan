@@ -577,7 +577,10 @@ export async function deleteCourse(id: number) {
 export async function getAllSchedules() {
   if (isTurso && db) {
     const result = await db.execute(`
-      SELECT s.*, c.code as courseCode, c.name as courseName, c.teacherId, t.name as teacherName, cr.name as classroomName
+      SELECT s.*, 
+             c.code as courseCode, c.name as courseName, c.teacherId, c.level as courseLevel,
+             t.name as teacherName, t.workingHours as teacherWorkingHours,
+             cr.name as classroomName, cr.availableHours as classroomAvailableHours
       FROM Schedule s
       LEFT JOIN Course c ON s.courseId = c.id
       LEFT JOIN Teacher t ON c.teacherId = t.id
@@ -591,20 +594,47 @@ export async function getAllSchedules() {
       course_id: row.courseId as number,
       classroom_id: row.classroomId as number,
       session_type: row.sessionType as string,
+      is_hardcoded: Boolean(row.isHardcoded),
       course: row.courseId ? {
         id: row.courseId as number,
         code: row.courseCode as string,
         name: row.courseName as string,
-        teacher: row.teacherId ? { id: row.teacherId as number, name: row.teacherName as string } : null,
+        level: row.courseLevel as string,
+        teacher_id: row.teacherId as number | null,
+        teacher: row.teacherId ? { 
+          id: row.teacherId as number, 
+          name: row.teacherName as string,
+          working_hours: row.teacherWorkingHours as string | null,
+        } : null,
       } : null,
-      classroom: row.classroomId ? { id: row.classroomId as number, name: row.classroomName as string } : null,
+      classroom: row.classroomId ? { 
+        id: row.classroomId as number, 
+        name: row.classroomName as string,
+        available_hours: row.classroomAvailableHours ? JSON.parse(row.classroomAvailableHours as string) : null,
+      } : null,
     }));
   }
 
   const schedules = await prisma.schedule.findMany({
     include: {
-      course: { include: { teacher: { select: { id: true, name: true } } } },
-      classroom: true,
+      course: { 
+        include: { 
+          teacher: { 
+            select: { 
+              id: true, 
+              name: true,
+              workingHours: true,
+            } 
+          } 
+        } 
+      },
+      classroom: {
+        select: {
+          id: true,
+          name: true,
+          availableHours: true,
+        }
+      },
     },
     orderBy: [{ day: 'asc' }, { timeRange: 'asc' }],
   });
@@ -616,13 +646,24 @@ export async function getAllSchedules() {
     course_id: s.courseId,
     classroom_id: s.classroomId,
     session_type: (s as any).sessionType,
+    is_hardcoded: s.isHardcoded,
     course: s.course ? {
       id: s.course.id,
       code: s.course.code,
       name: s.course.name,
-      teacher: s.course.teacher ? { id: s.course.teacher.id, name: s.course.teacher.name } : null,
+      level: s.course.level,
+      teacher_id: s.course.teacherId,
+      teacher: s.course.teacher ? { 
+        id: s.course.teacher.id, 
+        name: s.course.teacher.name,
+        working_hours: s.course.teacher.workingHours,
+      } : null,
     } : null,
-    classroom: s.classroom ? { id: s.classroom.id, name: s.classroom.name } : null,
+    classroom: s.classroom ? { 
+      id: s.classroom.id, 
+      name: s.classroom.name,
+      available_hours: s.classroom.availableHours,
+    } : null,
   }));
 }
 
@@ -645,6 +686,68 @@ export async function createSchedule(data: { day: string; time_range: string; co
     data: { day: data.day, timeRange: data.time_range, courseId: data.course_id, classroomId: data.classroom_id },
   });
   return { id: s.id, day: s.day, time_range: s.timeRange, course_id: s.courseId, classroom_id: s.classroomId };
+}
+
+export async function updateSchedule(id: number, data: { day?: string; time_range?: string; classroom_id?: number; course_id?: number; session_type?: string; is_hardcoded?: boolean }) {
+  if (isTurso && db) {
+    const sets: string[] = [];
+    const args: any[] = [];
+    
+    if (data.day !== undefined) { sets.push('day = ?'); args.push(data.day); }
+    if (data.time_range !== undefined) { sets.push('timeRange = ?'); args.push(data.time_range); }
+    if (data.classroom_id !== undefined) { sets.push('classroomId = ?'); args.push(data.classroom_id); }
+    if (data.course_id !== undefined) { sets.push('courseId = ?'); args.push(data.course_id); }
+    if (data.session_type !== undefined) { sets.push('sessionType = ?'); args.push(data.session_type); }
+    if (data.is_hardcoded !== undefined) { sets.push('isHardcoded = ?'); args.push(data.is_hardcoded ? 1 : 0); }
+    
+    if (sets.length === 0) {
+      throw new Error('No fields to update');
+    }
+    
+    args.push(id);
+    await db.execute({
+      sql: `UPDATE Schedule SET ${sets.join(', ')} WHERE id = ?`,
+      args,
+    });
+    
+    // Return updated schedule
+    const result = await db.execute({ sql: 'SELECT * FROM Schedule WHERE id = ?', args: [id] });
+    if (result.rows.length === 0) return null;
+    
+    const row = result.rows[0];
+    return {
+      id: row.id as number,
+      day: row.day as string,
+      time_range: row.timeRange as string,
+      course_id: row.courseId as number,
+      classroom_id: row.classroomId as number,
+      session_type: row.sessionType as string || 'teorik',
+      is_hardcoded: Boolean(row.isHardcoded),
+    };
+  }
+  
+  const updateData: any = {};
+  if (data.day !== undefined) updateData.day = data.day;
+  if (data.time_range !== undefined) updateData.timeRange = data.time_range;
+  if (data.classroom_id !== undefined) updateData.classroomId = data.classroom_id;
+  if (data.course_id !== undefined) updateData.courseId = data.course_id;
+  if (data.session_type !== undefined) updateData.sessionType = data.session_type;
+  if (data.is_hardcoded !== undefined) updateData.isHardcoded = data.is_hardcoded;
+  
+  const s = await prisma.schedule.update({
+    where: { id },
+    data: updateData,
+  });
+  
+  return {
+    id: s.id,
+    day: s.day,
+    time_range: s.timeRange,
+    course_id: s.courseId,
+    classroom_id: s.classroomId,
+    session_type: (s as any).sessionType || 'teorik',
+    is_hardcoded: s.isHardcoded,
+  };
 }
 
 export async function deleteSchedule(id: number) {

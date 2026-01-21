@@ -72,32 +72,61 @@ export function useSchedules() {
   });
 
   const updateScheduleMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) => schedulesApi.update(id, data),
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      console.log('🔄 Updating schedule:', { id, data });
+      const result = await schedulesApi.update(id, data);
+      console.log('✅ Update response:', result);
+      return result;
+    },
     onMutate: async ({ id, data }) => {
+      console.log('⚡ Optimistic update - START', { id, data });
       await queryClient.cancelQueries({ queryKey: scheduleKeys.lists() });
       const previousSchedules = queryClient.getQueriesData({ queryKey: scheduleKeys.lists() });
       
-      // Optimistically update schedule
+      // Optimistically update schedule (preserve nested objects)
       queryClient.setQueriesData(
         { queryKey: scheduleKeys.lists() },
-        (old: any) => old ? old.map((s: any) => s.id === id ? { ...s, ...data } : s) : []
+        (old: any) => {
+          console.log('📦 Old schedules:', old?.length);
+          const updated = old ? old.map((s: any) => {
+            if (s.id === id) {
+              // Preserve nested objects (course, teacher, classroom)
+              const merged = {
+                ...s,
+                ...data,
+                // Ensure nested objects are preserved
+                course: s.course,
+                teacher: s.teacher,
+                classroom: s.classroom,
+              };
+              console.log('🔄 Merging schedule:', { old: s, new: merged });
+              return merged;
+            }
+            return s;
+          }) : [];
+          console.log('📦 Updated schedules:', updated.length);
+          return updated;
+        }
       );
       
       return { previousSchedules };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      console.log('✅ Update SUCCESS, invalidating cache...', result);
       queryClient.invalidateQueries({ queryKey: scheduleKeys.lists() });
-      // Toast message handled by modal
+      toast.success('Ders saati güncellendi');
     },
     onError: (error: Error, _, context) => {
+      console.error('❌ Update ERROR:', error);
       if (context?.previousSchedules) {
         context.previousSchedules.forEach(([queryKey, data]) => {
           queryClient.setQueryData(queryKey, data);
         });
       }
-      // Error handled by modal
+      toast.error('Güncelleme başarısız: ' + (error.message || 'Bilinmeyen hata'));
     },
     onSettled: () => {
+      console.log('🏁 Update SETTLED, final invalidation');
       queryClient.invalidateQueries({ queryKey: scheduleKeys.lists() });
     },
   });

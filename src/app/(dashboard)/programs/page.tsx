@@ -1,14 +1,21 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { DndContext, DragEndEvent, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { Calendar, Building2, Users, ChevronDown, Trash2, Download, Printer, Search, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { toast } from 'sonner';
 import { useSchedules } from '@/hooks/use-schedules';
 import { useCourses } from '@/hooks/use-courses';
 import { useAuth } from '@/contexts/auth-context';
 import { getDepartmentName, FACULTIES, DEPARTMENTS } from '@/constants/faculties';
 import { DAYS_TR as DAYS, DAYS_EN_TO_TR, DAYS_TR_TO_EN } from '@/constants/time';
 import { styles } from '@/lib/design-tokens';
+import {
+    validateTeacherAvailability,
+    validateClassroomAvailability,
+    validateDepartmentConflicts,
+} from '@/lib/schedule-validation';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,12 +49,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { ScheduleEditModal } from '@/components/programs/schedule-edit-modal';
+import { DroppableTimeSlot } from '@/components/programs/droppable-time-slot';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import type { Schedule, Course, SystemSettings } from '@/types';
 
 const LEVELS = ['1', '2', '3', '4'] as const;
 
 export default function ProgramViewPage() {
-    const { schedules, isLoading: schedulesLoading, deleteByDays, fetchSchedules } = useSchedules();
+    const { schedules, isLoading: schedulesLoading, deleteByDays, fetchSchedules, updateSchedule } = useSchedules();
     const { data: courses = [], isLoading: coursesLoading } = useCourses();
     const { isAdmin } = useAuth();
     const [settings, setSettings] = useState<SystemSettings | null>(null);
@@ -62,12 +71,146 @@ export default function ProgramViewPage() {
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
 
+    // Drag & Drop state
+    const [activeSchedule, setActiveSchedule] = useState<Schedule | null>(null);
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8, // 8px movement required before drag starts
+            },
+        })
+    );
+
+    // Confirmation dialog state
+    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+    const [confirmationData, setConfirmationData] = useState<{
+        warnings: string[];
+        onConfirm: () => void;
+    } | null>(null);
+
     // Handle schedule card click
     const handleScheduleClick = (schedule: Schedule) => {
         if (isAdmin) {
             setSelectedSchedule(schedule);
             setEditModalOpen(true);
         }
+    };
+
+    // Handle drag end
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+        
+        if (!over || !active.data.current) {
+            setActiveSchedule(null);
+            return;
+        }
+
+        const schedule = active.data.current.schedule as Schedule;
+        const { day, slot } = over.data.current as { day: string; slot: string };
+        
+        const [newStartTime] = slot.split('-');
+        const [, oldEndTime] = (schedule.time_range || '').split('-');
+        
+        // Calculate duration
+        const toMin = (t: string) => {
+            const [h, m] = t.split(':').map(Number);
+            return h * 60 + m;
+        };
+        const oldStart = (schedule.time_range || '').split('-')[0];
+        const duration = toMin(oldEndTime.trim()) - toMin(oldStart.trim());
+        const newEndMin = toMin(newStartTime) + duration;
+        const newEndTime = `${Math.floor(newEndMin / 60).toString().padStart(2, '0')}:${(newEndMin % 60).toString().padStart(2, '0')}`;
+
+        // Validate
+        const errors: string[] = [];
+        
+        console.log('🔍 Validating teacher:', {
+            teacher: schedule.course?.teacher,
+            day,
+            time: `${newStartTime}-${newEndTime}`,
+            working_hours: schedule.course?.teacher?.working_hours,
+        });
+        
+        const teacherValid = validateTeacherAvailability(
+            schedule.course?.teacher,
+            day,
+            newStartTime,
+            newEndTime,
+            schedules,
+            schedule.id
+        );
+        console.log('📋 Teacher validation result:', teacherValid);
+        errors.push(...teacherValid.errors);
+
+        const classroom = schedules.find(s => s.id === schedule.id)?.classroom;
+        const classroomValid = validateClassroomAvailability(
+            classroom,
+            day,
+            newStartTime,
+            newEndTime,
+            schedules,
+            schedule.id
+        );
+        console.log('📋 Classroom validation result:', classroomValid);
+        errors.push(...classroomValid.errors);
+
+        const deptValid = validateDepartmentConflicts(
+            schedule.course,
+            day,
+            newStartTime,
+            newEndTime,
+            schedules,
+            schedule.id
+        );
+        console.log('📋 Department validation result:', deptValid);
+        errors.push(...deptValid.errors);
+        
+        console.log('⚠️ Total validation errors:', errors);
+
+        // Prepare update function
+        const performUpdate = () => {
+            console.log('🎯 Calling updateSchedule with:', {
+                id: schedule.id,
+                day,
+                newTimeRange: `${newStartTime}-${newEndTime}`,
+                classroom_id: schedule.classroom_id,
+            });
+            
+            updateSchedule({
+                id: schedule.id,
+                data: {
+                    day,
+                    time_range: `${newStartTime}-${newEndTime}`,
+                    classroom_id: schedule.classroom_id,
+                    course_id: schedule.course_id,
+                    session_type: schedule.session_type,
+                    is_hardcoded: schedule.is_hardcoded,
+                },
+            });
+
+            setActiveSchedule(null);
+            
+            if (errors.length > 0) {
+                toast.warning('Uyarılar göz ardı edilerek güncellendi', { duration: 2000 });
+            }
+        };
+
+        // If there are errors, show confirmation dialog
+        if (errors.length > 0) {
+            setConfirmationData({
+                warnings: errors,
+                onConfirm: () => {
+                    setConfirmDialogOpen(false);
+                    performUpdate();
+                },
+            });
+            setConfirmDialogOpen(true);
+            setActiveSchedule(null);
+            return;
+        }
+
+        // No errors, update directly
+        performUpdate();
     };
 
     // Fetch time settings for lunch break detection and dynamic slots
@@ -281,12 +424,21 @@ export default function ProgramViewPage() {
     }
 
     return (
-        <div className={styles.pageContainer}>
-            <PageHeader
-                title="Ders Programı"
-                description="Bölüm ve sınıf bazlı ders programları"
-                icon={Calendar}
-                entity="schedules"
+        <DndContext
+            sensors={sensors}
+            onDragEnd={handleDragEnd}
+            onDragStart={(event) => {
+                const schedule = event.active.data.current?.schedule as Schedule;
+                setActiveSchedule(schedule);
+            }}
+            onDragCancel={() => setActiveSchedule(null)}
+        >
+            <div className={styles.pageContainer}>
+                <PageHeader
+                    title="Ders Programı"
+                    description="Bölüm ve sınıf bazlı ders programları"
+                    icon={Calendar}
+                    entity="schedules"
                 action={
                     <div className="flex flex-wrap gap-2 print:hidden">
                         <DropdownMenu>
@@ -530,60 +682,16 @@ export default function ProgramViewPage() {
                                                                         }
 
                                                                         return (
-                                                                            <td
+                                                                            <DroppableTimeSlot
                                                                                 key={`${dayTr}-${slot}`}
+                                                                                day={dayTr}
+                                                                                slot={slot}
+                                                                                schedule={schedule}
+                                                                                isLunch={isLunch}
                                                                                 rowSpan={rowSpan}
-                                                                                className={cn(
-                                                                                    'p-1 border-r last:border-r-0 align-top',
-                                                                                    schedule && 'bg-primary/5',
-                                                                                    isLunch && !schedule && 'bg-amber-50/30 dark:bg-amber-950/10'
-                                                                                )}
-                                                                            >
-                                                                                {schedule ? (
-                                                                                    <div 
-                                                                                        onClick={() => handleScheduleClick(schedule)}
-                                                                                        className={cn(
-                                                                                            "text-xs p-2 rounded border bg-card shadow-sm h-full flex flex-col justify-center",
-                                                                                            isAdmin && "cursor-pointer hover:bg-primary/10 hover:border-primary/50 transition-all hover:shadow-md"
-                                                                                        )}
-                                                                                        title={isAdmin ? "Düzenlemek için tıklayın" : ""}
-                                                                                    >
-                                                                                        <div className="flex items-center justify-between gap-1 mb-1">
-                                                                                            <div className="font-bold text-sm text-primary truncate">
-                                                                                                {schedule.course?.code}
-                                                                                            </div>
-                                                                                            {schedule.session_type && (
-                                                                                                <Badge
-                                                                                                    variant={schedule.session_type === 'lab' ? 'destructive' : 'secondary'}
-                                                                                                    className="h-4 px-1 text-[10px] py-0"
-                                                                                                >
-                                                                                                    {schedule.session_type === 'lab' ? 'LAB' : 'TEO'}
-                                                                                                </Badge>
-                                                                                            )}
-                                                                                        </div>
-                                                                                        <div className="font-medium mb-1 line-clamp-2">
-                                                                                            {schedule.course?.name}
-                                                                                        </div>
-                                                                                        <div className="text-muted-foreground truncate text-[10px]">
-                                                                                            👤 {schedule.course?.teacher?.name}
-                                                                                        </div>
-                                                                                        <div className="text-muted-foreground truncate text-[10px]">
-                                                                                            📍 {schedule.classroom?.name}
-                                                                                        </div>
-                                                                                        {rowSpan > 1 && (
-                                                                                            <div className="mt-1 pt-1 border-t text-[9px] text-muted-foreground">
-                                                                                                🕒 {schedule.time_range}
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                ) : isLunch ? (
-                                                                                    <div className="h-8 flex items-center justify-center text-xs text-amber-600/40 font-medium">
-                                                                                        ARA
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <div className="h-8" />
-                                                                                )}
-                                                                            </td>
+                                                                                onScheduleClick={handleScheduleClick}
+                                                                                isAdmin={isAdmin}
+                                                                            />
                                                                         );
                                                                     })}
                                                                 </tr>
@@ -611,6 +719,46 @@ export default function ProgramViewPage() {
                     setEditModalOpen(false);
                 }}
             />
+
+            {/* Confirmation Dialog */}
+            {confirmationData && (
+                <ConfirmationDialog
+                    open={confirmDialogOpen}
+                    onOpenChange={setConfirmDialogOpen}
+                    title="Program Taşıma Uyarısı"
+                    description="Seçtiğin zaman diliminde sorunlar tespit edildi."
+                    warnings={confirmationData.warnings}
+                    onConfirm={confirmationData.onConfirm}
+                    onCancel={() => {
+                        setConfirmDialogOpen(false);
+                        toast.info('Taşıma iptal edildi');
+                    }}
+                />
+            )}
         </div>
+
+        {/* Drag Overlay */}
+        <DragOverlay>
+            {activeSchedule && (
+                <div className="text-xs p-2 rounded border bg-card shadow-2xl h-full flex flex-col justify-center opacity-90 rotate-2">
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                        <div className="font-bold text-sm text-primary truncate">{activeSchedule.course?.code}</div>
+                        {activeSchedule.session_type && (
+                            <Badge
+                                variant={activeSchedule.session_type === 'lab' ? 'destructive' : 'secondary'}
+                                className="h-4 px-1 text-[10px] py-0"
+                            >
+                                {activeSchedule.session_type === 'lab' ? 'LAB' : 'TEO'}
+                            </Badge>
+                        )}
+                    </div>
+                    <div className="font-medium mb-1 line-clamp-2">{activeSchedule.course?.name}</div>
+                    <div className="text-muted-foreground truncate text-[10px]">
+                        👤 {activeSchedule.course?.teacher?.name}
+                    </div>
+                </div>
+            )}
+        </DragOverlay>
+    </DndContext>
     );
 }

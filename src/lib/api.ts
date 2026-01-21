@@ -195,6 +195,11 @@ export const schedulesApi = {
     return response.data;
   },
 
+  update: async (id: number, data: Partial<ScheduleCreate>): Promise<Schedule> => {
+    const response = await api.put<Schedule>(`/schedules/${id}`, data);
+    return response.data;
+  },
+
   delete: async (id: number): Promise<void> => {
     await api.delete(`/schedules/${id}`);
   },
