@@ -41,6 +41,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { ScheduleEditModal } from '@/components/programs/schedule-edit-modal';
 import type { Schedule, Course, SystemSettings } from '@/types';
 
 const LEVELS = ['1', '2', '3', '4'] as const;
@@ -56,6 +57,18 @@ export default function ProgramViewPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedLevels, setExpandedLevels] = useState<Set<string>>(new Set(['1', '2', '3', '4']));
     const [deleteConfirm, setDeleteConfirm] = useState(false);
+    
+    // Edit modal state
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
+
+    // Handle schedule card click
+    const handleScheduleClick = (schedule: Schedule) => {
+        if (isAdmin) {
+            setSelectedSchedule(schedule);
+            setEditModalOpen(true);
+        }
+    };
 
     // Fetch time settings for lunch break detection and dynamic slots
     useEffect(() => {
@@ -527,7 +540,14 @@ export default function ProgramViewPage() {
                                                                                 )}
                                                                             >
                                                                                 {schedule ? (
-                                                                                    <div className="text-xs p-2 rounded border bg-card shadow-sm h-full flex flex-col justify-center">
+                                                                                    <div 
+                                                                                        onClick={() => handleScheduleClick(schedule)}
+                                                                                        className={cn(
+                                                                                            "text-xs p-2 rounded border bg-card shadow-sm h-full flex flex-col justify-center",
+                                                                                            isAdmin && "cursor-pointer hover:bg-primary/10 hover:border-primary/50 transition-all hover:shadow-md"
+                                                                                        )}
+                                                                                        title={isAdmin ? "Düzenlemek için tıklayın" : ""}
+                                                                                    >
                                                                                         <div className="flex items-center justify-between gap-1 mb-1">
                                                                                             <div className="font-bold text-sm text-primary truncate">
                                                                                                 {schedule.course?.code}
@@ -580,6 +600,17 @@ export default function ProgramViewPage() {
                         ))}
                 </div>
             )}
+
+            {/* Edit Modal */}
+            <ScheduleEditModal
+                open={editModalOpen}
+                onOpenChange={setEditModalOpen}
+                schedule={selectedSchedule}
+                onSuccess={() => {
+                    fetchSchedules();
+                    setEditModalOpen(false);
+                }}
+            />
         </div>
     );
 }

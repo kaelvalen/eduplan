@@ -71,6 +71,37 @@ export function useSchedules() {
     },
   });
 
+  const updateScheduleMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => schedulesApi.update(id, data),
+    onMutate: async ({ id, data }) => {
+      await queryClient.cancelQueries({ queryKey: scheduleKeys.lists() });
+      const previousSchedules = queryClient.getQueriesData({ queryKey: scheduleKeys.lists() });
+      
+      // Optimistically update schedule
+      queryClient.setQueriesData(
+        { queryKey: scheduleKeys.lists() },
+        (old: any) => old ? old.map((s: any) => s.id === id ? { ...s, ...data } : s) : []
+      );
+      
+      return { previousSchedules };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.lists() });
+      // Toast message handled by modal
+    },
+    onError: (error: Error, _, context) => {
+      if (context?.previousSchedules) {
+        context.previousSchedules.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      // Error handled by modal
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.lists() });
+    },
+  });
+
   const fetchSchedules = () => {
     queryClient.invalidateQueries({ queryKey: scheduleKeys.lists() });
   };
@@ -82,5 +113,6 @@ export function useSchedules() {
     fetchSchedules,
     deleteSchedule: deleteScheduleMutation.mutate,
     deleteByDays: deleteByDaysMutation.mutate,
+    updateSchedule: updateScheduleMutation.mutate,
   };
 }
