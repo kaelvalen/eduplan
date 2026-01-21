@@ -202,49 +202,56 @@ export function validateClassroomAvailability(
 
   // Check if available hours are defined
   if (!classroom.available_hours) {
-    errors.push(`⚠️ ${classroom.name} için müsait saatler tanımlanmamış. Yine de devam edilebilir.`);
-    return { valid: false, errors };
-  }
+    // Don't show error if available_hours is not defined - it's optional
+    console.log('⚠️ No available_hours defined for classroom, skipping validation');
+  } else {
+    // Parse available_hours if it's a string
+    let availableHours: any;
+    try {
+      availableHours = typeof classroom.available_hours === 'string'
+        ? JSON.parse(classroom.available_hours)
+        : classroom.available_hours;
+      console.log('📋 Parsed available hours:', availableHours);
+      console.log('📋 Available keys:', Object.keys(availableHours || {}));
+    } catch (e) {
+      console.error('❌ Failed to parse available_hours:', e);
+      // Don't show error for invalid format - just skip validation
+      availableHours = null;
+    }
 
-  // Parse available_hours if it's a string
-  let availableHours: any;
-  try {
-    availableHours = typeof classroom.available_hours === 'string'
-      ? JSON.parse(classroom.available_hours)
-      : classroom.available_hours;
-    console.log('📋 Parsed available hours:', availableHours);
-    console.log('📋 Available keys:', Object.keys(availableHours));
-  } catch (e) {
-    console.error('❌ Failed to parse available_hours:', e);
-    errors.push(`⚠️ ${classroom.name} için müsait saatler hatalı formatta`);
-    return { valid: false, errors };
-  }
-
-  // Check available hours
-  if (availableHours && typeof availableHours === 'object') {
-    // Try all possible day name variations
-    const possibleDayNames = getAllDayVariations(day);
-    console.log('🔍 Trying day variations for classroom:', possibleDayNames);
-    
-    let dayHours = null;
-    for (const dayName of possibleDayNames) {
-      if (availableHours[dayName]) {
-        dayHours = availableHours[dayName];
-        console.log('✅ Found classroom hours with:', dayName, dayHours);
-        break;
+    // Check available hours only if it's a valid object
+    if (availableHours && typeof availableHours === 'object' && Object.keys(availableHours).length > 0) {
+      // Try all possible day name variations
+      const possibleDayNames = getAllDayVariations(day);
+      console.log('🔍 Trying day variations for classroom:', possibleDayNames);
+      
+      let dayHours = null;
+      for (const dayName of possibleDayNames) {
+        if (availableHours[dayName] && Array.isArray(availableHours[dayName]) && availableHours[dayName].length > 0) {
+          dayHours = availableHours[dayName];
+          console.log('✅ Found classroom hours with:', dayName, dayHours);
+          break;
+        }
       }
-    }
 
-    if (!dayHours || dayHours.length === 0) {
-      // Convert English day names to Turkish for display
-      const availableDays = Object.keys(availableHours)
-        .filter(k => availableHours[k] && availableHours[k].length > 0)
-        .map(d => ENGLISH_TO_DAY[d.toLowerCase()] || d)
-        .join(', ');
-      console.log('❌ No hours found, available days:', availableDays);
-      errors.push(`${classroom.name} ${day} günü kullanılamıyor (Müsait günler: ${availableDays})`);
-      return { valid: false, errors };
-    }
+      if (!dayHours || dayHours.length === 0) {
+        // Get all days that have valid hours
+        const availableDays = Object.keys(availableHours)
+          .filter(k => {
+            const hours = availableHours[k];
+            return hours && Array.isArray(hours) && hours.length > 0;
+          })
+          .map(d => ENGLISH_TO_DAY[d.toLowerCase()] || d);
+        
+        console.log('❌ No hours found, available days:', availableDays);
+        
+        if (availableDays.length > 0) {
+          errors.push(`${classroom.name} ${day} günü kullanılamıyor (Müsait günler: ${availableDays.join(', ')})`);
+        } else {
+          // If no valid days found, don't show this error - available_hours might be empty/invalid
+          console.log('⚠️ No valid days found in available_hours, skipping this validation');
+        }
+      } else {
 
     // Check if time slot is within available hours
     const startMin = timeToMinutes(startTime);
@@ -258,10 +265,12 @@ export function validateClassroomAvailability(
       return startMin >= aStartMin && endMin <= aEndMin;
     });
 
-    if (!isWithinAvailableHours) {
-      errors.push(
-        `${classroom.name} bu saatte (${startTime}-${endTime}) kullanılamıyor. Müsait saatler: ${dayHours.join(', ')}`
-      );
+        if (!isWithinAvailableHours) {
+          errors.push(
+            `${classroom.name} bu saatte (${startTime}-${endTime}) kullanılamıyor. Müsait saatler: ${dayHours.join(', ')}`
+          );
+        }
+      }
     }
   }
 
