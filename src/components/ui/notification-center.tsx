@@ -101,8 +101,18 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
   useEffect(() => {
     if (!user || !token) return;
 
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+    let isMounted = true;
+
     const setupSSE = () => {
-      const eventSource = new EventSource(`/api/notifications/stream?lastId=${notifications.length > 0 ? notifications[0].id : 0}&token=${encodeURIComponent(token)}`);
+      if (!isMounted) return;
+      
+      // Close existing connection if any
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+
+      const eventSource = new EventSource(`/api/notifications/stream?lastId=0&token=${encodeURIComponent(token)}`);
 
       eventSource.onmessage = (event) => {
         try {
@@ -131,13 +141,18 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
       };
 
       eventSource.onerror = (error) => {
-        console.error('SSE connection error:', error);
-        // Reconnect after a delay
-        setTimeout(() => {
-          if (eventSource.readyState === EventSource.CLOSED) {
-            setupSSE();
+        // Only log if connection is actually closed, not just connecting
+        if (eventSource.readyState === EventSource.CLOSED) {
+          console.error('SSE connection closed');
+          // Reconnect after a delay only if component is still mounted
+          if (isMounted) {
+            reconnectTimeout = setTimeout(() => {
+              if (isMounted && eventSource.readyState === EventSource.CLOSED) {
+                setupSSE();
+              }
+            }, 5000);
           }
-        }, 5000);
+        }
       };
 
       eventSourceRef.current = eventSource;
@@ -146,12 +161,16 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     setupSSE();
 
     return () => {
+      isMounted = false;
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
       }
     };
-  }, [user, token, notifications]);
+  }, [user, token]);
 
   // Initial fetch
   useEffect(() => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Clock, MapPin, Calendar, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useClassrooms } from '@/hooks/use-classrooms';
@@ -50,6 +50,7 @@ export function ScheduleEditModal({
 }: ScheduleEditModalProps) {
   const { data: classrooms = [] } = useClassrooms();
   const { schedules } = useSchedules();
+  const schedulesRef = useRef(schedules);
   const [isSaving, setIsSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -60,6 +61,11 @@ export function ScheduleEditModal({
     endTime: '',
     classroom_id: 0,
   });
+
+  // Keep schedules ref updated
+  useEffect(() => {
+    schedulesRef.current = schedules;
+  }, [schedules]);
 
   // Initialize form data when schedule changes
   useEffect(() => {
@@ -83,6 +89,7 @@ export function ScheduleEditModal({
 
     const errors: string[] = [];
     const selectedClassroom = classrooms.find((c) => c.id === formData.classroom_id);
+    const currentSchedules = schedulesRef.current;
 
     // Teacher validation
     const teacherValidation = validateTeacherAvailability(
@@ -90,7 +97,7 @@ export function ScheduleEditModal({
       formData.day,
       formData.startTime,
       formData.endTime,
-      schedules,
+      currentSchedules,
       schedule.id
     );
     errors.push(...teacherValidation.errors);
@@ -101,7 +108,7 @@ export function ScheduleEditModal({
       formData.day,
       formData.startTime,
       formData.endTime,
-      schedules,
+      currentSchedules,
       schedule.id
     );
     errors.push(...classroomValidation.errors);
@@ -112,13 +119,13 @@ export function ScheduleEditModal({
       formData.day,
       formData.startTime,
       formData.endTime,
-      schedules,
+      currentSchedules,
       schedule.id
     );
     errors.push(...departmentValidation.errors);
 
     setValidationErrors(errors);
-  }, [formData, schedule, classrooms, schedules]);
+  }, [formData.day, formData.startTime, formData.endTime, formData.classroom_id, schedule, classrooms]);
 
   const performSave = async () => {
     if (!schedule) return;
