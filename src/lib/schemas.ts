@@ -54,7 +54,7 @@ export const UpdateCourseSchema = BaseCourseSchema.partial();
 const BaseTeacherSchema = z.object({
   name: z.string().min(2, 'İsim en az 2 karakter olmalıdır').max(200, 'İsim en fazla 200 karakter olabilir'),
   email: z.string().email('Geçerli bir e-posta adresi girin').toLowerCase(),
-  title: z.enum(['Prof. Dr.', 'Doç. Dr.', 'Dr. Öğr. Üyesi', 'Öğr. Gör.', 'Arş. Gör.'], 'Geçerli bir akademik ünvan seçin').default('Öğr. Gör.'),
+  title: z.enum(['Prof. Dr.', 'Doç. Dr.', 'Dr. Öğr. Üyesi', 'Öğr. Gör.', 'Öğr. Gör. Dr.', 'Arş. Gör.', 'Arş. Gör. Dr.'], 'Geçerli bir akademik ünvan seçin').default('Öğr. Gör.'),
   faculty: z.string().min(1, 'Fakülte seçimi zorunludur'),
   department: z.string().min(1, 'Bölüm seçimi zorunludur'),
   working_hours: z.string().optional(),
