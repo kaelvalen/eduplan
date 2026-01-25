@@ -2,33 +2,49 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  Upload, 
-  Download, 
-  FileSpreadsheet, 
-  Users, 
-  BookOpen, 
-  Building2, 
+import {
+  Upload,
+  Download,
+  FileSpreadsheet,
+  Users,
+  BookOpen,
+  Building2,
   Calendar,
   Loader2,
-  CheckCircle,
+  CheckCircle2,
+  XCircle,
   AlertCircle,
   FileUp,
-  X
+  ChevronRight,
+  Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import * as XLSX from 'xlsx';
 import { useAuth } from '@/contexts/auth-context';
 import { teachersApi, coursesApi, classroomsApi, schedulesApi } from '@/lib/api';
+import {
+  exportToExcel,
+  mapTeachersForExport,
+  mapCoursesForExport,
+  mapClassroomsForExport,
+  mapSchedulesForExport,
+  downloadTeacherTemplate,
+  downloadCourseTemplate,
+  downloadClassroomTemplate,
+  readExcelFile,
+  validateAndMapTeachers,
+  validateAndMapCourses,
+  validateAndMapClassrooms,
+  type RowResult,
+} from '@/lib/excel-io';
 import { styles } from '@/lib/design-tokens';
 import { getEntityColors, type EntityKey } from '@/lib/design-tokens';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { PageHeader } from '@/components/ui/page-header';
 import {
   Dialog,
   DialogContent,
@@ -37,287 +53,212 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Progress } from '@/components/ui/progress';
 
-const exportOptions = [
-  { 
-    id: 'teachers', 
-    label: 'Öğretmenler', 
-    icon: Users, 
-    entity: 'teachers' as EntityKey,
-    description: 'Tüm öğretmen verilerini dışa aktar'
-  },
-  { 
-    id: 'courses', 
-    label: 'Dersler', 
-    icon: BookOpen, 
-    entity: 'courses' as EntityKey,
-    description: 'Tüm ders verilerini dışa aktar'
-  },
-  { 
-    id: 'classrooms', 
-    label: 'Derslikler', 
-    icon: Building2, 
-    entity: 'classrooms' as EntityKey,
-    description: 'Tüm derslik verilerini dışa aktar'
-  },
-  { 
-    id: 'schedules', 
-    label: 'Ders Programı', 
-    icon: Calendar, 
-    entity: 'schedules' as EntityKey,
-    description: 'Mevcut ders programını dışa aktar'
-  },
+const EXPORT_OPTIONS = [
+  { id: 'teachers', label: 'Öğretmenler', icon: Users, entity: 'teachers' as EntityKey, description: 'Tüm öğretmenleri Excel\'e aktar' },
+  { id: 'courses', label: 'Dersler', icon: BookOpen, entity: 'courses' as EntityKey, description: 'Tüm dersleri Excel\'e aktar' },
+  { id: 'classrooms', label: 'Derslikler', icon: Building2, entity: 'classrooms' as EntityKey, description: 'Tüm derslikleri Excel\'e aktar' },
+  { id: 'schedules', label: 'Ders Programı', icon: Calendar, entity: 'schedules' as EntityKey, description: 'Mevcut programı Excel\'e aktar' },
+];
+
+const IMPORT_OPTIONS = [
+  { id: 'teachers', label: 'Öğretmenler', icon: Users, entity: 'teachers' as EntityKey, description: 'Excel\'den öğretmen ekle' },
+  { id: 'courses', label: 'Dersler', icon: BookOpen, entity: 'courses' as EntityKey, description: 'Excel\'den ders ekle' },
+  { id: 'classrooms', label: 'Derslikler', icon: Building2, entity: 'classrooms' as EntityKey, description: 'Excel\'den derslik ekle' },
 ];
 
 export default function ImportExportPage() {
   const { isAdmin } = useAuth();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isExporting, setIsExporting] = useState<string | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
+
+  const [exporting, setExporting] = useState<string | null>(null);
+  const [importStep, setImportStep] = useState<'choose' | 'file' | 'preview'>('choose');
   const [importType, setImportType] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewData, setPreviewData] = useState<any[] | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
+  const [rawRows, setRawRows] = useState<Record<string, unknown>[]>([]);
+  const [validationResults, setValidationResults] = useState<RowResult[]>([]);
+  const [teacherIds, setTeacherIds] = useState<Set<number>>(new Set());
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
 
   useEffect(() => {
-    if (!isAdmin) {
-      router.push('/');
-    }
+    if (!isAdmin) router.push('/');
   }, [isAdmin, router]);
+
+  useEffect(() => {
+    if (importType === 'courses') {
+      coursesApi.getAll().then((courses) => {
+        const ids = new Set<number>();
+        courses.forEach((c) => {
+          if (c.teacher_id != null) ids.add(c.teacher_id);
+        });
+        teachersApi.getAll().then((teachers) => {
+          teachers.forEach((t) => ids.add(t.id));
+          setTeacherIds(ids);
+        });
+      });
+    } else {
+      setTeacherIds(new Set());
+    }
+  }, [importType]);
 
   if (!isAdmin) return null;
 
   const handleExport = async (type: string) => {
-    setIsExporting(type);
+    setExporting(type);
     try {
-      let data: any[] = [];
-      let filename = '';
-
       switch (type) {
-        case 'teachers':
-          data = await teachersApi.getAll();
-          filename = 'ogretmenler';
-          data = data.map(t => ({
-            'ID': t.id,
-            'Ad Soyad': t.name,
-            'E-posta': t.email,
-            'Fakülte': t.faculty,
-            'Bölüm': t.department,
-            'Aktif': t.is_active ? 'Evet' : 'Hayır',
-          }));
+        case 'teachers': {
+          const data = await teachersApi.getAll();
+          exportToExcel(mapTeachersForExport(data), 'Öğretmenler', 'ogretmenler');
           break;
-        case 'courses':
-          data = await coursesApi.getAll();
-          filename = 'dersler';
-          data = data.map(c => ({
-            'ID': c.id,
-            'Ders Kodu': c.code,
-            'Ders Adı': c.name,
-            'Fakülte': c.faculty,
-            'Öğretmen ID': c.teacher_id,
-            'Öğretmen': c.teacher?.name || '',
-            'Seviye': c.level,
-            'Kategori': c.category,
-            'Dönem': c.semester,
-            'AKTS': c.ects,
-            'Haftalık Saat': c.total_hours || c.sessions?.reduce((sum: number, s: { hours: number }) => sum + s.hours, 0) || 0,
-            'Aktif': c.is_active ? 'Evet' : 'Hayır',
-          }));
+        }
+        case 'courses': {
+          const data = await coursesApi.getAll();
+          exportToExcel(mapCoursesForExport(data), 'Dersler', 'dersler');
           break;
-        case 'classrooms':
-          data = await classroomsApi.getAll();
-          filename = 'derslikler';
-          data = data.map(c => ({
-            'ID': c.id,
-            'Derslik Adı': c.name,
-            'Kapasite': c.capacity,
-            'Tür': c.type === 'teorik' ? 'Teorik' : 'Laboratuvar',
-            'Fakülte': c.faculty,
-            'Bölüm': c.department,
-          }));
+        }
+        case 'classrooms': {
+          const data = await classroomsApi.getAll();
+          exportToExcel(mapClassroomsForExport(data), 'Derslikler', 'derslikler');
           break;
-        case 'schedules':
-          data = await schedulesApi.getAll();
-          filename = 'ders_programi';
-          data = data.map(s => ({
-            'ID': s.id,
-            'Gün': s.day,
-            'Saat': s.time_range,
-            'Ders Kodu': s.course?.code || '',
-            'Ders Adı': s.course?.name || '',
-            'Derslik': s.classroom?.name || '',
-            'Öğretmen': s.course?.teacher?.name || '',
-          }));
+        }
+        case 'schedules': {
+          const data = await schedulesApi.getAll();
+          exportToExcel(mapSchedulesForExport(data), 'Ders Programı', 'ders_programi');
           break;
+        }
       }
-
-      // Create workbook and worksheet
-      const ws = XLSX.utils.json_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Veri');
-
-      // Auto-size columns
-      const colWidths = Object.keys(data[0] || {}).map(key => ({
-        wch: Math.max(key.length, ...data.map(row => String(row[key] || '').length)) + 2
-      }));
-      ws['!cols'] = colWidths;
-
-      // Download file
-      XLSX.writeFile(wb, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
-      toast.success('Veriler başarıyla dışa aktarıldı');
-    } catch (error) {
-      console.error('Export error:', error);
-      toast.error('Dışa aktarma sırasında bir hata oluştu');
+      toast.success('Dışa aktarma tamamlandı. Dosya indirildi.');
+    } catch (e) {
+      console.error(e);
+      toast.error('Dışa aktarma sırasında hata oluştu.');
     } finally {
-      setIsExporting(null);
+      setExporting(null);
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
+  const handleSelectImportType = (type: string) => {
+    setImportType(type);
+    setImportStep('file');
+    setSelectedFile(null);
+    setRawRows([]);
+    setValidationResults([]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleTemplateDownload = () => {
+    if (importType === 'teachers') downloadTeacherTemplate();
+    else if (importType === 'courses') downloadCourseTemplate();
+    else if (importType === 'classrooms') downloadClassroomTemplate();
+    toast.success('Şablon indirildi. Doldurup yeniden yükleyin.');
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setSelectedFile(file);
-    setImportType(type);
-
-    // Read and preview file
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        setPreviewData(jsonData.slice(0, 5)); // Preview first 5 rows
-        setShowPreview(true);
-      } catch (error) {
-        toast.error('Dosya okunamadı. Lütfen geçerli bir Excel dosyası seçin.');
+    try {
+      const rows = await readExcelFile(file);
+      const nonEmpty = rows.filter((r) => Object.values(r).some((v) => v != null && String(v).trim() !== ''));
+      setRawRows(nonEmpty);
+      if (nonEmpty.length === 0) {
+        toast.error('Dosyada veri bulunamadı.');
+        setValidationResults([]);
+        return;
       }
-    };
-    reader.readAsArrayBuffer(file);
+      let results: RowResult[] = [];
+      if (importType === 'teachers') {
+        results = validateAndMapTeachers(nonEmpty);
+      } else if (importType === 'courses') {
+        results = validateAndMapCourses(nonEmpty, teacherIds);
+      } else if (importType === 'classrooms') {
+        results = validateAndMapClassrooms(nonEmpty);
+      }
+      setValidationResults(results);
+      setImportStep('preview');
+      const ok = results.filter((r) => r.ok).length;
+      const err = results.filter((r) => !r.ok).length;
+      if (err > 0) toast.warning(`${ok} satır uygun, ${err} satır hatalı. Önizlemede kontrol edin.`);
+      else toast.success(`${ok} satır hazır. İçe aktarabilirsiniz.`);
+    } catch (err) {
+      toast.error('Dosya okunamadı. Geçerli bir .xlsx dosyası seçin.');
+      setRawRows([]);
+      setValidationResults([]);
+    }
   };
 
   const handleImport = async () => {
-    if (!selectedFile || !importType) return;
-
+    const toAdd = validationResults.filter((r): r is RowResult & { ok: true; data: unknown } => r.ok && !!r.data);
+    if (toAdd.length === 0) {
+      toast.error('İçe aktarılacak geçerli satır yok.');
+      return;
+    }
     setIsImporting(true);
+    setImportProgress(0);
+    let success = 0;
+    let failed = 0;
+    const total = toAdd.length;
     try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
+      for (let i = 0; i < toAdd.length; i++) {
         try {
-          const data = new Uint8Array(event.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-          // Process and import data based on type
-          let successCount = 0;
-          let errorCount = 0;
-
-          for (const row of jsonData) {
-            try {
-              switch (importType) {
-                case 'teachers':
-                  await teachersApi.create({
-                    name: (row as any)['Ad Soyad'] || '',
-                    email: (row as any)['E-posta'] || '',
-                    title: (row as any)['Ünvan'] || 'Öğr. Gör.',
-                    faculty: (row as any)['Fakülte'] || '',
-                    department: (row as any)['Bölüm'] || '',
-                    working_hours: '{}',
-                  });
-                  break;
-                case 'courses':
-                  const teacherId = parseInt((row as any)['Öğretmen ID']);
-                  const weeklyHours = parseInt((row as any)['Haftalık Saat']) || 3;
-                  await coursesApi.create({
-                    code: (row as any)['Ders Kodu'] || '',
-                    name: (row as any)['Ders Adı'] || '',
-                    faculty: (row as any)['Fakülte'] || '',
-                    teacher_id: isNaN(teacherId) ? 1 : teacherId,
-                    level: (row as any)['Seviye'] || 'lisans',
-                    category: ((row as any)['Kategori'] === 'seçmeli' || (row as any)['Kategori'] === 'secmeli') ? 'secmeli' : 'zorunlu',
-                    semester: (row as any)['Dönem'] || 'güz',
-                    ects: parseInt((row as any)['AKTS']) || 5,
-                    is_active: (row as any)['Aktif'] !== 'Hayır',
-                    sessions: [{
-                      type: 'teorik' as const,
-                      hours: weeklyHours,
-                    }],
-                    departments: [],
-                  });
-                  break;
-                case 'classrooms':
-                  await classroomsApi.create({
-                    name: (row as any)['Derslik Adı'] || '',
-                    capacity: parseInt((row as any)['Kapasite']) || 30,
-                    type: (row as any)['Tür'] === 'Laboratuvar' ? 'lab' : 'teorik',
-                    faculty: (row as any)['Fakülte'] || '',
-                    department: (row as any)['Bölüm'] || '',
-                  });
-                  break;
-              }
-              successCount++;
-            } catch (err) {
-              errorCount++;
-            }
+          const d = toAdd[i].data as any;
+          if (importType === 'teachers') {
+            await teachersApi.create(d);
+          } else if (importType === 'courses') {
+            await coursesApi.create(d);
+          } else if (importType === 'classrooms') {
+            await classroomsApi.create(d);
           }
-
-          toast.success(`${successCount} kayıt başarıyla içe aktarıldı${errorCount > 0 ? `, ${errorCount} hata` : ''}`);
-          setShowPreview(false);
-          setSelectedFile(null);
-          setPreviewData(null);
-          setImportType(null);
-        } catch (error) {
-          toast.error('İçe aktarma sırasında bir hata oluştu');
+          success++;
+        } catch {
+          failed++;
         }
-      };
-      reader.readAsArrayBuffer(selectedFile);
+        setImportProgress(Math.round(((i + 1) / total) * 100));
+      }
+      if (failed > 0) {
+        toast.warning(`${success} kayıt eklendi, ${failed} kayıt eklenemedi.`);
+      } else {
+        toast.success(`${success} kayıt başarıyla eklendi.`);
+      }
+      setImportStep('choose');
+      setImportType(null);
+      setSelectedFile(null);
+      setRawRows([]);
+      setValidationResults([]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (e) {
+      toast.error('İçe aktarma sırasında hata oluştu.');
     } finally {
       setIsImporting(false);
+      setImportProgress(0);
     }
   };
 
-  const downloadTemplate = (type: string) => {
-    let headers: string[] = [];
-    let filename = '';
-
-    switch (type) {
-      case 'teachers':
-        headers = ['Ad Soyad', 'E-posta', 'Fakülte', 'Bölüm'];
-        filename = 'ogretmen_sablonu';
-        break;
-      case 'courses':
-        headers = ['Ders Kodu', 'Ders Adı', 'Fakülte', 'Öğretmen ID', 'Seviye', 'Kategori', 'Dönem', 'AKTS', 'Haftalık Saat', 'Aktif'];
-        filename = 'ders_sablonu';
-        break;
-      case 'classrooms':
-        headers = ['Derslik Adı', 'Kapasite', 'Tür', 'Fakülte', 'Bölüm'];
-        filename = 'derslik_sablonu';
-        break;
-    }
-
-    const ws = XLSX.utils.aoa_to_sheet([headers]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Şablon');
-    XLSX.writeFile(wb, `${filename}.xlsx`);
-    toast.success('Şablon indirildi');
+  const handleCancelPreview = () => {
+    setImportStep('file');
+    setSelectedFile(null);
+    setRawRows([]);
+    setValidationResults([]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  const okCount = validationResults.filter((r) => r.ok).length;
+  const errCount = validationResults.filter((r) => !r.ok).length;
 
   return (
     <div className={styles.pageContainer}>
       <PageHeader
-        title="İçe/Dışa Aktar"
-        description="Excel dosyaları ile veri aktarımı yapın"
+        title="Excel İçe / Dışa Aktar"
+        description="Verileri Excel ile aktarın. Önce şablonu indirip doldurun, sonra yükleyin."
         icon={FileSpreadsheet}
         entity="import"
       />
 
       <Tabs defaultValue="export" className="space-y-6">
-        <TabsList>
+        <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="export" className="flex items-center gap-2">
             <Download className="h-4 w-4" />
             Dışa Aktar
@@ -330,35 +271,34 @@ export default function ImportExportPage() {
 
         <TabsContent value="export" className="space-y-6">
           <Alert>
-            <FileSpreadsheet className="h-4 w-4" />
-            <AlertTitle>Excel Formatı</AlertTitle>
+            <Info className="h-4 w-4" />
+            <AlertTitle>Dışa aktarma</AlertTitle>
             <AlertDescription>
-              Veriler .xlsx formatında dışa aktarılır. Tüm sütunlar otomatik olarak boyutlandırılır.
+              Veriler .xlsx formatında indirilir. Sütunlar otomatik boyutlandırılır. Öğretmen, ders veya derslik listesini düzenleyip içe aktarabilirsiniz.
             </AlertDescription>
           </Alert>
-
           <div className="grid gap-4 md:grid-cols-2">
-            {exportOptions.map((option) => {
-              const Icon = option.icon;
+            {EXPORT_OPTIONS.map((opt) => {
+              const Icon = opt.icon;
               return (
-                <Card key={option.id} className="hover:shadow-md transition-shadow">
+                <Card key={opt.id} className="hover:shadow-md transition-shadow">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Icon className={cn('h-5 w-5', getEntityColors(option.entity).icon)} />
-                      {option.label}
+                      <Icon className={cn('h-5 w-5', getEntityColors(opt.entity).icon)} />
+                      {opt.label}
                     </CardTitle>
-                    <CardDescription>{option.description}</CardDescription>
+                    <CardDescription>{opt.description}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <Button
                       className="w-full"
-                      onClick={() => handleExport(option.id)}
-                      disabled={isExporting === option.id}
+                      onClick={() => handleExport(opt.id)}
+                      disabled={exporting === opt.id}
                     >
-                      {isExporting === option.id ? (
+                      {exporting === opt.id ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Dışa Aktarılıyor...
+                          Aktarılıyor...
                         </>
                       ) : (
                         <>
@@ -377,110 +317,147 @@ export default function ImportExportPage() {
         <TabsContent value="import" className="space-y-6">
           <Alert variant="warning">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Dikkat</AlertTitle>
+            <AlertTitle>İçe aktarma</AlertTitle>
             <AlertDescription>
-              İçe aktarma işlemi mevcut verileri etkilemez, yeni kayıtlar oluşturur. 
-              Önce şablon dosyasını indirip doldurun.
+              Yeni kayıt oluşturur; mevcut verileri silmez. Önce şablonu indirip doldurun, sonra dosyayı seçin ve önizlemede kontrol edin.
             </AlertDescription>
           </Alert>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            {['teachers', 'courses', 'classrooms'].map((type) => {
-              const option = exportOptions.find(o => o.id === type)!;
-              const Icon = option.icon;
-              return (
-                <Card key={type} className="hover:shadow-md transition-shadow">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Icon className={cn('h-5 w-5', getEntityColors(option.entity).icon)} />
-                      {option.label}
-                    </CardTitle>
-                    <CardDescription>Excel dosyasından içe aktar</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => downloadTemplate(type)}
-                    >
-                      <FileSpreadsheet className="mr-2 h-4 w-4" />
-                      Şablon İndir
-                    </Button>
-                    <div className="relative">
-                      <input
-                        type="file"
-                        accept=".xlsx,.xls"
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        onChange={(e) => handleFileSelect(e, type)}
-                      />
-                      <Button className="w-full">
-                        <Upload className="mr-2 h-4 w-4" />
-                        Dosya Seç
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* Preview Dialog */}
-      <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>İçe Aktarma Önizlemesi</DialogTitle>
-            <DialogDescription>
-              {selectedFile?.name} - İlk 5 satır gösteriliyor
-            </DialogDescription>
-          </DialogHeader>
-          
-          {previewData && previewData.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    {Object.keys(previewData[0]).map((key) => (
-                      <th key={key} className="p-2 text-left font-medium">
-                        {key}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {previewData.map((row, i) => (
-                    <tr key={i} className="border-b">
-                      {Object.values(row).map((value, j) => (
-                        <td key={j} className="p-2">
-                          {String(value)}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {importStep === 'choose' && (
+            <div className="grid gap-4 md:grid-cols-3">
+              {IMPORT_OPTIONS.map((opt) => {
+                const Icon = opt.icon;
+                return (
+                  <Card
+                    key={opt.id}
+                    className="hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => handleSelectImportType(opt.id)}
+                  >
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Icon className={cn('h-5 w-5', getEntityColors(opt.entity).icon)} />
+                        {opt.label}
+                      </CardTitle>
+                      <CardDescription>{opt.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Şablon + dosya yükle</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
 
+          {importStep === 'file' && importType && (
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {IMPORT_OPTIONS.find((o) => o.id === importType)?.label} – Dosya seçin
+                </CardTitle>
+                <CardDescription>
+                  Önce şablonu indirip doldurun. Ardından .xlsx dosyanızı seçin.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-wrap gap-3">
+                <Button variant="outline" onClick={handleTemplateDownload}>
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  Şablon İndir
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+                <Button onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Dosya Seç
+                </Button>
+                <Button variant="ghost" onClick={() => { setImportStep('choose'); setImportType(null); }}>
+                  Geri
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={importStep === 'preview'} onOpenChange={(open) => !open && handleCancelPreview()}>
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Önizleme – {selectedFile?.name}</DialogTitle>
+            <DialogDescription>
+              {okCount} satır eklenecek {errCount > 0 && `· ${errCount} satır hatalı (atlanacak)`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto border rounded-lg">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/60 sticky top-0">
+                <tr>
+                  <th className="p-2 text-left w-10">#</th>
+                  <th className="p-2 text-left w-12">Durum</th>
+                  {rawRows[0] && Object.keys(rawRows[0]).map((k) => (
+                    <th key={k} className="p-2 text-left font-medium truncate max-w-[120px]">{k}</th>
+                  ))}
+                  {errCount > 0 && <th className="p-2 text-left text-destructive font-medium">Hata</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {validationResults.map((res, idx) => (
+                  <tr
+                    key={idx}
+                    className={cn(
+                      'border-t',
+                      res.ok ? 'bg-green-50/50 dark:bg-green-950/10' : 'bg-red-50/50 dark:bg-red-950/10'
+                    )}
+                  >
+                    <td className="p-2">{res.rowIndex}</td>
+                    <td className="p-2">
+                      {res.ok ? (
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-red-600" />
+                      )}
+                    </td>
+                    {rawRows[idx] && Object.values(rawRows[idx]).map((v, j) => (
+                      <td key={j} className="p-2 truncate max-w-[120px]" title={String(v)}>
+                        {String(v ?? '')}
+                      </td>
+                    ))}
+                    {errCount > 0 && (
+                      <td className="p-2 text-destructive text-xs">{!res.ok ? res.error : ''}</td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {isImporting && (
+            <div className="space-y-2">
+              <Progress value={importProgress} />
+              <p className="text-sm text-muted-foreground text-center">İçe aktarılıyor…</p>
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setShowPreview(false);
-              setSelectedFile(null);
-              setPreviewData(null);
-            }}>
+            <Button variant="outline" onClick={handleCancelPreview} disabled={isImporting}>
               İptal
             </Button>
-            <Button onClick={handleImport} disabled={isImporting}>
+            <Button
+              onClick={handleImport}
+              disabled={isImporting || okCount === 0}
+            >
               {isImporting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  İçe Aktarılıyor...
+                  Aktarılıyor...
                 </>
               ) : (
                 <>
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  İçe Aktar
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  {okCount} satırı içe aktar
                 </>
               )}
             </Button>

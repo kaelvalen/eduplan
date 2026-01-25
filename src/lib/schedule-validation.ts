@@ -1,8 +1,61 @@
 import type { Schedule, Teacher, Classroom, Course } from '@/types';
+import { normalizeToRanges } from '@/lib/time-utils';
 
 interface ValidationResult {
   valid: boolean;
   errors: string[];
+}
+
+/**
+ * "09:00-10:00" formatındaki aralıkları [dakika, dakika] çiftlerine çevirir.
+ */
+function parseRangesToMinutes(dayHours: string[]): [number, number][] {
+  const out: [number, number][] = [];
+  for (const r of dayHours) {
+    const parts = String(r).split('-').map((t) => t.trim());
+    if (parts.length !== 2) continue;
+    const a = timeToMinutes(parts[0]);
+    const b = timeToMinutes(parts[1]);
+    if (a < b) out.push([a, b]);
+  }
+  return out;
+}
+
+/**
+ * Örtüşen veya bitişik aralıkları birleştirir.
+ * Örn: [08:00-09:00, 09:00-10:00, 10:00-11:00] → [08:00-11:00]
+ */
+function mergeRanges(intervals: [number, number][]): [number, number][] {
+  if (intervals.length === 0) return [];
+  const sorted = [...intervals].sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [[sorted[0][0], sorted[0][1]]];
+  for (let i = 1; i < sorted.length; i++) {
+    const [s, e] = sorted[i];
+    const last = merged[merged.length - 1];
+    if (s <= last[1]) {
+      last[1] = Math.max(last[1], e);
+    } else {
+      merged.push([s, e]);
+    }
+  }
+  return merged;
+}
+
+/**
+ * Ders saati (startTime–endTime) uygunluk aralıkları içinde mi?
+ * dayHours: "09:00-10:00" formatında aralıklar. Ardışık bloklar birleştirilir;
+ * örn. 14:00-15:00 ve 15:00-16:00 varsa 14:00-16:00 müsait sayılır.
+ */
+function isTimeSlotWithinHours(
+  dayHours: string[],
+  startTime: string,
+  endTime: string
+): boolean {
+  const startMin = timeToMinutes(startTime);
+  const endMin = timeToMinutes(endTime);
+  const intervals = parseRangesToMinutes(dayHours);
+  const merged = mergeRanges(intervals);
+  return merged.some(([a, b]) => startMin >= a && endMin <= b);
 }
 
 // Day name mapping: Turkish -> lowercase English (for backend)
@@ -67,53 +120,30 @@ export function validateTeacherAvailability(
 ): ValidationResult {
   const errors: string[] = [];
 
-  console.log('🔍 validateTeacherAvailability called:', {
-    teacher: teacher?.name,
-    day,
-    time: `${startTime}-${endTime}`,
-    hasWorkingHours: !!teacher?.working_hours,
-    workingHoursType: typeof teacher?.working_hours,
-  });
-
   if (!teacher) {
-    console.log('⚠️ No teacher provided, skipping validation');
     return { valid: true, errors: [] };
   }
 
-  // Check if working hours are defined
   if (!teacher.working_hours) {
     errors.push(`⚠️ ${teacher.name} için çalışma saatleri tanımlanmamış. Yine de devam edilebilir.`);
-    console.log('⚠️ No working hours defined for teacher');
   }
 
-  // Check working hours
   if (teacher.working_hours) {
     try {
-      console.log('📝 Raw working_hours:', teacher.working_hours);
       const workingHours = typeof teacher.working_hours === 'string' 
         ? JSON.parse(teacher.working_hours) 
         : teacher.working_hours;
-      console.log('📋 Parsed working hours:', workingHours);
-      console.log('📋 Available keys in working hours:', Object.keys(workingHours));
       
-      // Try all possible day name variations
       const possibleDayNames = getAllDayVariations(day);
-      console.log('🔍 Trying day variations:', possibleDayNames);
-      
-      let dayHours = null;
+      let dayHours: string[] | null = null;
       for (const dayName of possibleDayNames) {
-        if (workingHours[dayName]) {
-          dayHours = workingHours[dayName];
-          console.log('✅ Found match with:', dayName);
+        if (workingHours[dayName] && Array.isArray(workingHours[dayName])) {
+          dayHours = normalizeToRanges(workingHours[dayName]);
           break;
         }
       }
-      
-      console.log('📅 Day hours for', day, ':', dayHours);
 
       if (!dayHours || dayHours.length === 0) {
-        console.log('❌ No hours found for any day variation');
-        // Convert English day names to Turkish for display
         const availableDays = Object.keys(workingHours)
           .map(d => ENGLISH_TO_DAY[d.toLowerCase()] || d)
           .join(', ');
@@ -121,21 +151,17 @@ export function validateTeacherAvailability(
         return { valid: false, errors };
       }
 
-      // Check if time slot is within working hours
-      const startMin = timeToMinutes(startTime);
-      const endMin = timeToMinutes(endTime);
-
-      const isWithinWorkingHours = dayHours.some((timeRange: string) => {
-        const [wStart, wEnd] = timeRange.split('-');
-        const wStartMin = timeToMinutes(wStart);
-        const wEndMin = timeToMinutes(wEnd);
-
-        return startMin >= wStartMin && endMin <= wEndMin;
-      });
+      const isWithinWorkingHours = isTimeSlotWithinHours(dayHours, startTime, endTime);
 
       if (!isWithinWorkingHours) {
         errors.push(
-          `${teacher.name} bu saatte (${startTime}-${endTime}) müsait değil. Müsait saatler: ${dayHours.join(', ')}`
+          buildUnavailableMessage({
+            name: teacher.name,
+            startTime,
+            endTime,
+            dayHours,
+            isTeacher: true,
+          })
         );
       }
     } catch (e) {
@@ -186,15 +212,6 @@ export function validateClassroomAvailability(
 ): ValidationResult {
   const errors: string[] = [];
 
-  console.log('🏫 validateClassroomAvailability called:', {
-    classroom: classroom?.name,
-    day,
-    time: `${startTime}-${endTime}`,
-    hasAvailableHours: !!classroom?.available_hours,
-    availableHoursType: typeof classroom?.available_hours,
-    rawAvailableHours: classroom?.available_hours,
-  });
-
   if (!classroom) {
     errors.push('⚠️ Derslik seçilmedi');
     return { valid: false, errors };
@@ -202,72 +219,48 @@ export function validateClassroomAvailability(
 
   // Check if available hours are defined
   if (!classroom.available_hours) {
-    // Don't show error if available_hours is not defined - it's optional
-    console.log('⚠️ No available_hours defined for classroom, skipping validation');
+    // Optional: skip validation when not defined
   } else {
-    // Parse available_hours if it's a string
-    let availableHours: any;
+    let availableHours: Record<string, string[]> | null = null;
     try {
       availableHours = typeof classroom.available_hours === 'string'
         ? JSON.parse(classroom.available_hours)
         : classroom.available_hours;
-      console.log('📋 Parsed available hours:', availableHours);
-      console.log('📋 Available keys:', Object.keys(availableHours || {}));
-    } catch (e) {
-      console.error('❌ Failed to parse available_hours:', e);
-      // Don't show error for invalid format - just skip validation
+    } catch {
       availableHours = null;
     }
 
-    // Check available hours only if it's a valid object
     if (availableHours && typeof availableHours === 'object' && Object.keys(availableHours).length > 0) {
-      // Try all possible day name variations
       const possibleDayNames = getAllDayVariations(day);
-      console.log('🔍 Trying day variations for classroom:', possibleDayNames);
-      
-      let dayHours = null;
+      let dayHours: string[] | null = null;
       for (const dayName of possibleDayNames) {
         if (availableHours[dayName] && Array.isArray(availableHours[dayName]) && availableHours[dayName].length > 0) {
-          dayHours = availableHours[dayName];
-          console.log('✅ Found classroom hours with:', dayName, dayHours);
+          dayHours = normalizeToRanges(availableHours[dayName]);
           break;
         }
       }
 
       if (!dayHours || dayHours.length === 0) {
-        // Get all days that have valid hours
         const availableDays = Object.keys(availableHours)
           .filter(k => {
             const hours = availableHours[k];
             return hours && Array.isArray(hours) && hours.length > 0;
           })
           .map(d => ENGLISH_TO_DAY[d.toLowerCase()] || d);
-        
-        console.log('❌ No hours found, available days:', availableDays);
-        
         if (availableDays.length > 0) {
           errors.push(`${classroom.name} ${day} günü kullanılamıyor (Müsait günler: ${availableDays.join(', ')})`);
-        } else {
-          // If no valid days found, don't show this error - available_hours might be empty/invalid
-          console.log('⚠️ No valid days found in available_hours, skipping this validation');
         }
       } else {
-
-    // Check if time slot is within available hours
-    const startMin = timeToMinutes(startTime);
-    const endMin = timeToMinutes(endTime);
-
-    const isWithinAvailableHours = dayHours.some((timeRange: string) => {
-      const [aStart, aEnd] = timeRange.split('-');
-      const aStartMin = timeToMinutes(aStart);
-      const aEndMin = timeToMinutes(aEnd);
-
-      return startMin >= aStartMin && endMin <= aEndMin;
-    });
-
+        const isWithinAvailableHours = isTimeSlotWithinHours(dayHours, startTime, endTime);
         if (!isWithinAvailableHours) {
           errors.push(
-            `${classroom.name} bu saatte (${startTime}-${endTime}) kullanılamıyor. Müsait saatler: ${dayHours.join(', ')}`
+            buildUnavailableMessage({
+              name: classroom.name,
+              startTime,
+              endTime,
+              dayHours,
+              isTeacher: false,
+            })
           );
         }
       }
@@ -360,10 +353,50 @@ export function validateDepartmentConflicts(
   };
 }
 
-/**
- * Helper: Convert time string to minutes
- */
+/** Dakika → "HH:MM" */
+function minutesToTime(m: number): string {
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  return `${h.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
+}
+
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
+}
+
+/** Öğle arası: 12:00-13:00 (dakika) */
+const LUNCH_START_MIN = 12 * 60;
+const LUNCH_END_MIN = 13 * 60;
+
+/**
+ * Müsait değil / kullanılamıyor uyarı metnini üretir.
+ * Birleştirilmiş bloklar kullanır (08:00-12:00, 13:00-18:00) ve
+ * seçilen aralık öğle arasına denk geliyorsa özel ifade ekler.
+ */
+function buildUnavailableMessage(opts: {
+  name: string;
+  startTime: string;
+  endTime: string;
+  dayHours: string[];
+  isTeacher: boolean;
+}): string {
+  const { name, startTime, endTime, dayHours, isTeacher } = opts;
+  const intervals = parseRangesToMinutes(dayHours);
+  const merged = mergeRanges(intervals);
+  const blocksStr = merged
+    .map(([a, b]) => `${minutesToTime(a)}-${minutesToTime(b)}`)
+    .join(', ');
+
+  const startMin = timeToMinutes(startTime);
+  const endMin = timeToMinutes(endTime);
+  const spansLunch = startMin < LUNCH_END_MIN && endMin > LUNCH_START_MIN;
+
+  const action = isTeacher ? 'müsait değil' : 'kullanılamıyor';
+  let msg = `${name} bu saatte (${startTime}-${endTime}) ${action}. `;
+  if (spansLunch) {
+    msg += 'Öğle arası (12:00-13:00) bu saat dilimine denk geliyor. ';
+  }
+  msg += `Müsait bloklar: ${blocksStr}`;
+  return msg;
 }

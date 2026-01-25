@@ -6,7 +6,8 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { teachersApi } from '@/lib/api';
 import { FACULTIES, getDepartmentsByFaculty } from '@/constants/faculties';
-import { parseWorkingHours, stringifyWorkingHours, TIME_SLOTS, DAYS_TR, WEEK_DAYS } from '@/lib/utils';
+import { parseWorkingHours, stringifyWorkingHours, getEmptyHours, formatTimeRange } from '@/lib/time-utils';
+import { DAYS_TR, TIME_BLOCKS } from '@/constants/time';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -50,13 +51,7 @@ export function TeacherForm({ teacherId }: TeacherFormProps) {
     is_active: true,
   });
 
-  const [workingHours, setWorkingHours] = useState<Record<string, string[]>>({
-    monday: [],
-    tuesday: [],
-    wednesday: [],
-    thursday: [],
-    friday: [],
-  });
+  const [workingHours, setWorkingHours] = useState<Record<string, string[]>>(() => getEmptyHours());
 
   const departments = formData.faculty ? getDepartmentsByFaculty(formData.faculty) : [];
 
@@ -117,29 +112,25 @@ export function TeacherForm({ teacherId }: TeacherFormProps) {
     }
   };
 
-  const toggleTimeSlot = (day: string, slot: string) => {
+  const rangeStr = (b: { start: string; end: string }) => formatTimeRange(b.start, b.end);
+  const allRanges = TIME_BLOCKS.map(rangeStr);
+
+  const toggleBlock = (day: string, range: string) => {
     setWorkingHours((prev) => {
-      const daySlots = prev[day] || [];
-      if (daySlots.includes(slot)) {
-        return { ...prev, [day]: daySlots.filter((s) => s !== slot) };
-      } else {
-        return { ...prev, [day]: [...daySlots, slot].sort() };
+      const arr = prev[day] || [];
+      if (arr.includes(range)) {
+        return { ...prev, [day]: arr.filter((r) => r !== range) };
       }
+      return { ...prev, [day]: [...arr, range].sort() };
     });
   };
 
   const selectAllDay = (day: string) => {
-    setWorkingHours((prev) => ({
-      ...prev,
-      [day]: [...TIME_SLOTS],
-    }));
+    setWorkingHours((prev) => ({ ...prev, [day]: [...allRanges] }));
   };
 
   const clearDay = (day: string) => {
-    setWorkingHours((prev) => ({
-      ...prev,
-      [day]: [],
-    }));
+    setWorkingHours((prev) => ({ ...prev, [day]: [] }));
   };
 
   if (isFetching) {
@@ -260,10 +251,10 @@ export function TeacherForm({ teacherId }: TeacherFormProps) {
             <table className="w-full text-sm">
               <thead>
                 <tr>
-                  <th className="p-2 text-left">Saat</th>
-                  {WEEK_DAYS.map((day) => (
+                  <th className="p-2 text-left">Aralık</th>
+                  {DAYS_TR.map((day) => (
                     <th key={day} className="p-2 text-center">
-                      <div>{DAYS_TR[day]}</div>
+                      <div>{day}</div>
                       <div className="mt-1 flex justify-center gap-1">
                         <Button
                           type="button"
@@ -289,19 +280,22 @@ export function TeacherForm({ teacherId }: TeacherFormProps) {
                 </tr>
               </thead>
               <tbody>
-                {TIME_SLOTS.map((slot) => (
-                  <tr key={slot} className="border-t">
-                    <td className="p-2 font-medium">{slot}</td>
-                    {WEEK_DAYS.map((day) => (
-                      <td key={`${day}-${slot}`} className="p-2 text-center">
-                        <Checkbox
-                          checked={workingHours[day]?.includes(slot) || false}
-                          onCheckedChange={() => toggleTimeSlot(day, slot)}
-                        />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
+                {TIME_BLOCKS.map((block) => {
+                  const range = rangeStr(block);
+                  return (
+                    <tr key={range} className="border-t">
+                      <td className="p-2 font-medium">{range}</td>
+                      {DAYS_TR.map((day) => (
+                        <td key={`${day}-${range}`} className="p-2 text-center">
+                          <Checkbox
+                            checked={workingHours[day]?.includes(range) ?? false}
+                            onCheckedChange={() => toggleBlock(day, range)}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

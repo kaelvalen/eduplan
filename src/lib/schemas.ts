@@ -1,9 +1,10 @@
 import { z } from 'zod';
 
 // ==================== AVAILABLE HOURS SCHEMA ====================
+/** Schedule ile uyumlu: gün başına "09:00-10:00" formatında aralıklar */
 export const AvailableHoursSchema = z.record(
   z.enum(['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']),
-  z.array(z.string().regex(/^\d{2}:\d{2}$/, 'Saat formatı hatalı (örn: 09:00)'))
+  z.array(z.string().regex(/^\d{2}:\d{2}-\d{2}:\d{2}$/, 'Saat aralığı formatı hatalı (örn: 09:00-10:00)'))
 );
 
 // ==================== COURSE SCHEMAS ====================
