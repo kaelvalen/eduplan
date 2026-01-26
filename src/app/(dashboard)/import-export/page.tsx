@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
-  FileUp,
   ChevronRight,
   Info,
 } from 'lucide-react';
@@ -42,7 +41,6 @@ import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -80,6 +78,7 @@ export default function ImportExportPage() {
   const [rawRows, setRawRows] = useState<Record<string, unknown>[]>([]);
   const [validationResults, setValidationResults] = useState<RowResult[]>([]);
   const [teacherIds, setTeacherIds] = useState<Set<number>>(new Set());
+  const [teachersLoading, setTeachersLoading] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
 
@@ -89,18 +88,14 @@ export default function ImportExportPage() {
 
   useEffect(() => {
     if (importType === 'courses') {
-      coursesApi.getAll().then((courses) => {
-        const ids = new Set<number>();
-        courses.forEach((c) => {
-          if (c.teacher_id != null) ids.add(c.teacher_id);
-        });
-        teachersApi.getAll().then((teachers) => {
-          teachers.forEach((t) => ids.add(t.id));
-          setTeacherIds(ids);
-        });
-      });
+      setTeachersLoading(true);
+      teachersApi
+        .getAll()
+        .then((teachers) => setTeacherIds(new Set(teachers.map((t) => t.id))))
+        .finally(() => setTeachersLoading(false));
     } else {
       setTeacherIds(new Set());
+      setTeachersLoading(false);
     }
   }, [importType]);
 
@@ -358,6 +353,11 @@ export default function ImportExportPage() {
                 </CardTitle>
                 <CardDescription>
                   Önce şablonu indirip doldurun. Ardından .xlsx dosyanızı seçin.
+                  {importType === 'courses' && teachersLoading && (
+                    <span className="block mt-2 text-amber-600 dark:text-amber-400">
+                      Öğretmen listesi yükleniyor…
+                    </span>
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-wrap gap-3">
@@ -372,7 +372,10 @@ export default function ImportExportPage() {
                   className="hidden"
                   onChange={handleFileSelect}
                 />
-                <Button onClick={() => fileInputRef.current?.click()}>
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={importType === 'courses' && teachersLoading}
+                >
                   <Upload className="mr-2 h-4 w-4" />
                   Dosya Seç
                 </Button>

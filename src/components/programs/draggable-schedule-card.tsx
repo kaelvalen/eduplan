@@ -65,7 +65,7 @@ export function DraggableScheduleCard({
       <div className="text-muted-foreground truncate text-[10px]">
         📍 {schedule.classroom?.name}
       </div>
-      {rowSpan > 1 && (
+      {schedule.time_range && (
         <div className="mt-1 pt-1 border-t text-[9px] text-muted-foreground">
           🕒 {schedule.time_range}
         </div>

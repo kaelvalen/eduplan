@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Clock, MapPin, Calendar, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useClassrooms } from '@/hooks/use-classrooms';
@@ -67,6 +67,9 @@ export function ScheduleEditModal({
     schedulesRef.current = schedules;
   }, [schedules]);
 
+  // Memoize schedule ID to prevent infinite loops
+  const scheduleId = useMemo(() => schedule?.id, [schedule?.id]);
+
   // Initialize form data when schedule changes
   useEffect(() => {
     if (schedule) {
@@ -78,7 +81,7 @@ export function ScheduleEditModal({
         classroom_id: schedule.classroom_id || 0,
       });
     }
-  }, [schedule]);
+  }, [scheduleId]);
 
   // Validate on form change
   useEffect(() => {
@@ -125,7 +128,8 @@ export function ScheduleEditModal({
     errors.push(...departmentValidation.errors);
 
     setValidationErrors(errors);
-  }, [formData.day, formData.startTime, formData.endTime, formData.classroom_id, schedule, classrooms]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.day, formData.startTime, formData.endTime, formData.classroom_id, scheduleId]);
 
   const performSave = async () => {
     if (!schedule) return;

@@ -3,8 +3,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { DndContext, DragEndEvent, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { Calendar, Building2, Users, ChevronDown, Trash2, Download, Printer, Search, X } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
+import { exportToExcel } from '@/lib/excel-io';
 import { useSchedules } from '@/hooks/use-schedules';
 import { useCourses } from '@/hooks/use-courses';
 import { useAuth } from '@/contexts/auth-context';
@@ -373,11 +373,8 @@ export default function ProgramViewPage() {
     };
 
     const handleExport = () => {
-        // Create course map for lookup during export
         const courseMap = new Map(courses.filter((c: Course) => c.id !== undefined).map((c: Course) => [c.id!, c]));
-
-        // Flatten the groupedSchedules for export
-        const exportData = Object.values(groupedSchedules).flatMap(levels => 
+        const exportData = Object.values(groupedSchedules).flatMap(levels =>
             Object.values(levels).flat()
         ).map(s => {
             const fullCourse = s.course_id ? courseMap.get(s.course_id) : null;
@@ -392,11 +389,8 @@ export default function ProgramViewPage() {
                 'Öğretmen': s.course?.teacher?.name || '',
             };
         });
-
-        const ws = XLSX.utils.json_to_sheet(exportData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Ders Programı');
-        XLSX.writeFile(wb, `ders_programi_${new Date().toISOString().split('T')[0]}.xlsx`);
+        exportToExcel(exportData, 'Ders Programı', 'ders_programi');
+        toast.success('Program Excel dosyası indirildi.');
     };
 
     const handlePrint = () => {
