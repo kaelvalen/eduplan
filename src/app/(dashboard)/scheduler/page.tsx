@@ -69,6 +69,11 @@ export default function SchedulerPage() {
       
       if (data.success) {
         toast.success(data.message + ' - Programlar sayfası otomatik güncellenecek!');
+        if (data.lunch_overflow_warnings && data.lunch_overflow_warnings.length > 0) {
+          toast.warning(
+            `${data.lunch_overflow_warnings.length} oturum öğle arasına taşıyor. Ayrıntılar sonuç bölümünde.`
+          );
+        }
       } else {
         toast.error(data.message);
       }
@@ -231,6 +236,44 @@ export default function SchedulerPage() {
                         <TableCell>
                           <Badge variant="outline" className="text-xs">
                             {course.reason}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            {result.lunch_overflow_warnings && result.lunch_overflow_warnings.length > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-4">
+                <h4 className="mb-2 flex items-center gap-2 font-semibold text-amber-800 dark:text-amber-200">
+                  <AlertCircle className="h-4 w-4" />
+                  Öğle arasına taşma uyarısı
+                </h4>
+                <p className="mb-3 text-sm text-amber-700 dark:text-amber-300">
+                  Aşağıdaki oturumlar öğle arasına taşıyor. Yerleştirme yapıldı; gerekirse manuel düzenleyin.
+                </p>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Ders Kodu</TableHead>
+                      <TableHead>Ders Adı</TableHead>
+                      <TableHead>Gün</TableHead>
+                      <TableHead>Saat Aralığı</TableHead>
+                      <TableHead>Tür</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {result.lunch_overflow_warnings.map((w, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-medium">{w.courseCode}</TableCell>
+                        <TableCell>{w.courseName}</TableCell>
+                        <TableCell>{w.day}</TableCell>
+                        <TableCell>{w.timeRange}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="text-xs">
+                            {w.sessionType}
                           </Badge>
                         </TableCell>
                       </TableRow>

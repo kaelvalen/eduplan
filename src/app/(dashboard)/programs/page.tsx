@@ -232,8 +232,8 @@ export default function ProgramViewPage() {
             return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
         };
 
-        const startMin = toMinutes(settings?.day_start || '08:00');
-        const endMin = toMinutes(settings?.day_end || '18:00');
+        const startMin = toMinutes(settings?.day_start || '09:30');
+        const endMin = toMinutes(settings?.day_end || '17:00');
         const slotDuration = settings?.slot_duration || 60;
         
         const slots: string[] = [];
@@ -298,9 +298,10 @@ export default function ProgramViewPage() {
         const grouped: Record<string, Record<string, Schedule[]>> = {};
 
         filteredSchedules.forEach((schedule: Schedule, index: number) => {
-            // Get course data
+            // Get course data - use schedule.course as fallback when course not in courses list
             const sCourse = schedule.course;
             const fullCourse = schedule.course_id ? courseMap.get(schedule.course_id) : null;
+            const courseData = (fullCourse || sCourse) as Course | undefined;
             
             if (index === 0) {
                 console.log('📖 First schedule details:', {
@@ -308,25 +309,27 @@ export default function ProgramViewPage() {
                     course_id: schedule.course_id,
                     sCourse,
                     fullCourse,
-                    faculty: (fullCourse as Course | undefined)?.faculty,
-                    level: (fullCourse as Course | undefined)?.level,
-                    departments: (fullCourse as Course | undefined)?.departments,
+                    faculty: courseData?.faculty,
+                    level: courseData?.level,
+                    departments: courseData?.departments,
                 });
             }
             
-            // Faculty filter - ALLOW if no faculty selected OR faculty matches
-            if (selectedFaculty && fullCourse && (fullCourse as Course).faculty !== selectedFaculty) {
-                console.log('❌ Filtered by faculty:', schedule.id, (fullCourse as Course).faculty, '!==', selectedFaculty);
+            // Faculty filter - use courseData (schedule.course fallback) so schedules always show when faculty matches
+            if (selectedFaculty && courseData?.faculty && courseData.faculty !== selectedFaculty) {
                 return;
             }
 
-            // Get all departments for this course
-            const courseDepts = (fullCourse as Course | undefined)?.departments || [];
+            // Get departments - prefer fullCourse, fallback to schedule.course (from getAllSchedules join)
+            const rawDepts = courseData?.departments || [];
+            const courseDepts = rawDepts
+                .map((d: { department?: string }) => d.department)
+                .filter((dept): dept is string => Boolean(dept));
 
             const processDept = (deptName: string) => {
                 if (selectedDepartment && deptName !== selectedDepartment) return;
 
-                const levelKey = (fullCourse as Course | undefined)?.level || (sCourse as Course)?.level || '1';
+                const levelKey = String(courseData?.level ?? (sCourse as Course)?.level ?? '1');
 
                 if (!grouped[deptName]) {
                     grouped[deptName] = {};
@@ -342,10 +345,8 @@ export default function ProgramViewPage() {
             };
 
             if (courseDepts.length > 0) {
-                courseDepts.forEach((dept: { department: string; student_count: number }) => processDept(dept.department));
-            } else if (fullCourse) {
-                processDept('Genel');
-            } else if (sCourse) {
+                courseDepts.forEach((deptName: string) => processDept(deptName));
+            } else {
                 processDept('Genel');
             }
         });

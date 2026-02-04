@@ -118,11 +118,18 @@ const COURSE_HEADERS = [
   'Ders Adı',
   'Fakülte',
   'Öğretmen ID',
+  'Öğretmen E-posta',
   'Seviye',
   'Kategori',
   'Dönem',
   'AKTS',
   'Haftalık Saat',
+  'Oturum 1 Tür',
+  'Oturum 1 Süre',
+  'Oturum 2 Tür',
+  'Oturum 2 Süre',
+  'Oturum 3 Tür',
+  'Oturum 3 Süre',
   'Bölüm',
   'Öğrenci Sayısı',
   'Aktif',
@@ -171,14 +178,14 @@ export function downloadTeacherTemplate(): void {
 export function downloadCourseTemplate(): void {
   const rows = [
     COURSE_HEADERS,
-    ['BIL101', 'Programlamaya Giriş', 'muhendislik', 1, '1', 'zorunlu', 'güz', 5, 4, 'bilgisayar', 80, 'Evet'],
+    ['BIL101', 'Programlamaya Giriş', 'muhendislik', 1, 'ornek@ankara.edu.tr', '1', 'zorunlu', 'güz', 5, 4, 'Teorik', 3, 'Laboratuvar', 2, '', '', 'bilgisayar', 80, 'Evet'],
   ];
   const desc = [
     'Ders Kodu: BIL101, CENG1001 gibi (büyük harf + rakam)',
-    'Öğretmen ID: Öğretmenler sayfasındaki ID',
-    'Seviye: 1, 2, 3 veya 4',
-    'Kategori: zorunlu / secmeli | Dönem: güz / bahar',
-    'Bölüm + Öğrenci Sayısı: dersin verildiği bölüm ve öğrenci sayısı',
+    'Öğretmen ID veya Öğretmen E-posta: ID geçerliyse kullanılır; yoksa e-posta ile sistemdeki öğretmen eşlenir.',
+    'Oturum 1–3 Tür / Süre: Her oturum için Tür (Teorik / Laboratuvar) ve Süre (saat). Toplam = Haftalık Saat. Oturum yoksa yalnızca Haftalık Saat kullanılır.',
+    'Seviye: 1, 2, 3 veya 4. Kategori: zorunlu / secmeli. Dönem: güz / bahar.',
+    'Bölüm + Öğrenci Sayısı: dersin verildiği bölüm ve öğrenci sayısı.',
   ];
   workbookWithDataAndDescription(rows, desc, 'ders_sablonu');
 }
@@ -246,6 +253,8 @@ const COURSE_MAP: Record<string, string> = {
   'fakulte': 'Fakülte',
   'öğretmen id': 'Öğretmen ID',
   'ogretmen id': 'Öğretmen ID',
+  'öğretmen e-posta': 'Öğretmen E-posta',
+  'ogretmen e-posta': 'Öğretmen E-posta',
   'seviye': 'Seviye',
   'kategori': 'Kategori',
   'dönem': 'Dönem',
@@ -253,6 +262,18 @@ const COURSE_MAP: Record<string, string> = {
   'akts': 'AKTS',
   'haftalık saat': 'Haftalık Saat',
   'haftalik saat': 'Haftalık Saat',
+  'oturum 1 tür': 'Oturum 1 Tür',
+  'oturum 1 tur': 'Oturum 1 Tür',
+  'oturum 1 süre': 'Oturum 1 Süre',
+  'oturum 1 sure': 'Oturum 1 Süre',
+  'oturum 2 tür': 'Oturum 2 Tür',
+  'oturum 2 tur': 'Oturum 2 Tür',
+  'oturum 2 süre': 'Oturum 2 Süre',
+  'oturum 2 sure': 'Oturum 2 Süre',
+  'oturum 3 tür': 'Oturum 3 Tür',
+  'oturum 3 tur': 'Oturum 3 Tür',
+  'oturum 3 süre': 'Oturum 3 Süre',
+  'oturum 3 sure': 'Oturum 3 Süre',
   'bölüm': 'Bölüm',
   'bolum': 'Bölüm',
   'öğrenci sayısı': 'Öğrenci Sayısı',
@@ -339,7 +360,8 @@ export function validateAndMapTeachers(
 
 export function validateAndMapCourses(
   rows: Record<string, unknown>[],
-  existingTeacherIds: Set<number>
+  existingTeacherIds: Set<number>,
+  teacherEmailToId?: Map<string, number>
 ): RowResult<{
   code: string;
   name: string;
@@ -352,7 +374,7 @@ export function validateAndMapCourses(
   total_hours: number;
   departments: { department: string; student_count: number }[];
   is_active: boolean;
-  sessions: { type: 'teorik'; hours: number }[];
+  sessions: { type: 'teorik' | 'lab'; hours: number }[];
 }>[] {
   return rows.map((r, i) => {
     const row = normalizeHeaders(r, COURSE_MAP);
@@ -360,13 +382,23 @@ export function validateAndMapCourses(
     const name = String(row['Ders Adı'] ?? '').trim();
     const faculty = String(row['Fakülte'] ?? '').trim();
     const teacherIdRaw = row['Öğretmen ID'];
-    const teacher_id = typeof teacherIdRaw === 'number' ? teacherIdRaw : parseInt(String(teacherIdRaw || ''), 10);
+    let teacher_id = typeof teacherIdRaw === 'number' ? teacherIdRaw : parseInt(String(teacherIdRaw || ''), 10);
+    const emailRaw = String(row['Öğretmen E-posta'] ?? '').trim().toLowerCase();
+
+    if (isNaN(teacher_id) || !existingTeacherIds.has(teacher_id)) {
+      if (emailRaw && teacherEmailToId?.has(emailRaw)) {
+        teacher_id = teacherEmailToId.get(emailRaw)!;
+      } else {
+        return { ok: false, error: 'Geçerli Öğretmen ID veya Öğretmen E-posta gerekli (e-posta sistemde kayıtlı olmalı)', rowIndex: i + 1 };
+      }
+    }
+
     const level = String(row['Seviye'] ?? '1').trim();
     const cat = String(row['Kategori'] ?? 'zorunlu').toLowerCase();
     const category = (cat === 'secmeli' || cat === 'seçmeli') ? 'secmeli' : 'zorunlu';
     const semester = String(row['Dönem'] ?? 'güz').trim().toLowerCase();
     const ects = parseInt(String(row['AKTS'] ?? '5'), 10) || 5;
-    const total_hours = parseInt(String(row['Haftalık Saat'] ?? '3'), 10) || 3;
+    const weeklyHoursFallback = parseInt(String(row['Haftalık Saat'] ?? '3'), 10) || 3;
     const department = String(row['Bölüm'] ?? '').trim();
     const student_count = parseInt(String(row['Öğrenci Sayısı'] ?? '0'), 10) || 0;
     const active = row['Aktif'];
@@ -376,13 +408,28 @@ export function validateAndMapCourses(
     if (!name || name.length < 2) return { ok: false, error: 'Ders Adı gerekli', rowIndex: i + 1 };
     if (!faculty) return { ok: false, error: 'Fakülte gerekli', rowIndex: i + 1 };
     if (!FACULTY_IDS.has(faculty)) return { ok: false, error: `Bilinmeyen fakülte: ${faculty}`, rowIndex: i + 1 };
-    if (isNaN(teacher_id) || !existingTeacherIds.has(teacher_id)) return { ok: false, error: 'Geçerli Öğretmen ID gerekli', rowIndex: i + 1 };
     if (!['1', '2', '3', '4'].includes(level)) return { ok: false, error: 'Seviye 1, 2, 3 veya 4 olmalı', rowIndex: i + 1 };
     if (!department) return { ok: false, error: 'Bölüm gerekli', rowIndex: i + 1 };
     if (!departmentExists(faculty, department)) return { ok: false, error: `Bölüm "${department}" bu fakültede yok`, rowIndex: i + 1 };
 
     const departments = [{ department, student_count }];
-    const sessions = [{ type: 'teorik' as const, hours: total_hours }];
+    let sessions: { type: 'teorik' | 'lab'; hours: number }[] = [];
+    for (let n = 1; n <= 3; n++) {
+      const tur = String(row[`Oturum ${n} Tür` as keyof typeof row] ?? '').trim().toLowerCase();
+      const sureRaw = row[`Oturum ${n} Süre` as keyof typeof row];
+      const sure = typeof sureRaw === 'number' ? sureRaw : parseInt(String(sureRaw ?? ''), 10) || 0;
+      if (sure > 0) {
+        const type = (tur === 'laboratuvar' || tur === 'lab') ? 'lab' as const : 'teorik' as const;
+        sessions.push({ type, hours: Math.max(1, Math.min(10, sure)) });
+      }
+    }
+    let total_hours: number;
+    if (sessions.length > 0) {
+      total_hours = sessions.reduce((sum, s) => sum + s.hours, 0);
+    } else {
+      total_hours = Math.max(1, Math.min(100, weeklyHoursFallback));
+      sessions = [{ type: 'teorik' as const, hours: total_hours }];
+    }
 
     return {
       ok: true,
@@ -395,7 +442,7 @@ export function validateAndMapCourses(
         category,
         semester: semester || 'güz',
         ects: Math.max(0, Math.min(30, ects)),
-        total_hours: Math.max(1, Math.min(100, total_hours)),
+        total_hours,
         departments,
         is_active,
         sessions,

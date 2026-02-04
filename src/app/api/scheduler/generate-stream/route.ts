@@ -74,8 +74,8 @@ export async function GET(request: NextRequest) {
           const timeSettings = await prisma.systemSettings.findFirst();
           const TIME_BLOCKS = generateDynamicTimeBlocks({
             slotDuration: timeSettings?.slotDuration ?? 60,
-            dayStart: timeSettings?.dayStart ?? '08:00',
-            dayEnd: timeSettings?.dayEnd ?? '18:00',
+            dayStart: timeSettings?.dayStart ?? '09:30',
+            dayEnd: timeSettings?.dayEnd ?? '16:30',
             lunchBreakStart: timeSettings?.lunchBreakStart ?? '12:00',
             lunchBreakEnd: timeSettings?.lunchBreakEnd ?? '13:00',
           });

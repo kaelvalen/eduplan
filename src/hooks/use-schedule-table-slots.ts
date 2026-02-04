@@ -24,8 +24,8 @@ export function useScheduleTableSlots() {
       return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
     };
 
-    const startMin = toMinutes(settings?.day_start || '08:00');
-    const endMin = toMinutes(settings?.day_end || '18:00');
+    const startMin = toMinutes(settings?.day_start || '09:30');
+    const endMin = toMinutes(settings?.day_end || '17:00');
     const slotDuration = settings?.slot_duration ?? 60;
 
     const slots: string[] = [];

@@ -243,6 +243,13 @@ export interface SchedulerResult {
     reason: string;
   }[];
   perfect: boolean;
+  lunch_overflow_warnings?: {
+    courseCode: string;
+    courseName: string;
+    day: string;
+    timeRange: string;
+    sessionType: string;
+  }[];
 }
 
 // ==================== SYSTEM SETTINGS ====================

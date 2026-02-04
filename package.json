@@ -10,7 +10,9 @@
     "lint": "eslint",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "generate:courses-excel": "node scripts/generate-courses-excel.js",
+    "generate:classrooms-excel": "node scripts/generate-classrooms-excel.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

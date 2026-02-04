@@ -6,6 +6,21 @@
 import { DAY_MAPPING } from '@/constants/time';
 import type { TimeBlock, ScheduleItem, CourseData, ClassroomData } from './types';
 
+function timeRangesOverlap(a: string, b: string): boolean {
+  const [aStart, aEnd] = a.split('-').map((s) => s.trim());
+  const [bStart, bEnd] = b.split('-').map((s) => s.trim());
+  if (!aStart || !aEnd || !bStart || !bEnd) return false;
+  return aStart < bEnd && bStart < aEnd;
+}
+
+function slotMatchesBlock(slot: string, timeBlock: { start: string; end: string }): boolean {
+  const s = String(slot).trim();
+  const blockRange = `${timeBlock.start}-${timeBlock.end}`;
+  if (/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(s)) return timeRangesOverlap(blockRange, s);
+  if (/^\d{2}:\d{2}$/.test(s)) return s === timeBlock.start;
+  return false;
+}
+
 /**
  * Check if teacher is available at given time
  */
@@ -15,7 +30,10 @@ export function isTeacherAvailable(
   timeBlock: TimeBlock
 ): boolean {
   // If no configuration is set, assume fully available
-  if (Object.keys(workingHours).length === 0) return true;
+  if (!workingHours || Object.keys(workingHours).length === 0) return true;
+  // If no day has any non-empty slots (e.g. {"Pazartesi":[], ...}), treat as fully available
+  const hasAnySlots = Object.values(workingHours).some((s) => Array.isArray(s) && s.length > 0);
+  if (!hasAnySlots) return true;
 
   let slots = workingHours[day];
 
@@ -30,8 +48,7 @@ export function isTeacherAvailable(
   // If configuration exists but this day has no slots, assume UNAVAILABLE
   if (!slots || slots.length === 0) return false;
 
-  // Check if the time block start is in the available slots
-  return slots.includes(timeBlock.start);
+  return slots.some((s) => slotMatchesBlock(s, timeBlock));
 }
 
 /**
@@ -43,7 +60,10 @@ export function isClassroomAvailable(
   timeBlock: TimeBlock
 ): boolean {
   // If no configuration is set, assume fully available
-  if (Object.keys(availableHours).length === 0) return true;
+  if (!availableHours || Object.keys(availableHours).length === 0) return true;
+  // If no day has any non-empty slots, treat as fully available
+  const hasAnySlots = Object.values(availableHours).some((s) => Array.isArray(s) && s.length > 0);
+  if (!hasAnySlots) return true;
 
   let slots = availableHours[day];
 
@@ -58,7 +78,7 @@ export function isClassroomAvailable(
   // If configuration exists but this day has no slots, assume UNAVAILABLE
   if (!slots || slots.length === 0) return false;
 
-  return slots.includes(timeBlock.start);
+  return slots.some((s) => slotMatchesBlock(s, timeBlock));
 }
 
 /**

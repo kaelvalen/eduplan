@@ -147,17 +147,33 @@ export default function LoginPage() {
         {/* Grid Pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(99,102,241,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(99,102,241,0.03)_1px,transparent_1px)] bg-[size:24px_24px] opacity-40" />
         
-        {/* Floating Particles */}
+        {/* Floating Particles — fixed values to avoid hydration mismatch */}
         <div className="absolute inset-0">
-          {[...Array(15)].map((_, i) => (
+          {[
+            [10, 6, 0.65, 9.4],
+            [84, 23, 2.26, 6.96],
+            [5, 51, 0.89, 5.07],
+            [98, 61, 0.22, 7.1],
+            [48, 85, 1.91, 7.65],
+            [98, 62, 2.06, 5.08],
+            [97, 61, 1.91, 5.13],
+            [47, 14, 3.52, 6],
+            [56, 37, 2.41, 7.33],
+            [33, 81, 0.62, 7.59],
+            [58, 14, 0.79, 9.68],
+            [32, 3, 2.06, 8.83],
+            [84, 78, 4.34, 9.83],
+            [88, 24, 4.36, 5.17],
+            [53, 80, 2.45, 9.36],
+          ].map(([left, top, delay, duration], i) => (
             <div
               key={i}
               className="absolute w-1 h-1 bg-blue-400/30 rounded-full animate-float"
               style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 5}s`,
-                animationDuration: `${5 + Math.random() * 5}s`,
+                left: `${left}%`,
+                top: `${top}%`,
+                animationDelay: `${delay}s`,
+                animationDuration: `${duration}s`,
               }}
             />
           ))}

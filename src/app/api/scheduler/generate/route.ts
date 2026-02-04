@@ -41,21 +41,20 @@ function generateDynamicTimeBlocks(settings: TimeSettings): TimeBlock[] {
   
   const startMinutes = toMinutes(dayStart);
   const endMinutes = toMinutes(dayEnd);
-  const lunchStartMin = toMinutes(lunchBreakStart);
-  const lunchEndMin = toMinutes(lunchBreakEnd);
-  
+  const lunchStartMin = lunchBreakStart ? toMinutes(lunchBreakStart) : -1;
+  const lunchEndMin = lunchBreakEnd ? toMinutes(lunchBreakEnd) : -1;
+
   for (let current = startMinutes; current < endMinutes; current += slotDuration) {
     const blockEnd = current + slotDuration;
     
     // Prevent block overflow: if block would extend past dayEnd, don't create it
-    // This handles edge cases like dayEnd=17:15, slot=60 where 16:00-17:00 is valid but 17:00-18:00 would overflow
     if (blockEnd > endMinutes) {
       break;
     }
     
-    // Skip if block overlaps with lunch break
-    if (current < lunchEndMin && blockEnd > lunchStartMin) {
-      continue;
+    // Öğle arasına taşan blokları hariç tut — dersler öğle arasına yerleştirilmez
+    if (lunchStartMin >= 0 && lunchEndMin >= 0 && current < lunchEndMin && blockEnd > lunchStartMin) {
+      continue; // Skip blocks that overlap with lunch break
     }
     
     blocks.push({
@@ -71,8 +70,8 @@ async function getTimeSettings(): Promise<TimeSettings> {
   const settings = await prisma.systemSettings.findFirst();
   return {
     slotDuration: settings?.slotDuration ?? 60,
-    dayStart: settings?.dayStart ?? '08:00',
-    dayEnd: settings?.dayEnd ?? '18:00',
+    dayStart: settings?.dayStart ?? '09:30',
+    dayEnd: settings?.dayEnd ?? '17:00',
     lunchBreakStart: settings?.lunchBreakStart ?? '12:00',
     lunchBreakEnd: settings?.lunchBreakEnd ?? '13:00',
   };
@@ -125,7 +124,27 @@ interface ClassroomData {
   isActive: boolean;
 }
 
+/** "08:00-09:00" ile "08:00-12:00" gibi aralıklar çakışıyor mu? */
+function timeRangesOverlap(a: string, b: string): boolean {
+  const [aStart, aEnd] = a.split('-').map((s) => s.trim());
+  const [bStart, bEnd] = b.split('-').map((s) => s.trim());
+  if (!aStart || !aEnd || !bStart || !bEnd) return false;
+  return aStart < bEnd && bStart < aEnd;
+}
 
+/** Oturum aralığı öğle arasına taşıyor mu? */
+function timeRangeOverlapsLunch(timeRange: string, lunchStart: string, lunchEnd: string): boolean {
+  return timeRangesOverlap(timeRange, `${lunchStart}-${lunchEnd}`);
+}
+
+/** Slot ("08:00-09:00" veya "08:00") blok (start–end) ile eşleşiyor mu? */
+function slotMatchesBlock(slot: string, timeBlock: { start: string; end: string }): boolean {
+  const s = String(slot).trim();
+  const blockRange = `${timeBlock.start}-${timeBlock.end}`;
+  if (/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(s)) return timeRangesOverlap(blockRange, s);
+  if (/^\d{2}:\d{2}$/.test(s)) return s === timeBlock.start;
+  return false;
+}
 
 // Check if teacher is available at given time
 function isTeacherAvailable(
@@ -134,7 +153,10 @@ function isTeacherAvailable(
   timeBlock: { start: string; end: string }
 ): boolean {
   // If no configuration is set at all (empty object), assume fully available
-  if (Object.keys(workingHours).length === 0) return true;
+  if (!workingHours || Object.keys(workingHours).length === 0) return true;
+  // If no day has any non-empty slots (e.g. {"Pazartesi":[], ...}), treat as fully available
+  const hasAnySlots = Object.values(workingHours).some((s) => Array.isArray(s) && s.length > 0);
+  if (!hasAnySlots) return true;
 
   let slots = workingHours[day];
 
@@ -149,8 +171,8 @@ function isTeacherAvailable(
   // If configuration exists but this day has no slots or is undefined, assume UNAVAILABLE
   if (!slots || slots.length === 0) return false;
 
-  // Check if the time block start is in the available slots
-  return slots.includes(timeBlock.start);
+  // Slots may be "08:00-09:00" (range) or "08:00" (start); check overlap or exact match
+  return slots.some((s) => slotMatchesBlock(s, timeBlock));
 }
 
 // Check if classroom is available at given time
@@ -160,7 +182,10 @@ function isClassroomAvailable(
   timeBlock: { start: string; end: string }
 ): boolean {
   // If no configuration is set at all (empty object), assume fully available
-  if (Object.keys(availableHours).length === 0) return true;
+  if (!availableHours || Object.keys(availableHours).length === 0) return true;
+  // If no day has any non-empty slots, treat as fully available
+  const hasAnySlots = Object.values(availableHours).some((s) => Array.isArray(s) && s.length > 0);
+  if (!hasAnySlots) return true;
 
   let slots = availableHours[day];
 
@@ -175,7 +200,8 @@ function isClassroomAvailable(
   // If configuration exists but this day has no slots or is undefined, assume UNAVAILABLE
   if (!slots || slots.length === 0) return false;
 
-  return slots.includes(timeBlock.start);
+  // Slots may be "08:00-09:00" (range) or "08:00" (start); check overlap or exact match
+  return slots.some((s) => slotMatchesBlock(s, timeBlock));
 }
 
 // Find suitable classroom for a course session (supporting multiple blocks)
@@ -293,7 +319,7 @@ function hasConflict(
   if (!course) return true;
 
   for (const item of schedule) {
-    if (item.day !== newItem.day || item.timeRange !== newItem.timeRange) continue;
+    if (item.day !== newItem.day || !timeRangesOverlap(item.timeRange, newItem.timeRange)) continue;
 
     const existingCourse = courses.get(item.courseId);
     if (!existingCourse) continue;
@@ -400,11 +426,12 @@ function processHardcodedSchedules(
 
 // Heuristic-based schedule generation with local improvement
 // Production-grade heuristic scheduler (Smart Greedy + Randomized Heuristic + Hill Climbing)
-async function generateScheduleHeuristic(
+// Sync to avoid Turbopack "CJS module can't be async" when bundled.
+function generateScheduleHeuristic(
   courses: CourseData[],
   classrooms: ClassroomData[],
   TIME_BLOCKS: TimeBlock[]
-): Promise<{ schedule: ScheduleItem[]; unscheduled: CourseData[] }> {
+): { schedule: ScheduleItem[]; unscheduled: CourseData[] } {
   // First, process hardcoded schedules
   const { schedule, processedSessionCount } = processHardcodedSchedules(courses, classrooms);
   const unscheduled: CourseData[] = [];
@@ -523,124 +550,248 @@ async function generateScheduleHeuristic(
     let courseFullyScheduled = true;
     const scheduledDays = new Set<string>(); // Track days used for this course
 
-    for (const session of sessionsToSchedule) {
-      let sessionScheduled = false;
-      const duration = session.hours;
-
-      // Shuffle days
-      const shuffledDays = [...DAYS].sort(() => Math.random() - 0.5);
-
-      for (const day of shuffledDays) {
-        if (sessionScheduled) break;
-
-        // Prefer different days for different session blocks of the same course (optional, but good for distribution)
-        // If it's a new session needed and we already have a session on this day, skip if possible
-        // But if forced, allow it. For now, strict check:
-        // if (scheduledDays.has(day) && shuffledDays.some(d => !scheduledDays.has(d))) continue;
-
-        // Find consecutive time blocks
-        // We look for 'duration' number of consecutive blocks
-        // Constraints:
-        // 1. Must be consecutive indices in TIME_BLOCKS
-        // 2. Must not span across gaps (like lunch break)
-        // 3. Teacher must be available for ALL blocks
-        // 4. No conflict for ALL blocks
-
-        const possibleStartIndices = Array.from({ length: TIME_BLOCKS.length - duration + 1 }, (_, i) => i)
-          .sort(() => Math.random() - 0.5);
-
-        for (const startIndex of possibleStartIndices) {
-          if (sessionScheduled) break;
-
-          const currentBlocks: typeof TIME_BLOCKS[0][] = [];
-          const blockRanges: string[] = [];
-          let isValidSequence = true;
-
-          // Validate sequence
-          for (let i = 0; i < duration; i++) {
-            const blockIndex = startIndex + i;
-            const currentBlock = TIME_BLOCKS[blockIndex];
-            const nextBlock = (i < duration - 1) ? TIME_BLOCKS[blockIndex + 1] : null;
-
-            // Gap check (e.g. 12:00-13:00)
-            if (nextBlock && currentBlock.end !== nextBlock.start) {
-              isValidSequence = false;
-              break;
+    // Teorik + lab çifti: aynı gün, teorik → en az 1 blok ara → lab (hemen sonraya, bir ara ile)
+    const theorySession = sessionsToSchedule.find((s) => s.type === 'teorik');
+    const labSession = sessionsToSchedule.find((s) => s.type === 'lab');
+    let combinedPlaced = false;
+    if (theorySession && labSession && sessionsToSchedule.length === 2) {
+      const th = theorySession.hours;
+      const lh = labSession.hours;
+      const shuffledDaysCombined = [...DAYS].sort(() => Math.random() - 0.5);
+      for (const day of shuffledDaysCombined) {
+        if (combinedPlaced) break;
+        // labStartIdx >= theoryStartIdx + th + 1 (en az 1 blok ara)
+        for (let ti = 0; ti <= TIME_BLOCKS.length - th; ti++) {
+          if (combinedPlaced) break;
+          for (let li = ti + th + 1; li <= TIME_BLOCKS.length - lh; li++) {
+            let theoryOk = true;
+            const theoryBlocks: { start: string; end: string }[] = [];
+            for (let i = 0; i < th; i++) {
+              const bi = ti + i;
+              const cur = TIME_BLOCKS[bi];
+              const next = i < th - 1 ? TIME_BLOCKS[bi + 1] : null;
+              if (next && cur.end !== next.start) {
+                theoryOk = false;
+                break;
+              }
+              theoryBlocks.push(cur);
+              if (!isTeacherAvailable(course.teacherWorkingHours, day, cur)) {
+                theoryOk = false;
+                break;
+              }
+              if (
+                hasConflict(
+                  schedule,
+                  {
+                    courseId: course.id,
+                    day,
+                    timeRange: `${cur.start}-${cur.end}`,
+                    sessionType: 'teorik',
+                    sessionHours: 1,
+                  },
+                  courseMap
+                )
+              ) {
+                theoryOk = false;
+                break;
+              }
             }
+            if (!theoryOk) continue;
 
-            currentBlocks.push(currentBlock);
-            blockRanges.push(`${currentBlock.start}-${currentBlock.end}`);
-
-            // Teacher availability
-            if (!isTeacherAvailable(course.teacherWorkingHours, day, currentBlock)) {
-              isValidSequence = false;
-              break;
+            let labOk = true;
+            const labBlocks: { start: string; end: string }[] = [];
+            for (let i = 0; i < lh; i++) {
+              const bi = li + i;
+              const cur = TIME_BLOCKS[bi];
+              const next = i < lh - 1 ? TIME_BLOCKS[bi + 1] : null;
+              if (next && cur.end !== next.start) {
+                labOk = false;
+                break;
+              }
+              labBlocks.push(cur);
+              if (!isTeacherAvailable(course.teacherWorkingHours, day, cur)) {
+                labOk = false;
+                break;
+              }
+              if (
+                hasConflict(
+                  schedule,
+                  {
+                    courseId: course.id,
+                    day,
+                    timeRange: `${cur.start}-${cur.end}`,
+                    sessionType: 'lab',
+                    sessionHours: 1,
+                  },
+                  courseMap
+                )
+              ) {
+                labOk = false;
+                break;
+              }
             }
+            if (!labOk) continue;
 
-            // Conflict check
-            if (hasConflict(
-              schedule,
-              { courseId: course.id, day, timeRange: `${currentBlock.start}-${currentBlock.end}`, sessionType: session.type, sessionHours: 1 },
-              courseMap
-            )) {
-              isValidSequence = false;
-              break;
-            }
-          }
-
-          if (!isValidSequence) continue;
-
-          // Find a classroom that matches ALL blocks
-          // Prepare occupied sets for each block
-          const occupiedClassroomsByBlock: Set<number>[] = [];
-          for (const range of blockRanges) {
-            const occupied = new Set(
-              schedule
-                .filter(s => s.day === day && s.timeRange === range)
-                .map(s => s.classroomId)
+            const theoryRanges = theoryBlocks.map((b) => `${b.start}-${b.end}`);
+            const occTheory: Set<number>[] = theoryRanges.map((r) =>
+              new Set(schedule.filter((s) => s.day === day && timeRangesOverlap(s.timeRange, r)).map((s) => s.classroomId))
             );
-            occupiedClassroomsByBlock.push(occupied);
-          }
+            const roomTheory = findSuitableClassroomForBlocks(
+              classrooms,
+              'teorik',
+              totalStudents,
+              occTheory,
+              course.capacityMargin,
+              mainDepartment,
+              day,
+              theoryBlocks
+            );
+            if (!roomTheory) continue;
 
-          const classroom = findSuitableClassroomForBlocks(
-            classrooms,
-            session.type,
-            totalStudents,
-            occupiedClassroomsByBlock,
-            course.capacityMargin,
-            mainDepartment,
-            day,
-            currentBlocks
-          );
+            const labRanges = labBlocks.map((b) => `${b.start}-${b.end}`);
+            const occLab: Set<number>[] = labRanges.map((r) =>
+              new Set(schedule.filter((s) => s.day === day && timeRangesOverlap(s.timeRange, r)).map((s) => s.classroomId))
+            );
+            const roomLab = findSuitableClassroomForBlocks(
+              classrooms,
+              'lab',
+              totalStudents,
+              occLab,
+              course.capacityMargin,
+              mainDepartment,
+              day,
+              labBlocks
+            );
+            if (!roomLab) continue;
 
-          if (classroom) {
-            // Schedule as a single contiguous block
-            const startBlock = currentBlocks[0];
-            const endBlock = currentBlocks[duration - 1];
+            const tStart = theoryBlocks[0];
+            const tEnd = theoryBlocks[th - 1];
+            const lStart = labBlocks[0];
+            const lEnd = labBlocks[lh - 1];
             schedule.push({
               courseId: course.id,
-              classroomId: classroom.id,
+              classroomId: roomTheory.id,
               day,
-              timeRange: `${startBlock.start}-${endBlock.end}`,
-              sessionType: session.type,
-              sessionHours: duration,
-              isHardcoded: false
+              timeRange: `${tStart.start}-${tEnd.end}`,
+              sessionType: 'teorik',
+              sessionHours: th,
+              isHardcoded: false,
             });
-            
-            // Soft constraint: Update lecturer load for balanced scheduling
+            schedule.push({
+              courseId: course.id,
+              classroomId: roomLab.id,
+              day,
+              timeRange: `${lStart.start}-${lEnd.end}`,
+              sessionType: 'lab',
+              sessionHours: lh,
+              isHardcoded: false,
+            });
             if (course.teacherId) {
-              const currentLoad = lecturerLoad.get(course.teacherId) || 0;
-              lecturerLoad.set(course.teacherId, currentLoad + duration);
+              const load = lecturerLoad.get(course.teacherId) ?? 0;
+              lecturerLoad.set(course.teacherId, load + th + lh);
             }
-            
-            sessionScheduled = true;
+            combinedPlaced = true;
             scheduledDays.add(day);
+            break;
           }
         }
       }
+    }
 
-      if (!sessionScheduled) {
-        courseFullyScheduled = false;
+    if (!combinedPlaced) {
+      for (const session of sessionsToSchedule) {
+        let sessionScheduled = false;
+        const duration = session.hours;
+
+        // Shuffle days
+        const shuffledDays = [...DAYS].sort(() => Math.random() - 0.5);
+
+        for (const day of shuffledDays) {
+          if (sessionScheduled) break;
+
+          // Find consecutive time blocks
+          const possibleStartIndices = Array.from({ length: TIME_BLOCKS.length - duration + 1 }, (_, i) => i)
+            .sort(() => Math.random() - 0.5);
+
+          for (const startIndex of possibleStartIndices) {
+            if (sessionScheduled) break;
+
+            const currentBlocks: typeof TIME_BLOCKS[0][] = [];
+            const blockRanges: string[] = [];
+            let isValidSequence = true;
+
+            for (let i = 0; i < duration; i++) {
+              const blockIndex = startIndex + i;
+              const currentBlock = TIME_BLOCKS[blockIndex];
+              const nextBlock = (i < duration - 1) ? TIME_BLOCKS[blockIndex + 1] : null;
+              if (nextBlock && currentBlock.end !== nextBlock.start) {
+                isValidSequence = false;
+                break;
+              }
+              currentBlocks.push(currentBlock);
+              blockRanges.push(`${currentBlock.start}-${currentBlock.end}`);
+              if (!isTeacherAvailable(course.teacherWorkingHours, day, currentBlock)) {
+                isValidSequence = false;
+                break;
+              }
+              if (hasConflict(
+                schedule,
+                { courseId: course.id, day, timeRange: `${currentBlock.start}-${currentBlock.end}`, sessionType: session.type, sessionHours: 1 },
+                courseMap
+              )) {
+                isValidSequence = false;
+                break;
+              }
+            }
+
+            if (!isValidSequence) continue;
+
+            const occupiedClassroomsByBlock: Set<number>[] = [];
+            for (const range of blockRanges) {
+              const occupied = new Set(
+                schedule
+                  .filter(s => s.day === day && timeRangesOverlap(s.timeRange, range))
+                  .map(s => s.classroomId)
+              );
+              occupiedClassroomsByBlock.push(occupied);
+            }
+
+            const classroom = findSuitableClassroomForBlocks(
+              classrooms,
+              session.type,
+              totalStudents,
+              occupiedClassroomsByBlock,
+              course.capacityMargin,
+              mainDepartment,
+              day,
+              currentBlocks
+            );
+
+            if (classroom) {
+              const startBlock = currentBlocks[0];
+              const endBlock = currentBlocks[duration - 1];
+              schedule.push({
+                courseId: course.id,
+                classroomId: classroom.id,
+                day,
+                timeRange: `${startBlock.start}-${endBlock.end}`,
+                sessionType: session.type,
+                sessionHours: duration,
+                isHardcoded: false
+              });
+              if (course.teacherId) {
+                const currentLoad = lecturerLoad.get(course.teacherId) || 0;
+                lecturerLoad.set(course.teacherId, currentLoad + duration);
+              }
+              sessionScheduled = true;
+              scheduledDays.add(day);
+            }
+          }
+        }
+
+        if (!sessionScheduled) {
+          courseFullyScheduled = false;
+        }
       }
     }
 
@@ -810,6 +961,7 @@ export async function POST(request: Request) {
         schedule: [],
         unscheduled: [],
         perfect: false,
+        lunch_overflow_warnings: [],
       });
     }
 
@@ -830,6 +982,7 @@ export async function POST(request: Request) {
           reason: 'Aktif derslik yok',
         })),
         perfect: false,
+        lunch_overflow_warnings: [],
       });
     }
 
@@ -840,9 +993,32 @@ export async function POST(request: Request) {
     const timeSettings = await getTimeSettings();
     const TIME_BLOCKS = generateDynamicTimeBlocks(timeSettings);
     logger.info('Using dynamic time blocks:', { timeSettings, blockCount: TIME_BLOCKS.length });
+    const teorikCount = (classrooms as ClassroomData[]).filter((c) => c.type !== 'lab').length;
+    const labCount = (classrooms as ClassroomData[]).filter((c) => c.type === 'lab').length;
+    logger.info('Scheduler inputs:', {
+      courseCount: courses.length,
+      classroomCount: (classrooms as ClassroomData[]).length,
+      teorikClassrooms: teorikCount,
+      labClassrooms: labCount,
+      blockCount: TIME_BLOCKS.length,
+    });
 
     // Generate new schedule
-    const { schedule, unscheduled } = await generateScheduleHeuristic(courses as CourseData[], classrooms as ClassroomData[], TIME_BLOCKS);
+    const { schedule, unscheduled } = generateScheduleHeuristic(courses as CourseData[], classrooms as ClassroomData[], TIME_BLOCKS);
+
+    if (schedule.length === 0 && (courses as CourseData[]).length > 0) {
+      const c = (courses as CourseData[])[0];
+      const caps = (classrooms as ClassroomData[]).map((r) => r.capacity);
+      logger.warn('Scheduler placed 0 items. Diagnostic:', {
+        firstCourse: c?.code,
+        sessions: c?.sessions,
+        totalStudents: c?.departments?.reduce((s, d) => s + d.studentCount, 0),
+        teacherWorkingHoursKeys: Object.keys(c?.teacherWorkingHours ?? {}).length,
+        hasAnySlotsTeacher: Object.values(c?.teacherWorkingHours ?? {}).some((v) => Array.isArray(v) && v.length > 0),
+        classroomMinCapacity: caps.length ? Math.min(...caps) : 0,
+        classroomMaxCapacity: caps.length ? Math.max(...caps) : 0,
+      });
+    }
 
     // Save to database
     if (schedule.length > 0) {
@@ -865,6 +1041,22 @@ export async function POST(request: Request) {
 
     const scheduledCount = schedule.length;
     const successRate = totalSessions > 0 ? Math.round((scheduledCount / totalSessions) * 100) : 0;
+
+    // Öğle arasına taşan oturumlar — uyarı listesi
+    const lunchOverflowWarnings = schedule
+      .filter((s) =>
+        timeRangeOverlapsLunch(s.timeRange, timeSettings.lunchBreakStart, timeSettings.lunchBreakEnd)
+      )
+      .map((s) => {
+        const c = (courses as CourseData[]).find((x) => x.id === s.courseId);
+        return {
+          courseCode: c?.code ?? '',
+          courseName: c?.name ?? '',
+          day: s.day,
+          timeRange: s.timeRange,
+          sessionType: s.sessionType,
+        };
+      });
 
     // Calculate advanced metrics
     const capacityMargins: number[] = [];
@@ -938,9 +1130,10 @@ export async function POST(request: Request) {
         reason: 'Uygun zaman/derslik bulunamadı (Blok yerleştirme)',
       })),
       perfect: unscheduled.length === 0,
+      lunch_overflow_warnings: lunchOverflowWarnings,
       // Advanced metrics
       metrics: {
-        avg_capacity_margin: Math.round(avgCapacityMargin * 10) / 10, // Round to 1 decimal
+        avg_capacity_margin: Math.round(avgCapacityMargin * 10) / 10,
         max_capacity_waste: Math.round(maxCapacityWaste * 10) / 10,
         teacher_load_stddev: Math.round(teacherLoadStddev * 10) / 10,
       },
