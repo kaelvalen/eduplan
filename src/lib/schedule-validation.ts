@@ -144,10 +144,11 @@ export function validateTeacherAvailability(
       }
 
       if (!dayHours || dayHours.length === 0) {
-        const availableDays = Object.keys(workingHours)
-          .map(d => ENGLISH_TO_DAY[d.toLowerCase()] || d)
-          .join(', ');
-        errors.push(`${teacher.name} ${day} günü çalışmıyor (Çalışma günleri: ${availableDays})`);
+        const daysWithSlots = Object.entries(workingHours)
+          .filter(([, slots]) => Array.isArray(slots) && slots.length > 0)
+          .map(([d]) => ENGLISH_TO_DAY[d.toLowerCase()] || d);
+        const availableDays = daysWithSlots.length > 0 ? daysWithSlots.join(', ') : 'Yok';
+        errors.push(`⚠️ ${teacher.name} ${day} günü müsait değil veya bu gün için saat tanımlanmamış (Müsait günler: ${availableDays})`);
         return { valid: false, errors };
       }
 

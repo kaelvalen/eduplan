@@ -699,31 +699,24 @@ function generateScheduleHeuristic(
     }
 
     if (!combinedPlaced) {
-      for (const session of sessionsToSchedule) {
-        let sessionScheduled = false;
-        const duration = session.hours;
+      // Helper: try to place a single chunk of chunkHours for this session (any day)
+      const tryPlaceChunk = (chunkHours: number, sess: { type: string }): boolean => {
+        const daysToTry = [...DAYS].sort(() => Math.random() - 0.5);
+        if (chunkHours > TIME_BLOCKS.length) return false;
 
-        // Shuffle days
-        const shuffledDays = [...DAYS].sort(() => Math.random() - 0.5);
-
-        for (const day of shuffledDays) {
-          if (sessionScheduled) break;
-
-          // Find consecutive time blocks
-          const possibleStartIndices = Array.from({ length: TIME_BLOCKS.length - duration + 1 }, (_, i) => i)
+        for (const day of daysToTry) {
+          const possibleStartIndices = Array.from({ length: Math.max(0, TIME_BLOCKS.length - chunkHours + 1) }, (_, i) => i)
             .sort(() => Math.random() - 0.5);
 
           for (const startIndex of possibleStartIndices) {
-            if (sessionScheduled) break;
-
             const currentBlocks: typeof TIME_BLOCKS[0][] = [];
             const blockRanges: string[] = [];
             let isValidSequence = true;
 
-            for (let i = 0; i < duration; i++) {
+            for (let i = 0; i < chunkHours; i++) {
               const blockIndex = startIndex + i;
               const currentBlock = TIME_BLOCKS[blockIndex];
-              const nextBlock = (i < duration - 1) ? TIME_BLOCKS[blockIndex + 1] : null;
+              const nextBlock = (i < chunkHours - 1) ? TIME_BLOCKS[blockIndex + 1] : null;
               if (nextBlock && currentBlock.end !== nextBlock.start) {
                 isValidSequence = false;
                 break;
@@ -736,7 +729,7 @@ function generateScheduleHeuristic(
               }
               if (hasConflict(
                 schedule,
-                { courseId: course.id, day, timeRange: `${currentBlock.start}-${currentBlock.end}`, sessionType: session.type, sessionHours: 1 },
+                { courseId: course.id, day, timeRange: `${currentBlock.start}-${currentBlock.end}`, sessionType: sess.type, sessionHours: 1 },
                 courseMap
               )) {
                 isValidSequence = false;
@@ -746,19 +739,17 @@ function generateScheduleHeuristic(
 
             if (!isValidSequence) continue;
 
-            const occupiedClassroomsByBlock: Set<number>[] = [];
-            for (const range of blockRanges) {
-              const occupied = new Set(
+            const occupiedClassroomsByBlock: Set<number>[] = blockRanges.map((range) =>
+              new Set(
                 schedule
                   .filter(s => s.day === day && timeRangesOverlap(s.timeRange, range))
                   .map(s => s.classroomId)
-              );
-              occupiedClassroomsByBlock.push(occupied);
-            }
+              )
+            );
 
             const classroom = findSuitableClassroomForBlocks(
               classrooms,
-              session.type,
+              sess.type,
               totalStudents,
               occupiedClassroomsByBlock,
               course.capacityMargin,
@@ -769,22 +760,184 @@ function generateScheduleHeuristic(
 
             if (classroom) {
               const startBlock = currentBlocks[0];
-              const endBlock = currentBlocks[duration - 1];
+              const endBlock = currentBlocks[chunkHours - 1];
               schedule.push({
                 courseId: course.id,
                 classroomId: classroom.id,
                 day,
                 timeRange: `${startBlock.start}-${endBlock.end}`,
-                sessionType: session.type,
-                sessionHours: duration,
+                sessionType: sess.type,
+                sessionHours: chunkHours,
                 isHardcoded: false
               });
               if (course.teacherId) {
                 const currentLoad = lecturerLoad.get(course.teacherId) || 0;
-                lecturerLoad.set(course.teacherId, currentLoad + duration);
+                lecturerLoad.set(course.teacherId, currentLoad + chunkHours);
               }
-              sessionScheduled = true;
               scheduledDays.add(day);
+              return true;
+            }
+          }
+        }
+        return false;
+      };
+
+      // Generate split options for long sessions (öğle arası nedeniyle max 3 ardışık blok var)
+      const getSplits = (d: number): number[][] => {
+        if (d <= 3) return [[d]];
+        const splits: number[][] = [[d]];
+        if (d === 4) {
+          splits.push([2, 2], [3, 1], [1, 3]);
+        } else if (d === 5) {
+          splits.push([2, 3], [3, 2], [2, 2, 1], [2, 1, 2], [1, 2, 2]);
+        } else if (d >= 6) {
+          const half = Math.floor(d / 2);
+          splits.push([half, d - half], [d - half, half]);
+          if (d === 6) splits.push([2, 2, 2], [3, 3]);
+        }
+        return splits;
+      };
+
+      // Aynı günde tüm parçaları yerleştir (örn: 2h sabah + 2h öğleden sonra)
+      const tryPlaceSplitOnSameDay = (split: number[], sess: { type: string }): boolean => {
+        const shuffledDays = [...DAYS].sort(() => Math.random() - 0.5);
+        for (const day of shuffledDays) {
+          const usedBlockRanges: { start: number; end: number }[] = [];
+
+          const tryPlaceAllOnDay = (chunkIdx: number): boolean => {
+            if (chunkIdx >= split.length) return true;
+            const chunkHours = split[chunkIdx];
+
+            for (let startIndex = 0; startIndex <= TIME_BLOCKS.length - chunkHours; startIndex++) {
+              const endIndex = startIndex + chunkHours - 1;
+              const blockRange = { start: startIndex, end: endIndex };
+
+              const overlaps = usedBlockRanges.some(
+                (r) => !(endIndex < r.start || startIndex > r.end)
+              );
+              if (overlaps) continue;
+
+              const currentBlocks = TIME_BLOCKS.slice(startIndex, startIndex + chunkHours);
+              const blockRanges = currentBlocks.map((b) => `${b.start}-${b.end}`);
+              let ok = true;
+              for (let i = 0; i < chunkHours; i++) {
+                const cur = currentBlocks[i];
+                if (!isTeacherAvailable(course.teacherWorkingHours, day, cur)) {
+                  ok = false;
+                  break;
+                }
+                if (
+                  hasConflict(
+                    schedule,
+                    {
+                      courseId: course.id,
+                      day,
+                      timeRange: `${cur.start}-${cur.end}`,
+                      sessionType: sess.type,
+                      sessionHours: 1,
+                    },
+                    courseMap
+                  )
+                ) {
+                  ok = false;
+                  break;
+                }
+              }
+              if (!ok) continue;
+
+              const occupiedByBlock = blockRanges.map((range) =>
+                new Set(
+                  schedule
+                    .filter((s) => s.day === day && timeRangesOverlap(s.timeRange, range))
+                    .map((s) => s.classroomId)
+                )
+              );
+
+              const classroom = findSuitableClassroomForBlocks(
+                classrooms,
+                sess.type,
+                totalStudents,
+                occupiedByBlock,
+                course.capacityMargin,
+                mainDepartment,
+                day,
+                currentBlocks
+              );
+
+              if (classroom) {
+                usedBlockRanges.push(blockRange);
+                schedule.push({
+                  courseId: course.id,
+                  classroomId: classroom.id,
+                  day,
+                  timeRange: `${currentBlocks[0].start}-${currentBlocks[chunkHours - 1].end}`,
+                  sessionType: sess.type,
+                  sessionHours: chunkHours,
+                  isHardcoded: false,
+                });
+                if (course.teacherId) {
+                  const load = lecturerLoad.get(course.teacherId) ?? 0;
+                  lecturerLoad.set(course.teacherId, load + chunkHours);
+                }
+                scheduledDays.add(day);
+
+                if (tryPlaceAllOnDay(chunkIdx + 1)) return true;
+
+                usedBlockRanges.pop();
+                schedule.pop();
+                if (course.teacherId) {
+                  const load = lecturerLoad.get(course.teacherId) ?? 0;
+                  lecturerLoad.set(course.teacherId, Math.max(0, load - chunkHours));
+                }
+              }
+            }
+            return false;
+          };
+
+          if (tryPlaceAllOnDay(0)) return true;
+        }
+        return false;
+      };
+
+      for (const session of sessionsToSchedule) {
+        const duration = session.hours;
+        const splits = getSplits(duration);
+        let sessionScheduled = false;
+
+        for (const split of splits) {
+          if (sessionScheduled) break;
+          const allChunksFit = split.every((chunk) => chunk <= TIME_BLOCKS.length);
+          if (!allChunksFit) continue;
+
+          const beforeCount = schedule.length;
+
+          if (split.length > 1) {
+            if (tryPlaceSplitOnSameDay(split, session)) {
+              sessionScheduled = true;
+            } else {
+              let allPlaced = true;
+              for (const chunkHours of split) {
+                if (!tryPlaceChunk(chunkHours, session)) {
+                  allPlaced = false;
+                  break;
+                }
+              }
+              if (allPlaced && schedule.length === beforeCount + split.length) {
+                sessionScheduled = true;
+              } else {
+                const added = schedule.length - beforeCount;
+                for (let i = 0; i < added; i++) {
+                  const removed = schedule.pop();
+                  if (removed && course.teacherId) {
+                    const load = lecturerLoad.get(course.teacherId) ?? 0;
+                    lecturerLoad.set(course.teacherId, Math.max(0, load - removed.sessionHours));
+                  }
+                }
+              }
+            }
+          } else {
+            if (tryPlaceChunk(split[0], session)) {
+              sessionScheduled = true;
             }
           }
         }
