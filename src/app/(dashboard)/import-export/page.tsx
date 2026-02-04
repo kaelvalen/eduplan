@@ -171,39 +171,33 @@ export default function ImportExportPage() {
   const duplicateRows = useMemo((): DuplicateRow[] => {
     if (toAdd.length === 0) return [];
     if (importType === 'teachers') {
-      return toAdd
-        .map((r) => {
-          const d = r.data as { email?: string; name?: string };
-          const email = (d?.email ?? '').trim().toLowerCase();
-          const existing = email ? existingTeachersMap.get(email) : undefined;
-          if (!existing) return null;
-          return { key: email, rowIndex: r.rowIndex, data: d, existingId: existing.id, col1: d?.name ?? '', col2: email };
-        })
-        .filter((x): x is DuplicateRow => x != null);
+      return toAdd.flatMap((r): DuplicateRow[] => {
+        const d = r.data as { email?: string; name?: string };
+        const email = (d?.email ?? '').trim().toLowerCase();
+        const existing = email ? existingTeachersMap.get(email) : undefined;
+        if (!existing) return [];
+        return [{ key: email, rowIndex: r.rowIndex, data: d, existingId: existing.id, col1: d?.name ?? '', col2: email }];
+      });
     }
     if (importType === 'courses') {
-      return toAdd
-        .map((r) => {
-          const d = r.data as { code?: string; name?: string };
-          const code = (d?.code ?? '').trim().toUpperCase();
-          const existing = code ? existingCoursesMap.get(code) : undefined;
-          if (!existing) return null;
-          return { key: code, rowIndex: r.rowIndex, data: d, existingId: existing.id, col1: code, col2: d?.name ?? '' };
-        })
-        .filter((x): x is DuplicateRow => x != null);
+      return toAdd.flatMap((r): DuplicateRow[] => {
+        const d = r.data as { code?: string; name?: string };
+        const code = (d?.code ?? '').trim().toUpperCase();
+        const existing = code ? existingCoursesMap.get(code) : undefined;
+        if (!existing) return [];
+        return [{ key: code, rowIndex: r.rowIndex, data: d, existingId: existing.id, col1: code, col2: d?.name ?? '' }];
+      });
     }
     if (importType === 'classrooms') {
-      return toAdd
-        .map((r) => {
-          const d = r.data as { name?: string; department?: string };
-          const name = (d?.name ?? '').trim();
-          const department = (d?.department ?? '').trim();
-          const key = `${name}|${department}`;
-          const existing = key ? existingClassroomsMap.get(key) : undefined;
-          if (!existing) return null;
-          return { key, rowIndex: r.rowIndex, data: d, existingId: existing.id, col1: name, col2: department };
-        })
-        .filter((x): x is DuplicateRow => x != null);
+      return toAdd.flatMap((r): DuplicateRow[] => {
+        const d = r.data as { name?: string; department?: string };
+        const name = (d?.name ?? '').trim();
+        const department = (d?.department ?? '').trim();
+        const key = `${name}|${department}`;
+        const existing = key ? existingClassroomsMap.get(key) : undefined;
+        if (!existing) return [];
+        return [{ key, rowIndex: r.rowIndex, data: d, existingId: existing.id, col1: name, col2: department }];
+      });
     }
     return [];
   }, [importType, toAdd, existingTeachersMap, existingCoursesMap, existingClassroomsMap]);
