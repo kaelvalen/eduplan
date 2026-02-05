@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { PageHeader } from '@/components/ui/page-header';
+import { SettingsForm } from '@/components/settings/settings-form';
 
 export default function SettingsPage() {
   const { user, isAdmin } = useAuth();
@@ -33,6 +34,10 @@ export default function SettingsPage() {
         icon={Settings}
         entity="settings"
       />
+
+      <div className="mb-6">
+        <SettingsForm />
+      </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Scheduler Settings Card */}
