@@ -20,6 +20,7 @@ import { ActivityList } from '@/components/ui/activity-list';
 import { StatusSection } from '@/components/ui/status-section';
 import { TipCard, KeyboardShortcut } from '@/components/ui/tip-card';
 import { DashboardGrid } from '@/components/ui/dashboard-grid';
+import { OnboardingWizard } from '@/components/dashboard/onboarding-wizard';
 import type { Statistics, SchedulerStatus, WidgetConfig } from '@/types';
 import { getEntityColors, type EntityKey, type StatusKey } from '@/lib/design-tokens';
 
@@ -213,6 +214,9 @@ export default function DashboardPage() {
         ) : undefined}
         className="shadow-2xl shadow-primary/20 mb-8"
       />
+
+      {/* Onboarding Wizard - Shows only if setup is incomplete */}
+      <OnboardingWizard stats={stats} className="mb-8" />
 
       {/* Dashboard Grid */}
       <DashboardGrid
