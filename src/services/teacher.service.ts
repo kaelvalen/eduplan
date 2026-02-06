@@ -2,9 +2,10 @@
  * Teacher Service - Business logic for teacher operations
  */
 
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { BaseService } from './base.service';
-import type { Teacher, TeacherCreate, TeacherWithSchedule } from '@/types';
+import type { Teacher, TeacherWithSchedule, Schedule } from '@/types';
 import type { CreateTeacherInput, UpdateTeacherInput } from '@/lib/schemas';
 
 export interface TeacherFilters {
@@ -14,7 +15,7 @@ export interface TeacherFilters {
   searchTerm?: string;
 }
 
-export class TeacherService extends BaseService<Teacher, CreateTeacherInput, UpdateTeacherInput> {
+export class TeacherService extends BaseService {
   protected modelName = 'teacher';
   protected cacheKeyPrefix = 'teachers';
   protected cacheTTL = 600; // 10 minutes for teachers
@@ -22,8 +23,8 @@ export class TeacherService extends BaseService<Teacher, CreateTeacherInput, Upd
   /**
    * Build where clause for filtering
    */
-  private buildWhereClause(filters?: TeacherFilters) {
-    const where: any = {};
+  private buildWhereClause(filters?: TeacherFilters): Prisma.TeacherWhereInput {
+    const where: Prisma.TeacherWhereInput = {};
 
     if (filters?.isActive !== undefined) {
       where.isActive = filters.isActive;
@@ -39,8 +40,8 @@ export class TeacherService extends BaseService<Teacher, CreateTeacherInput, Upd
 
     if (filters?.searchTerm) {
       where.OR = [
-        { name: { contains: filters.searchTerm, mode: 'insensitive' } },
-        { email: { contains: filters.searchTerm, mode: 'insensitive' } },
+        { name: { contains: filters.searchTerm } },
+        { email: { contains: filters.searchTerm } },
       ];
     }
 
@@ -114,8 +115,8 @@ export class TeacherService extends BaseService<Teacher, CreateTeacherInput, Upd
 
     if (!teacher) return null;
 
-    const schedules = teacher.courses.flatMap(course =>
-      course.schedules.map((s: any) => ({
+    const schedules: Schedule[] = teacher.courses.flatMap(course =>
+      course.schedules.map(s => ({
         id: s.id,
         day: s.day,
         time_range: s.timeRange,
@@ -141,19 +142,19 @@ export class TeacherService extends BaseService<Teacher, CreateTeacherInput, Upd
             email: teacher.email,
             faculty: teacher.faculty,
             department: teacher.department,
-            working_hours: (teacher as any).workingHours || null,
+            working_hours: teacher.workingHours,
           } : null,
           total_hours: course.totalHours,
-          departments: course.departments?.map((d: any) => ({
+          departments: course.departments.map(d => ({
             id: d.id,
             department: d.department,
             student_count: d.studentCount,
-          })) || [],
-          sessions: course.sessions?.map((sess: any) => ({
+          })),
+          sessions: course.sessions.map(sess => ({
             id: sess.id,
             type: (sess.type as 'teorik' | 'lab' | 'tümü') || 'teorik',
             hours: sess.hours,
-          })) || [],
+          })),
         },
         classroom: s.classroom ? {
           id: s.classroom.id,
@@ -162,7 +163,7 @@ export class TeacherService extends BaseService<Teacher, CreateTeacherInput, Upd
           capacity: s.classroom.capacity,
           faculty: s.classroom.faculty,
           department: s.classroom.department,
-          available_hours: (s.classroom as any).availableHours || null,
+          available_hours: s.classroom.availableHours,
         } : null,
       }))
     );
@@ -265,12 +266,12 @@ export class TeacherService extends BaseService<Teacher, CreateTeacherInput, Upd
   /**
    * Transform Prisma teacher to API format
    */
-  private transformTeacher(teacher: any): Teacher {
+  private transformTeacher(teacher: Prisma.TeacherGetPayload<null> | Prisma.TeacherGetPayload<{include: {courses: true}}>): Teacher {
     return {
       id: teacher.id,
       name: teacher.name,
       email: teacher.email,
-      title: teacher.title,
+      title: teacher.title || undefined,
       faculty: teacher.faculty,
       department: teacher.department,
       working_hours: teacher.workingHours,

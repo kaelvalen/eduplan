@@ -67,7 +67,7 @@ export function validateQuery<T>(
 ): T {
   try {
     const { searchParams } = new URL(request.url);
-    const query: any = {};
+    const query: Record<string, unknown> = {};
 
     searchParams.forEach((value, key) => {
       // Try to parse as JSON if possible (for arrays, objects)
@@ -104,8 +104,13 @@ export function validateQuery<T>(
 /**
  * Error response helper
  */
-export function errorResponse(error: ApiError | Error | any): NextResponse {
-  if ('statusCode' in error && 'error' in error) {
+export function errorResponse(error: unknown): NextResponse {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'statusCode' in error &&
+    'error' in error
+  ) {
     const apiError = error as ApiError;
     return NextResponse.json(
       {
@@ -153,9 +158,9 @@ export function withValidation<T>(
  * Wrapper for API routes with error handling only (no validation)
  */
 export function withErrorHandling(
-  handler: (request: NextRequest, context?: any) => Promise<NextResponse>
+  handler: (request: NextRequest, context?: { params: Promise<unknown> }) => Promise<NextResponse>
 ) {
-  return async (request: NextRequest, context?: any): Promise<NextResponse> => {
+  return async (request: NextRequest, context?: { params: Promise<unknown> }): Promise<NextResponse> => {
     try {
       return await handler(request, context);
     } catch (error) {

@@ -2,9 +2,10 @@
  * Classroom Service - Business logic for classroom operations
  */
 
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { BaseService } from './base.service';
-import type { Classroom, ClassroomCreate, ClassroomWithSchedule } from '@/types';
+import type { Classroom, ClassroomWithSchedule } from '@/types';
 import type { CreateClassroomInput, UpdateClassroomInput } from '@/lib/schemas';
 
 export interface ClassroomFilters {
@@ -15,15 +16,15 @@ export interface ClassroomFilters {
   searchTerm?: string;
 }
 
-export class ClassroomService extends BaseService<Classroom, CreateClassroomInput, UpdateClassroomInput> {
+export class ClassroomService extends BaseService {
   protected modelName = 'classroom';
   protected cacheKeyPrefix = 'classrooms';
 
   /**
    * Build where clause for filtering
    */
-  private buildWhereClause(filters?: ClassroomFilters) {
-    const where: any = {};
+  private buildWhereClause(filters?: ClassroomFilters): Prisma.ClassroomWhereInput {
+    const where: Prisma.ClassroomWhereInput = {};
 
     if (filters?.isActive !== undefined) {
       where.isActive = filters.isActive;
@@ -44,7 +45,6 @@ export class ClassroomService extends BaseService<Classroom, CreateClassroomInpu
     if (filters?.searchTerm) {
       where.name = {
         contains: filters.searchTerm,
-        mode: 'insensitive',
       };
     }
 
@@ -127,7 +127,7 @@ export class ClassroomService extends BaseService<Classroom, CreateClassroomInpu
 
     if (!classroom) return null;
 
-    const schedules = classroom.schedules.map((s: any) => ({
+    const schedules = classroom.schedules.map(s => ({
       id: s.id,
       day: s.day,
       time_range: s.timeRange,
@@ -153,19 +153,19 @@ export class ClassroomService extends BaseService<Classroom, CreateClassroomInpu
           email: s.course.teacher.email,
           faculty: s.course.teacher.faculty,
           department: s.course.teacher.department,
-          working_hours: (s.course.teacher as any).workingHours || null,
+          working_hours: s.course.teacher.workingHours,
         } : null,
         total_hours: s.course.totalHours,
-        departments: s.course.departments?.map((d: any) => ({
+        departments: s.course.departments.map(d => ({
           id: d.id,
           department: d.department,
           student_count: d.studentCount,
-        })) || [],
-        sessions: s.course.sessions?.map((sess: any) => ({
+        })),
+        sessions: s.course.sessions.map(sess => ({
           id: sess.id,
           type: (sess.type as 'teorik' | 'lab' | 'tümü') || 'teorik',
           hours: sess.hours,
-        })) || [],
+        })),
       } : null,
       classroom: {
         id: classroom.id,
@@ -174,7 +174,7 @@ export class ClassroomService extends BaseService<Classroom, CreateClassroomInpu
         capacity: classroom.capacity,
         faculty: classroom.faculty,
         department: classroom.department,
-        available_hours: (classroom as any).availableHours || null,
+        available_hours: classroom.availableHours,
       },
     }));
 
@@ -293,7 +293,7 @@ export class ClassroomService extends BaseService<Classroom, CreateClassroomInpu
   /**
    * Get active classrooms for scheduler
    */
-  async getActiveClassroomsForScheduler(): Promise<any[]> {
+  async getActiveClassroomsForScheduler() {
     const classrooms = await prisma.classroom.findMany({
       where: { isActive: true },
     });
@@ -314,15 +314,15 @@ export class ClassroomService extends BaseService<Classroom, CreateClassroomInpu
   /**
    * Transform Prisma classroom to API format
    */
-  private transformClassroom(classroom: any): Classroom {
+  private transformClassroom(classroom: Prisma.ClassroomGetPayload<null>): Classroom {
     return {
       id: classroom.id,
       name: classroom.name,
       capacity: classroom.capacity,
-      type: classroom.type,
+      type: classroom.type as 'teorik' | 'lab' | 'hibrit',
       faculty: classroom.faculty,
       department: classroom.department,
-      priority_dept: classroom.priorityDept,
+      priority_dept: classroom.priorityDept || undefined,
       available_hours: classroom.availableHours,
       is_active: classroom.isActive,
     };

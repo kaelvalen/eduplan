@@ -1,4 +1,5 @@
 import { db, prisma, isTurso } from './db';
+import type { CourseData, ClassroomData, SessionData, DepartmentData, HardcodedScheduleData } from './scheduler/types';
 
 // ==================== TEACHER ====================
 export async function getAllTeachers() {
@@ -891,7 +892,7 @@ export async function countSchedulesByCourse(courseId: number): Promise<number> 
 
 // ==================== SCHEDULER HELPERS ====================
 // Get active courses for scheduler with full details
-export async function getActiveCoursesForScheduler() {
+export async function getActiveCoursesForScheduler(): Promise<CourseData[]> {
   if (isTurso && db) {
     // Get courses
     const courses = await db.execute(`
@@ -993,7 +994,7 @@ export async function getActiveCoursesForScheduler() {
   }));
 }
 
-export async function getAllClassroomsForScheduler() {
+export async function getAllClassroomsForScheduler(): Promise<ClassroomData[]> {
   if (isTurso && db) {
     const result = await db.execute('SELECT id, name, capacity, type, priorityDept, availableHours, isActive FROM Classroom WHERE isActive = 1');
     return result.rows.map(row => ({

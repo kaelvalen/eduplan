@@ -9,20 +9,15 @@ import {
   deleteNonHardcodedSchedules
 } from '@/lib/turso-helpers';
 import { DAYS_TR as DAYS, DAY_MAPPING } from '@/constants/time';
-
-// Dynamic time block generation based on settings
-interface TimeBlock {
-  start: string;
-  end: string;
-}
-
-interface TimeSettings {
-  slotDuration: number;
-  dayStart: string;
-  dayEnd: string;
-  lunchBreakStart: string;
-  lunchBreakEnd: string;
-}
+import type {
+  TimeBlock,
+  TimeSettings,
+  ScheduleItem,
+  CourseData,
+  ClassroomData,
+  SessionData,
+  DepartmentData
+} from '@/lib/scheduler/types';
 
 function generateDynamicTimeBlocks(settings: TimeSettings): TimeBlock[] {
   const blocks: TimeBlock[] = [];
@@ -75,53 +70,6 @@ async function getTimeSettings(): Promise<TimeSettings> {
     lunchBreakStart: settings?.lunchBreakStart ?? '12:00',
     lunchBreakEnd: settings?.lunchBreakEnd ?? '13:00',
   };
-}
-
-interface ScheduleItem {
-  courseId: number;
-  classroomId: number;
-  day: string;
-  timeRange: string;
-  sessionType: string;
-  sessionHours: number;
-  isHardcoded: boolean;
-}
-
-// Type aliases for nested course structures
-type SessionData = { type: string; hours: number };
-type DepartmentData = { department: string; studentCount: number };
-
-interface CourseData {
-  id: number;
-  name: string;
-  code: string;
-  teacherId: number | null;
-  faculty: string;
-  level: string;
-  category: string; // "zorunlu" | "secmeli"
-  semester: string; // "güz" | "bahar" etc.
-  totalHours: number;
-  capacityMargin: number; // Per-course capacity margin (0-30%)
-  sessions: { type: string; hours: number }[];
-  departments: { department: string; studentCount: number }[];
-  teacherWorkingHours: Record<string, string[]>;
-  hardcodedSchedules: {
-    day: string;
-    startTime: string;
-    endTime: string;
-    sessionType: string;
-    classroomId: number | null;
-  }[];
-}
-
-interface ClassroomData {
-  id: number;
-  name: string;
-  capacity: number;
-  type: string;
-  priorityDept: string | null;
-  availableHours: Record<string, string[]>;
-  isActive: boolean;
 }
 
 /** "08:00-09:00" ile "08:00-12:00" gibi aralıklar çakışıyor mu? */
@@ -247,10 +195,6 @@ function findSuitableClassroomForBlocks(
   });
 
   // Soft constraint sorting with deterministic size_ratio approach
-  // Replaces magic number (50) with ratio-based calculation
-  // Priority 1: Size ratio optimization (0.7-0.9 ideal, <0.4 penalty)
-  // Priority 2: Department/faculty preference
-  // Note: Scoring prioritizes 0.7-0.9 size ratio (ideal), with penalties for <0.4
   
   suitable.sort((a, b) => {
     // Calculate size_ratio = student_count / classroom_capacity
@@ -308,8 +252,6 @@ function findSuitableClassroomForBlocks(
 }
 
 // Check for conflicts
-// Improved: Hardcoded schedules are treated as fixed nodes in conflict graph
-// Zorunlu courses = hard constraint, Secmeli courses = soft constraint (should be avoided)
 function hasConflict(
   schedule: ScheduleItem[],
   newItem: Omit<ScheduleItem, 'classroomId' | 'isHardcoded'>,
@@ -324,14 +266,10 @@ function hasConflict(
     const existingCourse = courses.get(item.courseId);
     if (!existingCourse) continue;
 
-    // Hard constraint: Same teacher conflict (applies to all items, including hardcoded)
+    // Hard constraint: Same teacher conflict
     if (course.teacherId && course.teacherId === existingCourse.teacherId) {
       return true;
     }
-
-    // Hard constraint: Same classroom conflict (if same time)
-    // This is implicitly checked but made explicit here
-    // Classroom conflicts are handled by occupiedClassroomsByBlock
 
     const courseDepts = course.departments.map((d) => d.department);
     const existingDepts = existingCourse.departments.map((d) => d.department);
@@ -340,7 +278,6 @@ function hasConflict(
     if (commonDepts.length === 0) continue; // No common departments, no conflict
 
     // Hard constraint: Compulsory courses (zorunlu) cannot conflict if same semester and level
-    // This is a HARD constraint - must not conflict
     if (
       course.category === 'zorunlu' &&
       existingCourse.category === 'zorunlu' &&
@@ -350,12 +287,7 @@ function hasConflict(
       return true;
     }
 
-    // Soft constraint: Seçmeli courses can conflict but should be avoided
-    // This is handled by penalty in soft constraint scoring, not here
-    // For now, we allow secmeli-secmeli conflicts (they can be optimized later)
-    
     // Hard constraint: Same department and level conflict (for zorunlu courses only)
-    // Seçmeli courses at same level can conflict (soft constraint - penalized but allowed)
     if (course.level === existingCourse.level && course.category === 'zorunlu') {
       return true;
     }
@@ -393,9 +325,7 @@ function processHardcodedSchedules(
           if (hs.sessionType === 'lab') {
             if (c.type !== 'lab' && c.type !== 'hibrit') return false;
           } else { // teorik or 'tümü'
-            // teorik or 'tümü' sessions can't be in 'lab' only rooms
             if (c.type === 'lab') return false;
-            // 'hibrit' and 'teorik' types are fine for 'teorik' or 'tümü' sessions
           }
           return true;
         });
@@ -425,8 +355,6 @@ function processHardcodedSchedules(
 }
 
 // Heuristic-based schedule generation with local improvement
-// Production-grade heuristic scheduler (Smart Greedy + Randomized Heuristic + Hill Climbing)
-// Sync to avoid Turbopack "CJS module can't be async" when bundled.
 function generateScheduleHeuristic(
   courses: CourseData[],
   classrooms: ClassroomData[],
@@ -450,8 +378,6 @@ function generateScheduleHeuristic(
   }
 
   // Calculate difficulty score for each course
-  // Difficulty = student_count * 2 + (1 / available_class_count) * 5 + session_duration
-  // Higher difficulty = schedule earlier (more constrained)
   const calculateDifficulty = (course: CourseData, classrooms: ClassroomData[]): number => {
     const studentCount = course.departments.reduce((sum, d) => sum + d.studentCount, 0);
     
@@ -461,7 +387,6 @@ function generateScheduleHeuristic(
     for (const classroom of classrooms) {
       if (!classroom.isActive) continue;
       
-      // Check if classroom can handle any of the course's session types
       const canHandle = Array.from(sessionTypes).some(type => {
         if (type === 'lab' && (classroom.type === 'lab' || classroom.type === 'hibrit')) return true;
         if (type === 'teorik' && classroom.type !== 'lab') return true;
@@ -469,7 +394,6 @@ function generateScheduleHeuristic(
         return false;
       });
       
-      // Also check capacity
       const adjustedStudentCount = course.capacityMargin > 0
         ? Math.ceil(studentCount * (1 - course.capacityMargin / 100))
         : studentCount;
@@ -478,37 +402,31 @@ function generateScheduleHeuristic(
       }
     }
     
-    // Calculate average session duration
     const totalSessionHours = course.sessions.reduce((sum, s) => sum + s.hours, 0);
     const avgSessionDuration = course.sessions.length > 0 ? totalSessionHours / course.sessions.length : 0;
     
-    // Difficulty formula
     const difficulty = 
-      studentCount * 2 +                                    // More students = harder
-      (availableClassCount > 0 ? 1 / availableClassCount : 100) * 5 +  // Fewer available classes = harder
-      avgSessionDuration;                                   // Longer sessions = harder
+      studentCount * 2 +
+      (availableClassCount > 0 ? 1 / availableClassCount : 100) * 5 +
+      avgSessionDuration;
     
     return difficulty;
   };
 
-  // Sort courses by difficulty (higher difficulty first = more constrained)
-  // This ensures harder-to-schedule courses get priority
   const sortedCourses = [...courses].sort((a, b) => {
     const aDifficulty = calculateDifficulty(a, classrooms);
     const bDifficulty = calculateDifficulty(b, classrooms);
     
-    // Primary sort: higher difficulty first
     const diffDiff = bDifficulty - aDifficulty;
     if (Math.abs(diffDiff) > 0.1) {
       return diffDiff > 0 ? 1 : -1;
     }
     
-    // Secondary sort: prefer courses with lecturers who have lower load (soft constraint for balance)
     if (a.teacherId && b.teacherId) {
       const aLoad = lecturerLoad.get(a.teacherId) || 0;
       const bLoad = lecturerLoad.get(b.teacherId) || 0;
       if (aLoad !== bLoad) {
-        return aLoad - bLoad; // Lower load first (to balance)
+        return aLoad - bLoad;
       }
     }
     
@@ -519,38 +437,30 @@ function generateScheduleHeuristic(
     const totalStudents = course.departments.reduce((sum, d) => sum + d.studentCount, 0);
     const mainDepartment = course.departments[0]?.department || '';
 
-    // Get how many hours were already scheduled via hardcoded
     let hardcodedAndScheduledHours = processedSessionCount.get(course.id) || 0;
 
-    // Determine remaining sessions to schedule
-    // Logic: Sort sessions, assume hardcoded ones cover some parts, schedule the rest as blocks
     const allSessions = [...course.sessions].sort((a, b) => b.hours - a.hours);
     const sessionsToSchedule: { type: string, hours: number }[] = [];
 
-    // Deduct hardcoded hours from sessions
     for (const sess of allSessions) {
       if (hardcodedAndScheduledHours >= sess.hours) {
         hardcodedAndScheduledHours -= sess.hours;
-        continue; // Fully covered by hardcoded/scheduled
+        continue;
       }
 
       if (hardcodedAndScheduledHours > 0) {
-        // Partially covered
         sessionsToSchedule.push({ type: sess.type, hours: sess.hours - hardcodedAndScheduledHours });
         hardcodedAndScheduledHours = 0;
       } else {
-        // Not covered
         sessionsToSchedule.push(sess);
       }
     }
 
-    // If no sessions left to schedule
     if (sessionsToSchedule.length === 0) continue;
 
     let courseFullyScheduled = true;
-    const scheduledDays = new Set<string>(); // Track days used for this course
+    const scheduledDays = new Set<string>();
 
-    // Teorik + lab çifti: aynı gün, teorik → en az 1 blok ara → lab (hemen sonraya, bir ara ile)
     const theorySession = sessionsToSchedule.find((s) => s.type === 'teorik');
     const labSession = sessionsToSchedule.find((s) => s.type === 'lab');
     let combinedPlaced = false;
@@ -560,7 +470,6 @@ function generateScheduleHeuristic(
       const shuffledDaysCombined = [...DAYS].sort(() => Math.random() - 0.5);
       for (const day of shuffledDaysCombined) {
         if (combinedPlaced) break;
-        // labStartIdx >= theoryStartIdx + th + 1 (en az 1 blok ara)
         for (let ti = 0; ti <= TIME_BLOCKS.length - th; ti++) {
           if (combinedPlaced) break;
           for (let li = ti + th + 1; li <= TIME_BLOCKS.length - lh; li++) {
@@ -699,7 +608,6 @@ function generateScheduleHeuristic(
     }
 
     if (!combinedPlaced) {
-      // Helper: try to place a single chunk of chunkHours for this session (any day)
       const tryPlaceChunk = (chunkHours: number, sess: { type: string }): boolean => {
         const daysToTry = [...DAYS].sort(() => Math.random() - 0.5);
         if (chunkHours > TIME_BLOCKS.length) return false;
@@ -782,7 +690,6 @@ function generateScheduleHeuristic(
         return false;
       };
 
-      // Generate split options for long sessions (öğle arası nedeniyle max 3 ardışık blok var)
       const getSplits = (d: number): number[][] => {
         if (d <= 3) return [[d]];
         const splits: number[][] = [[d]];
@@ -798,7 +705,6 @@ function generateScheduleHeuristic(
         return splits;
       };
 
-      // Aynı günde tüm parçaları yerleştir (örn: 2h sabah + 2h öğleden sonra)
       const tryPlaceSplitOnSameDay = (split: number[], sess: { type: string }): boolean => {
         const shuffledDays = [...DAYS].sort(() => Math.random() - 0.5);
         for (const day of shuffledDays) {
@@ -953,12 +859,8 @@ function generateScheduleHeuristic(
     }
   }
 
-  // Phase 2: Local Improvement (Hill Climbing)
-  // Attempt to improve the schedule by swapping random course pairs
-  // Accept swaps that improve soft constraint scores
-  const IMPROVEMENT_ITERATIONS = 30; // 10-50 range, using 30 as balanced
+  const IMPROVEMENT_ITERATIONS = 30;
   
-  // Calculate soft constraint score for current schedule
   const calculateSoftScore = (currentSchedule: ScheduleItem[]): number => {
     let score = 0;
     const capacityUtilizations: number[] = [];
@@ -976,7 +878,6 @@ function generateScheduleHeuristic(
         ? Math.ceil(studentCount * (1 - course.capacityMargin / 100))
         : studentCount;
       
-      // Capacity utilization score (0.7-0.9 ideal = +10, <0.4 = -5)
       const utilization = adjustedStudentCount / classroom.capacity;
       capacityUtilizations.push(utilization);
       
@@ -986,20 +887,18 @@ function generateScheduleHeuristic(
         score -= 5;
       }
       
-      // Teacher load balance (tracked for stddev calculation)
       if (course.teacherId) {
         const currentLoad = teacherLoads.get(course.teacherId) || 0;
         teacherLoads.set(course.teacherId, currentLoad + item.sessionHours);
       }
     }
     
-    // Penalize high variance in teacher loads (better balance = better score)
     const teacherLoadValues = Array.from(teacherLoads.values());
     if (teacherLoadValues.length > 1) {
       const avgLoad = teacherLoadValues.reduce((a, b) => a + b, 0) / teacherLoadValues.length;
       const variance = teacherLoadValues.reduce((sum, load) => sum + Math.pow(load - avgLoad, 2), 0) / teacherLoadValues.length;
       const stddev = Math.sqrt(variance);
-      score -= stddev * 0.5; // Penalize high variance
+      score -= stddev * 0.5;
     }
     
     return score;
@@ -1007,9 +906,7 @@ function generateScheduleHeuristic(
   
   let currentScore = calculateSoftScore(schedule);
   
-  // Hill climbing iterations
   for (let iter = 0; iter < IMPROVEMENT_ITERATIONS; iter++) {
-    // Select two random non-hardcoded schedule items to potentially swap
     const nonHardcodedItems = schedule.filter(s => !s.isHardcoded);
     if (nonHardcodedItems.length < 2) break;
     
@@ -1022,25 +919,20 @@ function generateScheduleHeuristic(
     const item1 = nonHardcodedItems[idx1];
     const item2 = nonHardcodedItems[idx2];
     
-    // Find original indices in schedule array
     const origIdx1 = schedule.findIndex(s => s === item1);
     const origIdx2 = schedule.findIndex(s => s === item2);
     
-    // Try swapping their time slots (day + timeRange)
     const tempDay = item1.day;
     const tempTimeRange = item1.timeRange;
     
-    // Create temporary schedule with swap
     const tempSchedule = [...schedule];
     tempSchedule[origIdx1] = { ...item1, day: item2.day, timeRange: item2.timeRange };
     tempSchedule[origIdx2] = { ...item2, day: tempDay, timeRange: tempTimeRange };
     
-    // Check if swap is valid (no conflicts)
     const course1 = courseMap.get(item1.courseId);
     const course2 = courseMap.get(item2.courseId);
     if (!course1 || !course2) continue;
     
-    // Validate swap: check conflicts for both items at new times
     const conflict1 = hasConflict(
       tempSchedule.filter((_, i) => i !== origIdx1),
       { courseId: item1.courseId, day: item2.day, timeRange: item2.timeRange, sessionType: item1.sessionType, sessionHours: item1.sessionHours },
@@ -1054,7 +946,6 @@ function generateScheduleHeuristic(
     
     if (conflict1 || conflict2) continue;
     
-    // Check classroom availability for swapped times
     const classroom1 = classrooms.find(c => c.id === item1.classroomId);
     const classroom2 = classrooms.find(c => c.id === item2.classroomId);
     if (!classroom1 || !classroom2) continue;
@@ -1065,14 +956,11 @@ function generateScheduleHeuristic(
     const block2 = TIME_BLOCKS.find(b => b.start === time2);
     if (!block1 || !block2) continue;
     
-    // Check if classrooms are available at swapped times
     if (!isClassroomAvailable(classroom1.availableHours, item2.day, block1)) continue;
     if (!isClassroomAvailable(classroom2.availableHours, tempDay, block2)) continue;
     
-    // Calculate new score
     const newScore = calculateSoftScore(tempSchedule);
     
-    // Accept swap if score improves or stays same (hill climbing)
     if (newScore >= currentScore) {
       schedule[origIdx1] = tempSchedule[origIdx1];
       schedule[origIdx2] = tempSchedule[origIdx2];
@@ -1157,11 +1045,11 @@ export async function POST(request: Request) {
     });
 
     // Generate new schedule
-    const { schedule, unscheduled } = generateScheduleHeuristic(courses as CourseData[], classrooms as ClassroomData[], TIME_BLOCKS);
+    const { schedule, unscheduled } = generateScheduleHeuristic(courses, classrooms, TIME_BLOCKS);
 
-    if (schedule.length === 0 && (courses as CourseData[]).length > 0) {
-      const c = (courses as CourseData[])[0];
-      const caps = (classrooms as ClassroomData[]).map((r) => r.capacity);
+    if (schedule.length === 0 && courses.length > 0) {
+      const c = courses[0];
+      const caps = classrooms.map((r) => r.capacity);
       logger.warn('Scheduler placed 0 items. Diagnostic:', {
         firstCourse: c?.code,
         sessions: c?.sessions,
@@ -1189,7 +1077,7 @@ export async function POST(request: Request) {
     // Calculate total sessions
     const totalSessions = courses.reduce((sum, c) => {
       // Fix: cast c.sessions to any[] to avoid implicit any error
-      return sum + (c.sessions as SessionData[]).reduce((sSum, session) => sSum + session.hours, 0);
+      return sum + c.sessions.reduce((sSum, session) => sSum + session.hours, 0);
     }, 0);
 
     const scheduledCount = schedule.length;
@@ -1201,7 +1089,7 @@ export async function POST(request: Request) {
         timeRangeOverlapsLunch(s.timeRange, timeSettings.lunchBreakStart, timeSettings.lunchBreakEnd)
       )
       .map((s) => {
-        const c = (courses as CourseData[]).find((x) => x.id === s.courseId);
+        const c = courses.find((x) => x.id === s.courseId);
         return {
           courseCode: c?.code ?? '',
           courseName: c?.name ?? '',
@@ -1218,10 +1106,10 @@ export async function POST(request: Request) {
     
     for (const item of schedule) {
       const course = courses.find(c => c.id === item.courseId);
-      const classroom = (classrooms as ClassroomData[]).find(c => c.id === item.classroomId);
+      const classroom = classrooms.find(c => c.id === item.classroomId);
       
       if (course && classroom) {
-        const studentCount = (course.departments as DepartmentData[]).reduce((sum, d) => sum + d.studentCount, 0);
+        const studentCount = course.departments.reduce((sum, d) => sum + d.studentCount, 0);
         const adjustedStudentCount = course.capacityMargin > 0
           ? Math.ceil(studentCount * (1 - course.capacityMargin / 100))
           : studentCount;

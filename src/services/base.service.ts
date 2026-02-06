@@ -3,10 +3,9 @@
  * All services should extend this class
  */
 
-import prisma from '@/lib/prisma';
 import { cache } from '@/lib/cache';
 
-export abstract class BaseService<T, CreateInput, UpdateInput> {
+export abstract class BaseService {
   protected abstract modelName: string;
   protected abstract cacheKeyPrefix: string;
   protected cacheTTL: number = 300; // 5 minutes default
@@ -21,7 +20,7 @@ export abstract class BaseService<T, CreateInput, UpdateInput> {
   /**
    * Get cache key for list queries
    */
-  protected getListCacheKey(filters?: any): string {
+  protected getListCacheKey(filters?: unknown): string {
     const filterKey = filters ? JSON.stringify(filters) : 'all';
     return `${this.cacheKeyPrefix}:list:${filterKey}`;
   }

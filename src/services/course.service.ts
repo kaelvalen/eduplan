@@ -2,10 +2,51 @@
  * Course Service - Business logic for course operations
  */
 
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { BaseService } from './base.service';
-import type { Course, CourseCreate } from '@/types';
+import type { Course } from '@/types';
 import type { CreateCourseInput, UpdateCourseInput } from '@/lib/schemas';
+
+// Define the Prisma type for Course with includes
+type CourseWithRelations = Prisma.CourseGetPayload<{
+  include: {
+    teacher: {
+      select: {
+        id: true;
+        name: true;
+        title: true;
+      };
+    };
+    sessions: true;
+    departments: true;
+    hardcodedSchedules: {
+      include: {
+        classroom: {
+          select: {
+            id: true;
+            name: true;
+          };
+        };
+      };
+    };
+  };
+}>;
+
+// Minimal relation type for internal usage where hardcoded schedules might not be loaded deeply
+type MinimalCourseWithRelations = Prisma.CourseGetPayload<{
+  include: {
+    teacher: {
+      select: {
+        id: true;
+        name: true;
+        title: true;
+      };
+    };
+    sessions: true;
+    departments: true;
+  };
+}>;
 
 export interface CourseFilters {
   isActive?: boolean;
@@ -17,15 +58,15 @@ export interface CourseFilters {
   category?: 'zorunlu' | 'secmeli';
 }
 
-export class CourseService extends BaseService<Course, CreateCourseInput, UpdateCourseInput> {
+export class CourseService extends BaseService {
   protected modelName = 'course';
   protected cacheKeyPrefix = 'courses';
 
   /**
    * Build where clause for filtering
    */
-  private buildWhereClause(filters?: CourseFilters) {
-    const where: any = {};
+  private buildWhereClause(filters?: CourseFilters): Prisma.CourseWhereInput {
+    const where: Prisma.CourseWhereInput = {};
 
     if (filters?.isActive !== undefined) {
       where.isActive = filters.isActive;
@@ -49,8 +90,8 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
 
     if (filters?.searchTerm) {
       where.OR = [
-        { name: { contains: filters.searchTerm, mode: 'insensitive' } },
-        { code: { contains: filters.searchTerm, mode: 'insensitive' } },
+        { name: { contains: filters.searchTerm } },
+        { code: { contains: filters.searchTerm } },
       ];
     }
 
@@ -74,20 +115,8 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
               title: true,
             },
           },
-          sessions: {
-            select: {
-              id: true,
-              type: true,
-              hours: true,
-            },
-          },
-          departments: {
-            select: {
-              id: true,
-              department: true,
-              studentCount: true,
-            },
-          },
+          sessions: true,
+          departments: true,
           hardcodedSchedules: {
             include: {
               classroom: {
@@ -104,7 +133,7 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
         ],
       });
 
-      return courses.map(this.transformCourse);
+      return courses.map(c => this.transformCourse(c as unknown as CourseWithRelations));
     });
   }
 
@@ -140,7 +169,7 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
         },
       });
 
-      return course ? this.transformCourse(course) : null;
+      return course ? this.transformCourse(course as unknown as CourseWithRelations) : null;
     });
   }
 
@@ -160,10 +189,20 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
         },
         sessions: true,
         departments: true,
+        hardcodedSchedules: {
+          include: {
+            classroom: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
-    return course ? this.transformCourse(course) : null;
+    return course ? this.transformCourse(course as unknown as CourseWithRelations) : null;
   }
 
   /**
@@ -212,11 +251,21 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
         },
         sessions: true,
         departments: true,
+        hardcodedSchedules: {
+          include: {
+            classroom: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
     this.invalidateCache();
-    return this.transformCourse(course);
+    return this.transformCourse(course as unknown as CourseWithRelations);
   }
 
   /**
@@ -285,11 +334,21 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
         },
         sessions: true,
         departments: true,
+        hardcodedSchedules: {
+            include: {
+              classroom: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
       },
     });
 
     this.invalidateCache(id);
-    return this.transformCourse(course);
+    return this.transformCourse(course as unknown as CourseWithRelations);
   }
 
   /**
@@ -312,8 +371,9 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
 
   /**
    * Get active courses for scheduler
+   * This returns a specific structure expected by the scheduler algorithm
    */
-  async getActiveCoursesForScheduler(): Promise<any[]> {
+  async getActiveCoursesForScheduler() {
     const courses = await prisma.course.findMany({
       where: { isActive: true },
       include: {
@@ -363,7 +423,10 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
   /**
    * Transform Prisma course to API format
    */
-  private transformCourse(course: any): Course {
+  private transformCourse(course: CourseWithRelations | MinimalCourseWithRelations): Course {
+    // Check if hardcodedSchedules exists, otherwise default to empty array
+    const hardcodedSchedules = 'hardcodedSchedules' in course ? course.hardcodedSchedules : [];
+
     return {
       id: course.id,
       name: course.name,
@@ -371,36 +434,36 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
       teacher_id: course.teacherId,
       faculty: course.faculty,
       level: course.level,
-      category: course.category,
+      category: course.category as 'zorunlu' | 'secmeli',
       semester: course.semester,
       ects: course.ects,
       total_hours: course.totalHours,
       capacity_margin: course.capacityMargin,
       is_active: course.isActive,
-      sessions: course.sessions?.map((s: any) => ({
+      sessions: course.sessions?.map(s => ({
         id: s.id,
-        type: s.type,
+        type: s.type as 'teorik' | 'lab' | 'tümü',
         hours: s.hours,
       })) || [],
-      departments: course.departments?.map((d: any) => ({
+      departments: course.departments?.map(d => ({
         id: d.id,
         department: d.department,
         student_count: d.studentCount,
       })) || [],
-      hardcoded_schedules: course.hardcodedSchedules?.map((h: any) => ({
+      hardcoded_schedules: hardcodedSchedules.map(h => ({
         id: h.id,
         course_id: h.courseId,
-        session_type: h.sessionType,
+        session_type: h.sessionType as 'teorik' | 'lab',
         day: h.day,
         start_time: h.startTime,
         end_time: h.endTime,
-        classroom_id: h.classroomId,
+        classroom_id: h.classroomId || undefined,
         classroom: h.classroom,
-      })) || [],
+      })),
       teacher: course.teacher ? {
         id: course.teacher.id,
         name: course.teacher.name,
-        title: course.teacher.title,
+        title: course.teacher.title || undefined,
       } : null,
     };
   }
