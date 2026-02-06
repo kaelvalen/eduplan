@@ -112,7 +112,7 @@ export default function SchedulerPage() {
       {/* Header */}
       <PageHeader
         title="Program Oluşturucu"
-        description="Genetik algoritma ile otomatik ders programı oluşturun"
+        description="Akıllı sezgisel algoritma ile otomatik ders programı oluşturun"
         icon={Cog}
         entity="scheduler"
       />
@@ -150,7 +150,7 @@ export default function SchedulerPage() {
         <CardHeader>
           <CardTitle>Program Oluştur</CardTitle>
           <CardDescription>
-            Genetik algoritma kullanarak tüm aktif dersler için otomatik program oluşturur.
+            Akıllı sezgisel algoritma (Smart Greedy) kullanarak tüm aktif dersler için otomatik program oluşturur.
             Mevcut program silinecek ve yeni program oluşturulacaktır.
           </CardDescription>
         </CardHeader>
@@ -293,7 +293,7 @@ export default function SchedulerPage() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>
-            <strong>Genetik Algoritma</strong> kullanılarak program oluşturulur.
+            <strong>Akıllı Sezgisel Algoritma (Smart Greedy)</strong> kullanılarak program oluşturulur.
           </p>
           <p>Dikkate alınan kısıtlar:</p>
           <ul className="ml-4 list-disc space-y-1">

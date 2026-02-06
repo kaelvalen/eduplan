@@ -118,7 +118,7 @@ export const pageConfig = {
   },
   scheduler: {
     title: 'Program Oluşturucu',
-    description: 'Genetik algoritma ile otomatik program oluştur',
+    description: 'Akıllı sezgisel algoritma ile otomatik program oluştur',
     ...colors.entities.scheduler,
   },
   reports: {

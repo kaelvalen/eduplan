@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "PlanEdu - Ders Programı Yönetim Sistemi",
   description: "Üniversite ders programı yönetim ve otomasyon sistemi",
-  keywords: ["ders programı", "üniversite", "eğitim", "planlama", "genetik algoritma"],
+  keywords: ["ders programı", "üniversite", "eğitim", "planlama", "akıllı planlama", "sezgisel algoritma"],
   authors: [{ name: "PlanEdu Team" }],
   icons: {
     icon: "/favicon.ico",

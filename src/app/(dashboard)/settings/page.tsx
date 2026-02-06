@@ -152,8 +152,7 @@ export default function SettingsPage() {
           <CardContent className="space-y-4 text-sm text-muted-foreground">
             <p>
               PlanEdu, üniversiteler için geliştirilmiş modern bir ders programı yönetim sistemidir.
-              Genetik algoritma kullanarak otomatik program oluşturma özelliğine sahiptir.
-            </p>
+                              Akıllı sezgisel algoritma (Smart Greedy) kullanarak otomatik program oluşturma özelliğine sahiptir.            </p>
             <p>
               <strong>v3.0 Yenilikleri:</strong>
             </p>

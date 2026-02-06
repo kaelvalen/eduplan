@@ -6,7 +6,7 @@ Modern, kullanici dostu ve yapay zeka destekli bir universite ders programi yone
 
 ## Ozellikler
 
-- **Genetik Algoritma** ile otomatik program olusturma
+- **Akıllı Sezgisel Algoritma (Smart Greedy Heuristic)** ile otomatik program olusturma
 - Fakulte, bolum, ogretmen, ders ve sinif yonetimi
 - Rol tabanli yetkilendirme (Admin/Kullanici)
 - Modern, responsive arayuz
