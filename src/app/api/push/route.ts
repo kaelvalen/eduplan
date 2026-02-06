@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { prisma } from '@/lib/db';
 
 // In-memory store for push subscriptions (in production, store in database)
 const pushSubscriptions = new Map<number, PushSubscriptionJSON>();

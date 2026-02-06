@@ -51,13 +51,10 @@ export function useCreateCourse() {
   return useMutation({
     mutationFn: (data: CourseCreate) => coursesApi.create(data),
     onSuccess: (newCourse) => {
-      // Add optimistically to cache
       queryClient.setQueriesData(
         { queryKey: courseKeys.lists() },
         (old: any) => old ? [...old, newCourse] : [newCourse]
       );
-      // Invalidate to refetch and ensure consistency
-      queryClient.invalidateQueries({ queryKey: courseKeys.lists() });
       toast.success('Ders başarıyla eklendi');
     },
     onError: (error: Error) => {
@@ -103,7 +100,6 @@ export function useUpdateCourse() {
     },
     onSuccess: (updatedCourse, variables) => {
       queryClient.setQueryData(courseKeys.detail(variables.id), updatedCourse);
-      queryClient.invalidateQueries({ queryKey: courseKeys.lists() });
       toast.success('Ders başarıyla güncellendi');
     },
     onError: (error: Error, variables, context) => {
@@ -148,10 +144,7 @@ export function useDeleteCourse() {
       return { previousCourses };
     },
     onSuccess: (_, deletedId) => {
-      // Remove from cache
       queryClient.removeQueries({ queryKey: courseKeys.detail(deletedId) });
-      // Refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: courseKeys.lists() });
       toast.success('Ders başarıyla silindi');
     },
     onError: (error: Error, _, context) => {

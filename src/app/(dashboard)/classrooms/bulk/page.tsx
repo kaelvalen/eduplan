@@ -11,7 +11,6 @@ import { BulkTableEditor, type ColumnDef } from '@/components/ui/bulk-table-edit
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
-import type { ClassroomCreate } from '@/types';
 
 type ClassroomRow = {
   id?: number; // For edit mode - if set, row will be updated instead of created

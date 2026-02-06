@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Users } from 'lucide-react';
 import { toast } from 'sonner';
@@ -11,7 +11,6 @@ import { BulkTableEditor, type ColumnDef } from '@/components/ui/bulk-table-edit
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
-import type { TeacherCreate } from '@/types';
 
 const ACADEMIC_TITLES = [
   { value: 'Prof. Dr.', label: 'Prof. Dr.' },
@@ -36,7 +35,6 @@ export default function BulkTeachersPage() {
   const router = useRouter();
   const { isAdmin } = useAuth();
   const [rows, setRows] = useState<TeacherRow[]>([]);
-  const [faculties, setFaculties] = useState<{ [key: string]: { value: string; label: string }[] }>({});
 
   useEffect(() => {
     if (!isAdmin) {
@@ -44,8 +42,8 @@ export default function BulkTeachersPage() {
     }
   }, [isAdmin, router]);
 
-  // Preload departments for each faculty
-  useEffect(() => {
+  // Compute department options for each faculty
+  const faculties = useMemo(() => {
     const deptMap: { [key: string]: { value: string; label: string }[] } = {};
     FACULTIES.forEach((faculty) => {
       const departments = getDepartmentsByFaculty(faculty.id);
@@ -54,7 +52,7 @@ export default function BulkTeachersPage() {
         label: dept.name,
       }));
     });
-    setFaculties(deptMap);
+    return deptMap;
   }, []);
 
   // Update department options when faculty changes
@@ -148,9 +146,6 @@ export default function BulkTeachersPage() {
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       try {
-        // Get department options for this row's faculty
-        const deptOptions = row.faculty ? (faculties[row.faculty] || []) : [];
-        
         await teachersApi.create({
           name: row.name,
           email: row.email,

@@ -23,7 +23,7 @@ export async function GET(
         }
 
         // Get classroom info
-        let classroom = await prisma.classroom.findUnique({
+        const classroom = await prisma.classroom.findUnique({
             where: { id: classroomId },
         });
 

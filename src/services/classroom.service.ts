@@ -11,7 +11,7 @@ export interface ClassroomFilters {
   isActive?: boolean;
   faculty?: string;
   department?: string;
-  type?: 'teorik' | 'lab';
+  type?: 'teorik' | 'lab' | 'hibrit';
   searchTerm?: string;
 }
 
@@ -286,7 +286,7 @@ export class ClassroomService extends BaseService<Classroom, CreateClassroomInpu
   /**
    * Get classrooms by type
    */
-  async getClassroomsByType(type: 'teorik' | 'lab'): Promise<Classroom[]> {
+  async getClassroomsByType(type: 'teorik' | 'lab' | 'hibrit'): Promise<Classroom[]> {
     return this.getClassrooms({ type });
   }
 

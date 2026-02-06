@@ -44,11 +44,9 @@ export * from './status-indicator';
 // Feedback
 export * from './loading-bar';
 export * from './scroll-to-top';
-export * from './confirm-dialog';
 export * from './tip-card';
 
 // Form components
-export * from './search-input';
 export * from './file-upload';
 export * from './time-picker';
 export * from './copy-button';

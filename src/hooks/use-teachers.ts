@@ -119,7 +119,6 @@ export function useDeleteTeacher() {
     onSuccess: (_, deletedId) => {
       queryClient.removeQueries({ queryKey: teacherKeys.detail(deletedId) });
       queryClient.removeQueries({ queryKey: teacherKeys.schedule(deletedId) });
-      queryClient.invalidateQueries({ queryKey: teacherKeys.lists() });
       toast.success('Öğretmen başarıyla silindi');
     },
     onError: (error: Error, _, context) => {

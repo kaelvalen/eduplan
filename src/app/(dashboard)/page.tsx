@@ -9,7 +9,6 @@ import { useAuth } from '@/contexts/auth-context';
 import { useDashboardPreferences } from '@/hooks/use-dashboard-preferences';
 import { styles } from '@/lib/design-tokens';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { CardSkeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { HeroSection } from '@/components/ui/hero-section';
@@ -113,7 +112,7 @@ export default function DashboardPage() {
       case 'stats':
         return (
           <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-            {statCardsConfig.map((stat, i) => (
+            {statCardsConfig.map((stat) => (
               <StatsCard
                 key={stat.key}
                 title={stat.title}

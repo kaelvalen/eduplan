@@ -19,7 +19,12 @@ export default function DashboardLayout({
   const { token, isLoading } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sidebar-collapsed') === 'true';
+    }
+    return false;
+  });
   const commandPalette = useCommandPalette();
 
   useEffect(() => {
@@ -27,14 +32,6 @@ export default function DashboardLayout({
       router.push('/login');
     }
   }, [token, isLoading, router]);
-
-  // Load sidebar collapsed state from localStorage
-  useEffect(() => {
-    const collapsed = localStorage.getItem('sidebar-collapsed');
-    if (collapsed === 'true') {
-      setSidebarCollapsed(true);
-    }
-  }, []);
 
   const handleToggleCollapse = useCallback(() => {
     setSidebarCollapsed((prev) => {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { User, Mail, Shield, Key, Save, Loader2, Eye, EyeOff } from 'lucide-react';
+import { User, Shield, Key, Save, Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/auth-context';
 import { styles } from '@/lib/design-tokens';
@@ -48,7 +48,7 @@ export default function ProfilePage() {
       toast.success('Şifre başarıyla değiştirildi');
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setIsChangingPassword(false);
-    } catch (error) {
+    } catch {
       toast.error('Şifre değiştirilemedi');
     } finally {
       setIsLoading(false);

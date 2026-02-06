@@ -83,7 +83,7 @@ export const UpdateTeacherSchema = BaseTeacherSchema.partial();
 export const CreateClassroomSchema = z.object({
   name: z.string().min(1, 'Derslik adı zorunludur').max(100, 'Derslik adı en fazla 100 karakter olabilir'),
   capacity: z.number().min(1, 'Kapasite en az 1 olmalıdır').max(1000, 'Kapasite en fazla 1000 olabilir'),
-  type: z.enum(['teorik', 'lab'], 'Tip teorik veya lab olmalıdır'),
+  type: z.enum(['teorik', 'lab', 'hibrit'], 'Tip teorik, lab veya hibrit olmalıdır'),
   faculty: z.string().min(1, 'Fakülte seçimi zorunludur'),
   department: z.string().min(1, 'Bölüm seçimi zorunludur'),
   priority_dept: z.string().optional(),
@@ -133,7 +133,7 @@ export const UpdateSystemSettingsSchema = SystemSettingsSchema.partial();
 
 // ==================== AUTH SCHEMAS ====================
 export const LoginSchema = z.object({
-  email: z.string().email('Geçerli bir email adresi girin'),
+  username: z.string().min(1, 'Kullanıcı adı zorunludur'),
   password: z.string().min(6, 'Şifre en az 6 karakter olmalıdır'),
 });
 

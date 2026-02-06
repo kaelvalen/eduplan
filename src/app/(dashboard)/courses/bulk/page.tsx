@@ -11,7 +11,6 @@ import { BulkTableEditor, type ColumnDef } from '@/components/ui/bulk-table-edit
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
@@ -22,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { CourseCreate, Teacher, CourseSession, CourseDepartment } from '@/types';
+import type { Teacher } from '@/types';
 
 type CourseSessionRow = {
   type: 'teorik' | 'lab';

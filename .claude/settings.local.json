@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc:*)",
+      "Bash(done)",
+      "Bash(find:*)",
+      "Bash(del \"C:\\\\Users\\\\mehme\\\\OneDrive\\\\Masaüstü\\\\eduplan\\\\src\\\\components\\\\ui\\\\search-input.tsx\")",
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)"
+    ]
+  }
+}

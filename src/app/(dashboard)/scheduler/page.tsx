@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/ui/page-header';
 import { CardSkeleton } from '@/components/ui/skeleton';
-import { getEntityColors, getStatusColors } from '@/lib/design-tokens';
+import { getStatusColors } from '@/lib/design-tokens';
 import { cn } from '@/lib/utils';
 import {
   Table,

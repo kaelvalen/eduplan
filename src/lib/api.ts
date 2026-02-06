@@ -20,6 +20,10 @@ import type {
   TeacherWithSchedule,
   ClassroomWithSchedule,
   FilterOptions,
+  Notification,
+  NotificationCreate,
+  UserDashboardPreference,
+  UserDashboardPreferenceCreate,
 } from '@/types';
 
 const API_URL = '/api';
@@ -141,11 +145,6 @@ export const coursesApi = {
     return response.data;
   },
 
-  getUnscheduled: async (): Promise<Course[]> => {
-    const response = await api.get<Course[]>('/courses/unscheduled');
-    return response.data;
-  },
-
   create: async (data: CourseCreate): Promise<Course> => {
     const response = await api.post<Course>('/courses', data);
     return response.data;
@@ -250,10 +249,6 @@ export const schedulesApi = {
     await api.delete(`/schedules/${id}`);
   },
 
-  deleteByDay: async (day: string): Promise<void> => {
-    await api.delete(`/schedules/day/${day}`);
-  },
-
   deleteByDays: async (days: string[]): Promise<void> => {
     await api.post('/schedules/days/delete', { days });
   },
@@ -288,42 +283,41 @@ export const settingsApi = {
 // ==================== STATISTICS ====================
 export const statisticsApi = {
   get: async (): Promise<Statistics> => {
-    const response = await api.get<Statistics>('/statistics/');
+    const response = await api.get<Statistics>('/statistics');
     return response.data;
   },
 };
 
 export const dashboardPreferencesApi = {
-  get: async () => {
-    const response = await api.get('/dashboard-preferences/');
+  get: async (): Promise<UserDashboardPreference> => {
+    const response = await api.get<UserDashboardPreference>('/dashboard-preferences');
     return response.data;
   },
-  update: async (data: any) => {
-    const response = await api.put('/dashboard-preferences/', data);
+  update: async (data: Partial<UserDashboardPreferenceCreate>): Promise<UserDashboardPreference> => {
+    const response = await api.put<UserDashboardPreference>('/dashboard-preferences', data);
     return response.data;
   },
 };
 
 export const notificationApi = {
-  getAll: async (params?: { unreadOnly?: boolean; category?: string }) => {
-    const response = await api.get('/notifications/', { params });
+  getAll: async (params?: { unreadOnly?: boolean; category?: string }): Promise<Notification[]> => {
+    const response = await api.get<Notification[]>('/notifications', { params });
     return response.data;
   },
-  getById: async (id: number) => {
-    const response = await api.get(`/notifications/${id}/`);
+  getById: async (id: number): Promise<Notification> => {
+    const response = await api.get<Notification>(`/notifications/${id}`);
     return response.data;
   },
-  create: async (data: any) => {
-    const response = await api.post('/notifications/', data);
+  create: async (data: NotificationCreate): Promise<Notification> => {
+    const response = await api.post<Notification>('/notifications', data);
     return response.data;
   },
-  markAsRead: async (id: number) => {
-    const response = await api.put(`/notifications/${id}/`);
+  markAsRead: async (id: number): Promise<Notification> => {
+    const response = await api.put<Notification>(`/notifications/${id}`);
     return response.data;
   },
-  delete: async (id: number) => {
-    const response = await api.delete(`/notifications/${id}/`);
-    return response.data;
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/notifications/${id}`);
   },
 };
 

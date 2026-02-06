@@ -765,7 +765,7 @@ export async function createSchedule(data: { day: string; time_range: string; co
       day: data.day,
       time_range: data.time_range,
       course_id: data.course_id,
-      classroomId: data.classroom_id,
+      classroom_id: data.classroom_id,
       session_type: data.session_type || 'teorik'
     };
   }

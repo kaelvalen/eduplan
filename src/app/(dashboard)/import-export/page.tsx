@@ -299,7 +299,7 @@ export default function ImportExportPage() {
       const err = results.filter((r) => !r.ok).length;
       if (err > 0) toast.warning(`${ok} satır uygun, ${err} satır hatalı. Önizlemede kontrol edin.`);
       else toast.success(`${ok} satır hazır. İçe aktarabilirsiniz.`);
-    } catch (err) {
+    } catch {
       toast.error('Dosya okunamadı. Geçerli bir .xlsx dosyası seçin.');
       setRawRows([]);
       setValidationResults([]);
@@ -386,7 +386,7 @@ export default function ImportExportPage() {
       setValidationResults([]);
       setOverwriteChoices({});
       if (fileInputRef.current) fileInputRef.current.value = '';
-    } catch (e) {
+    } catch {
       toast.error('İçe aktarma sırasında hata oluştu.');
     } finally {
       setIsImporting(false);
