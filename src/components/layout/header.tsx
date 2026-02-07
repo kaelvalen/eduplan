@@ -79,14 +79,14 @@ export function Header({ onMenuClick, showMenuButton = false, onSearchClick }: H
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between glass mx-3 mt-3 rounded-2xl px-4 md:px-6 mb-6 shadow-sm">
-        <div className="flex items-center gap-2 md:gap-4">
+      <header className="sticky top-0 z-30 flex h-18 items-center justify-between bg-card/80 backdrop-blur-lg mx-3 mt-3 rounded-2xl px-5 md:px-8 mb-8 shadow-sm border border-border/40">
+        <div className="flex items-center gap-3 md:gap-6">
           {showMenuButton && (
             <Button
               variant="ghost"
               size="icon"
               onClick={onMenuClick}
-              className="md:hidden rounded-xl h-10 w-10 tap-highlight-none hover:bg-white/20"
+              className="md:hidden rounded-xl h-10 w-10"
             >
               <Menu className="h-5 w-5" />
             </Button>
@@ -94,36 +94,36 @@ export function Header({ onMenuClick, showMenuButton = false, onSearchClick }: H
 
           {/* Mobile Page Title */}
           <div className="md:hidden">
-            <h1 className="text-base font-semibold truncate max-w-[150px] text-foreground/90">{getPageTitle()}</h1>
+            <h1 className="text-lg font-semibold truncate max-w-[150px] text-foreground">{getPageTitle()}</h1>
           </div>
 
           {/* Desktop Page Title */}
           <div className="hidden md:block">
-            <h1 className="text-lg font-bold text-foreground/90">{getPageTitle()}</h1>
+            <h1 className="text-xl font-bold text-foreground">{getPageTitle()}</h1>
           </div>
 
           {/* Search Button - Desktop */}
           <Button
             variant="outline"
-            className="hidden md:flex items-center gap-2 h-10 px-4 rounded-xl bg-white/5 border-white/10 hover:bg-white/10 hover:border-primary/30 text-muted-foreground hover:text-foreground transition-all duration-300 w-64 justify-between group shadow-sm"
+            className="hidden md:flex items-center gap-2 h-11 px-5 rounded-xl text-muted-foreground hover:text-foreground transition-all duration-300 w-72 justify-between group shadow-sm hover:shadow-md"
             onClick={handleSearchClick}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <Search className="h-4 w-4 group-hover:text-primary transition-colors" />
-              <span className="text-sm">Hızlı arama...</span>
+              <span className="text-base">Arama yap...</span>
             </div>
-            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-background/50 px-1.5 font-mono text-[10px] font-medium text-muted-foreground group-hover:border-primary/30 transition-colors">
+            <kbd className="pointer-events-none inline-flex h-6 select-none items-center gap-1 rounded-lg border border-border/60 bg-muted/50 px-2 font-mono text-[11px] font-medium text-muted-foreground group-hover:border-primary/40 transition-colors">
               <Command className="h-3 w-3" />K
             </kbd>
           </Button>
         </div>
 
-        <div className="flex items-center gap-1 md:gap-3">
+        <div className="flex items-center gap-2 md:gap-4">
           {/* Mobile Search */}
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden rounded-xl h-9 w-9 tap-highlight-none hover:bg-white/20"
+            className="md:hidden rounded-xl h-10 w-10"
             onClick={handleSearchClick}
           >
             <Search className="h-5 w-5" />
@@ -138,57 +138,57 @@ export function Header({ onMenuClick, showMenuButton = false, onSearchClick }: H
           {/* User Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2 h-10 pl-2 pr-3 rounded-xl hover:bg-white/20 tap-highlight-none transition-colors border border-transparent hover:border-white/10">
+              <Button variant="ghost" className="flex items-center gap-3 h-11 pl-2 pr-4 rounded-xl hover:bg-muted/50 transition-all border border-transparent hover:border-border/60">
                 <div className="relative">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-semibold text-xs shadow-md">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary/90 to-accent/70 text-white font-semibold text-sm shadow-sm">
                     {user?.username?.charAt(0).toUpperCase()}
                   </div>
-                  <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-background" />
+                  <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400/80 ring-2 ring-background" />
                 </div>
                 <div className="hidden md:block text-left">
-                  <p className="text-sm font-semibold leading-none text-foreground/90">{user?.username}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">
+                  <p className="text-sm font-semibold leading-none text-foreground">{user?.username}</p>
+                  <p className="text-xs text-muted-foreground mt-1 font-medium">
                     {user?.role === 'admin' ? 'Yönetici' : 'Öğretmen'}
                   </p>
                 </div>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-60 rounded-2xl glass-card border-white/10 p-2">
-              <div className="px-2 py-2 mb-2 bg-white/5 rounded-xl">
+            <DropdownMenuContent align="end" className="w-64 rounded-2xl p-3">
+              <div className="px-3 py-3 mb-3 bg-muted/30 rounded-xl">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold shadow-inner">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary/90 to-accent/70 text-white font-bold shadow-sm">
                     {user?.username?.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-sm font-bold">{user?.username}</p>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Sparkles className="h-3 w-3 text-amber-500" />
+                    <p className="text-base font-bold text-foreground">{user?.username}</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                      <Sparkles className="h-3 w-3 text-amber-400" />
                       {user?.role === 'admin' ? 'Premium Üye' : 'Öğretmen'}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <DropdownMenuItem asChild className="rounded-xl cursor-pointer focus:bg-primary/10 focus:text-primary mb-1">
-                <Link href="/profile" className="flex items-center py-2.5">
+              <DropdownMenuItem asChild className="rounded-xl cursor-pointer mb-1">
+                <Link href="/profile" className="flex items-center">
                   <User className="mr-2 h-4 w-4" />
                   Profil
                 </Link>
               </DropdownMenuItem>
               {isAdmin && (
-                <DropdownMenuItem asChild className="rounded-xl cursor-pointer focus:bg-primary/10 focus:text-primary mb-1">
-                  <Link href="/settings" className="flex items-center py-2.5">
+                <DropdownMenuItem asChild className="rounded-xl cursor-pointer mb-1">
+                  <Link href="/settings" className="flex items-center">
                     <Settings className="mr-2 h-4 w-4" />
                     Ayarlar
                   </Link>
                 </DropdownMenuItem>
               )}
 
-              <DropdownMenuSeparator className="bg-white/10 my-1" />
+              <DropdownMenuSeparator className="bg-border/40 my-2" />
 
               <DropdownMenuItem
                 onClick={logout}
-                className="rounded-xl cursor-pointer text-rose-500 focus:text-rose-600 focus:bg-rose-500/10 py-2.5 mt-1"
+                className="rounded-xl cursor-pointer text-rose-600 dark:text-rose-400 focus:text-rose-700 dark:focus:text-rose-300 focus:bg-rose-50 dark:focus:bg-rose-950/20 mt-1"
               >
                 <LogOut className="mr-2 h-4 w-4" />
                 Çıkış Yap
