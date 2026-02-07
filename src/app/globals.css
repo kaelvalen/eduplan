@@ -50,6 +50,32 @@
     /* Light sky blue */
   }
 
+  /* Color Themes - Light Mode Overrides */
+  [data-color-theme="blue"] {
+    --primary: 210 40% 70%;  /* Default Soft Blue-Gray */
+    --ring: 210 40% 70%;
+  }
+
+  [data-color-theme="green"] {
+    --primary: 140 30% 60%;  /* Sage Green */
+    --ring: 140 30% 60%;
+  }
+
+  [data-color-theme="violet"] {
+    --primary: 260 30% 65%;  /* Soft Violet */
+    --ring: 260 30% 65%;
+  }
+
+  [data-color-theme="orange"] {
+    --primary: 25 40% 65%;   /* Warm Orange/Peach */
+    --ring: 25 40% 65%;
+  }
+
+  [data-color-theme="rose"] {
+    --primary: 340 30% 65%;  /* Dusty Rose */
+    --ring: 340 30% 65%;
+  }
+
   .dark {
     /* Pastel Professional Dark Theme */
     --background: 220 20% 12%;
@@ -63,8 +89,8 @@
     --popover: 220 20% 15%;
     --popover-foreground: 210 20% 92%;
 
+    /* Default Primary for Dark Mode */
     --primary: 210 30% 50%;
-    /* Muted blue - professional, easy on eyes */
     --primary-foreground: 210 20% 98%;
 
     --secondary: 220 15% 20%;
@@ -93,6 +119,32 @@
     --info: 200 45% 60%;
     /* Sky blue for dark mode */
   }
+
+  /* Color Themes - Dark Mode Overrides */
+  .dark[data-color-theme="blue"] {
+    --primary: 210 30% 50%;
+    --ring: 210 30% 50%;
+  }
+
+  .dark[data-color-theme="green"] {
+    --primary: 140 25% 45%;
+    --ring: 140 25% 45%;
+  }
+
+  .dark[data-color-theme="violet"] {
+    --primary: 260 25% 55%;
+    --ring: 260 25% 55%;
+  }
+
+  .dark[data-color-theme="orange"] {
+    --primary: 25 35% 55%;
+    --ring: 25 35% 55%;
+  }
+
+  .dark[data-color-theme="rose"] {
+    --primary: 340 35% 50%;
+    --ring: 340 35% 50%;
+  }
 }
 
 @layer base {
@@ -101,7 +153,7 @@
   }
 
   html {
-    scroll-behavior: smooth;
+    /* scroll-behavior: smooth; - Handled by Next.js or conditional classes */
   }
 
   body {

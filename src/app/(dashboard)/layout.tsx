@@ -8,6 +8,7 @@ import { Header } from '@/components/layout/header';
 import { ScrollToTop } from '@/components/ui/scroll-to-top';
 import { LoadingBar } from '@/components/ui/loading-bar';
 import { CommandPalette, useCommandPalette } from '@/components/ui/command-palette';
+import { BottomNav } from '@/components/layout/bottom-nav';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -44,6 +45,16 @@ export default function DashboardLayout({
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore shortcuts when typing in inputs
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
       // Ctrl + B to toggle sidebar
       if (e.ctrlKey && e.key === 'b') {
         e.preventDefault();
@@ -141,11 +152,14 @@ export default function DashboardLayout({
           showMenuButton
           onSearchClick={commandPalette.open}
         />
-        <main className="p-3 sm:p-4 md:p-6 lg:p-8 pb-20 md:pb-8">
+        <main className="p-3 sm:p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
           {children}
         </main>
       </div>
       
+      {/* Mobile Bottom Navigation */}
+      <BottomNav />
+
       {/* Scroll to Top Button */}
       <ScrollToTop />
       

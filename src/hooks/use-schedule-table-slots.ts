@@ -1,17 +1,25 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '@/contexts/auth-context';
 import type { SystemSettings } from '@/types';
 
 export function useScheduleTableSlots() {
   const [settings, setSettings] = useState<SystemSettings | null>(null);
+  const { token } = useAuth();
 
   useEffect(() => {
-    fetch('/api/settings', { credentials: 'include' })
+    if (!token) return;
+
+    fetch('/api/settings', { 
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => data && setSettings(data))
       .catch(console.error);
-  }, []);
+  }, [token]);
 
   const dynamicTimeSlots = useMemo(() => {
     const toMinutes = (time: string) => {

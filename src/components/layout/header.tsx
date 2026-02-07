@@ -14,7 +14,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
+import { Breadcrumb, BreadcrumbItem } from '@/components/ui/breadcrumb';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { ThemeColorPicker } from '@/components/ui/theme-color-picker';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,20 +63,34 @@ export function Header({ onMenuClick, showMenuButton = false, onSearchClick }: H
     }
   };
 
-  const getPageTitle = () => {
-    const routes: Record<string, string> = {
-      '/': 'Ana Sayfa',
-      '/teachers': 'Öğretmenler',
-      '/courses': 'Dersler',
-      '/classrooms': 'Derslikler',
-      '/programs': 'Ders Programı',
-      '/scheduler': 'Program Oluşturucu',
-      '/reports': 'Raporlar',
-      '/settings': 'Ayarlar',
-      '/profile': 'Profil',
-      '/import-export': 'İçe/Dışa Aktar',
+  const getBreadcrumbs = (): BreadcrumbItem[] => {
+    const segments = pathname.split('/').filter(Boolean);
+    const items: BreadcrumbItem[] = [];
+    
+    // Custom label mapping
+    const labels: Record<string, string> = {
+      'teachers': 'Öğretmenler',
+      'courses': 'Dersler',
+      'classrooms': 'Derslikler',
+      'programs': 'Ders Programı',
+      'scheduler': 'Program Oluşturucu',
+      'reports': 'Raporlar',
+      'settings': 'Ayarlar',
+      'profile': 'Profil',
+      'import-export': 'İçe/Dışa Aktar',
     };
-    return routes[pathname] || 'PlanEdu';
+
+    let currentPath = '';
+    
+    segments.forEach((segment) => {
+      currentPath += `/${segment}`;
+      items.push({
+        label: labels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1),
+        href: currentPath
+      });
+    });
+
+    return items;
   };
 
   return (
@@ -92,14 +108,17 @@ export function Header({ onMenuClick, showMenuButton = false, onSearchClick }: H
             </Button>
           )}
 
-          {/* Mobile Page Title */}
-          <div className="md:hidden">
-            <h1 className="text-lg font-semibold truncate max-w-[150px] text-foreground">{getPageTitle()}</h1>
-          </div>
-
-          {/* Desktop Page Title */}
-          <div className="hidden md:block">
-            <h1 className="text-xl font-bold text-foreground">{getPageTitle()}</h1>
+          {/* Breadcrumbs */}
+          <div className="flex flex-col gap-0.5">
+             <div className="hidden md:block">
+               <Breadcrumb items={getBreadcrumbs()} />
+             </div>
+             {/* Mobile Page Title (keep for simple mobile view) */}
+             <div className="md:hidden">
+                <h1 className="text-lg font-semibold truncate max-w-[150px] text-foreground">
+                  {getBreadcrumbs().length > 0 ? getBreadcrumbs().at(-1)?.label : 'PlanEdu'}
+                </h1>
+             </div>
           </div>
 
           {/* Search Button - Desktop */}
@@ -131,6 +150,9 @@ export function Header({ onMenuClick, showMenuButton = false, onSearchClick }: H
 
           {/* Notifications */}
           <NotificationCenter />
+
+          {/* Theme Color Picker */}
+          <ThemeColorPicker />
 
           {/* Theme Toggle */}
           <ThemeToggle />
