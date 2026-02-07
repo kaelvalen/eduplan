@@ -113,3 +113,18 @@ export interface SchedulerMetrics {
   max_capacity_waste: number;
   teacher_load_stddev: number;
 }
+
+export interface ConflictReason {
+  type: 'teacher' | 'classroom' | 'department' | 'capacity' | 'availability';
+  message: string;
+  details?: Record<string, any>;
+}
+
+export interface PlacementAttempt {
+  courseId: number;
+  sessionType: string;
+  day: string;
+  timeRange: string;
+  success: boolean;
+  reason?: ConflictReason;
+}
