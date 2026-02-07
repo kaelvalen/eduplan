@@ -31,11 +31,8 @@ export * from './search-bar';
 // Card variants
 export * from './stats-card';
 export * from './action-card';
-export * from './nav-card';
 
 // Data display
-export * from './activity-list';
-export * from './status-section';
 export * from './empty-state';
 export * from './skeleton';
 export * from './data-table';
@@ -44,7 +41,6 @@ export * from './status-indicator';
 // Feedback
 export * from './loading-bar';
 export * from './scroll-to-top';
-export * from './tip-card';
 
 // Form components
 export * from './file-upload';

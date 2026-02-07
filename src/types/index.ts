@@ -329,40 +329,6 @@ export interface NotificationCreate {
   data?: string;
 }
 
-// ==================== DASHBOARD PREFERENCES ====================
-export interface WidgetConfig {
-  id: string;
-  type: 'stats' | 'actions' | 'activity' | 'scheduler' | 'navigation';
-  title?: string;
-  position: { x: number; y: number };
-  size: { width: number; height: number };
-  visible: boolean;
-  order: number;
-}
-
-export interface DashboardLayout {
-  columns: number;
-  gap: number;
-  padding: number;
-}
-
-export interface UserDashboardPreference {
-  id: number;
-  userId: number;
-  widgets: WidgetConfig[];
-  layout: DashboardLayout;
-  theme: 'default' | 'dark' | 'light' | 'auto';
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface UserDashboardPreferenceCreate {
-  userId: number;
-  widgets?: WidgetConfig[];
-  layout?: DashboardLayout;
-  theme?: 'default' | 'dark' | 'light' | 'auto';
-}
-
 // ==================== TIME BLOCKS ====================
 // Re-exported from centralized time constants
 export {
