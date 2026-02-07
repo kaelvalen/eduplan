@@ -28,24 +28,15 @@ const BaseCourseSchema = z.object({
   category: z.enum(['zorunlu', 'secmeli'], 'Kategori zorunlu veya seçmeli olmalıdır'),
   semester: z.string().min(1, 'Dönem seçimi zorunludur'),
   ects: z.number().min(0, 'ECTS 0\'dan küçük olamaz').max(30, 'ECTS 30\'dan büyük olamaz'),
-  total_hours: z.number().min(1, 'Toplam saat en az 1 olmalıdır').max(100, 'Toplam saat 100\'den büyük olamaz'),
+  total_hours: z.number().min(1, 'Toplam saat en az 1 olmalıdır').max(100, 'Toplam saat 100\'den büyük olamaz').optional(), // Optional - backend'de otomatik hesaplanır
   capacity_margin: z.number().min(0).max(30, 'Kapasite marjı 0-30 arasında olmalıdır').default(0),
   is_active: z.boolean().default(true),
   sessions: z.array(CourseSessionSchema).min(1, 'En az bir oturum gerekli').max(10, 'En fazla 10 oturum olabilir'),
   departments: z.array(CourseDepartmentSchema).min(1, 'En az bir bölüm gerekli').max(20, 'En fazla 20 bölüm olabilir'),
 });
 
-// Create schema with refinement for validation
-export const CreateCourseSchema = BaseCourseSchema.refine(
-  (data) => {
-    const totalSessionHours = data.sessions.reduce((sum, s) => sum + s.hours, 0);
-    return totalSessionHours === data.total_hours;
-  },
-  {
-    message: 'Oturum saatlerinin toplamı total_hours ile eşleşmelidir',
-    path: ['sessions'],
-  }
-);
+// Create schema - total_hours otomatik hesaplanacağı için refinement kaldırıldı
+export const CreateCourseSchema = BaseCourseSchema;
 
 // Update schema without refinement (partial can be used)
 export const UpdateCourseSchema = BaseCourseSchema.partial();

@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import logger from '@/lib/logger';
-import { getClassroomSchedule } from '@/lib/turso-helpers';
 
 // GET /api/classrooms/[id]/schedule - Get classroom's weekly schedule
 export async function GET(
@@ -27,8 +26,37 @@ export async function GET(
             where: { id: classroomId },
         });
 
-        // Use schedule helper
-        const schedules = await getClassroomSchedule(classroomId);
+        // Get classroom schedules
+        const rawSchedules = await prisma.schedule.findMany({
+            where: { classroomId },
+            include: {
+                course: {
+                    include: {
+                        teacher: { select: { id: true, name: true } },
+                    },
+                },
+            },
+            orderBy: [{ day: 'asc' }, { timeRange: 'asc' }],
+        });
+
+        const schedules = rawSchedules.map((s) => ({
+            id: s.id,
+            day: s.day,
+            time_range: s.timeRange,
+            course_id: s.courseId,
+            classroom_id: s.classroomId,
+            session_type: (s as any).sessionType || 'teorik',
+            is_hardcoded: s.isHardcoded,
+            course: s.course ? {
+                id: s.course.id,
+                code: s.course.code,
+                name: s.course.name,
+                teacher: s.course.teacher ? {
+                    id: s.course.teacher.id,
+                    name: s.course.teacher.name,
+                } : null,
+            } : null,
+        }));
 
         return NextResponse.json({
             classroom: classroom ? {

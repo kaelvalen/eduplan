@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import logger from '@/lib/logger';
-import { getTeacherSchedule } from '@/lib/turso-helpers';
 
 // GET /api/teachers/[id]/schedule - Get teacher's weekly schedule
 export async function GET(
@@ -23,36 +22,55 @@ export async function GET(
         }
 
         // Get teacher info
-        // Note: For teacher info itself, we still assume Prisma will work or we should fetch via Turso helper too if teacher not found in local Prisma.
-        // BUT: if local Prisma is connected to local DB and app connects to Turso, Prisma findUnique will fail to find teacher if db is empty.
-        // We need to use "db" or "turso-helpers" to find teacher too?
-        // Let's assume teacher info query might also need migration, but user said "infos are visible, only schedule is empty".
-        // This implies teacher info is somehow fetched?
-        // Wait, modal opens -> info visible.
-        // Teacher list comes from /teachers page. That page likely uses getAllTeachers from turso-helpers?
-        // Let's check. /api/teachers/route.ts -> uses turso-helpers?
-        // If so, then teacher info passing might be working.
-        // But here we do findUnique by ID.
-        // Let's assume we can fetch teacher via Prisma for now (maybe user synced DBs or something?), OR create getTeacherById in turso-helpers.
-
-        let teacher = await prisma.teacher.findUnique({
+        const teacher = await prisma.teacher.findUnique({
             where: { id: teacherId },
         });
 
-        // Use schedule helper (which handles Turso/Prisma switch)
-        const schedules = await getTeacherSchedule(teacherId);
+        // Get teacher's schedules
+        const rawSchedules = await prisma.schedule.findMany({
+            where: {
+                course: {
+                    teacherId: teacherId,
+                },
+            },
+            include: {
+                course: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                    },
+                },
+                classroom: {
+                    select: {
+                        id: true,
+                        name: true,
+                        type: true,
+                    },
+                },
+            },
+            orderBy: [{ day: 'asc' }, { timeRange: 'asc' }],
+        });
 
-        // If teacher is null (because Prisma points to empty local DB), we might need to fetch it from Turso manually or via helper.
-        // But let's first fix schedule.
-
-        if (!teacher) {
-            // Fallback: mocked teacher object if we have schedules? No we need details.
-            // If schedules exist, we can infer teacher exists.
-            // But simpler: just return what we have.
-            // If we really can't find teacher, we return 404.
-            // But if user sees modal, it means teacher ID valid.
-            // Let's return rudimentary teacher info if null?
-        }
+        const schedules = rawSchedules.map((s) => ({
+            id: s.id,
+            day: s.day,
+            time_range: s.timeRange,
+            course_id: s.courseId,
+            classroom_id: s.classroomId,
+            session_type: (s as any).sessionType || 'teorik',
+            is_hardcoded: s.isHardcoded,
+            course: s.course ? {
+                id: s.course.id,
+                code: s.course.code,
+                name: s.course.name,
+            } : null,
+            classroom: s.classroom ? {
+                id: s.classroom.id,
+                name: s.classroom.name,
+                type: s.classroom.type,
+            } : null,
+        }));
 
         return NextResponse.json({
             teacher: teacher ? {
@@ -64,7 +82,7 @@ export async function GET(
                 department: teacher.department,
                 working_hours: teacher.workingHours,
                 is_active: (teacher as any).isActive,
-            } : null, // If teacher not found in Prisma but schedule found in Turso, we might have an issue displaying header info.
+            } : null,
             schedule: schedules
         });
     } catch (error) {

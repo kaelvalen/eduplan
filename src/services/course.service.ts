@@ -3,6 +3,7 @@
  */
 
 import prisma from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 import { BaseService } from './base.service';
 import type { Course, CourseCreate } from '@/types';
 import type { CreateCourseInput, UpdateCourseInput } from '@/lib/schemas';
@@ -24,8 +25,8 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
   /**
    * Build where clause for filtering
    */
-  private buildWhereClause(filters?: CourseFilters) {
-    const where: any = {};
+  private buildWhereClause(filters?: CourseFilters): Prisma.CourseWhereInput {
+    const where: Prisma.CourseWhereInput = {};
 
     if (filters?.isActive !== undefined) {
       where.isActive = filters.isActive;
@@ -49,8 +50,8 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
 
     if (filters?.searchTerm) {
       where.OR = [
-        { name: { contains: filters.searchTerm, mode: 'insensitive' } },
-        { code: { contains: filters.searchTerm, mode: 'insensitive' } },
+        { name: { contains: filters.searchTerm } },
+        { code: { contains: filters.searchTerm } },
       ];
     }
 
@@ -125,8 +126,20 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
               title: true,
             },
           },
-          sessions: true,
-          departments: true,
+          sessions: {
+            select: {
+              id: true,
+              type: true,
+              hours: true,
+            },
+          },
+          departments: {
+            select: {
+              id: true,
+              department: true,
+              studentCount: true,
+            },
+          },
           hardcodedSchedules: {
             include: {
               classroom: {
@@ -158,8 +171,30 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
             title: true,
           },
         },
-        sessions: true,
-        departments: true,
+        sessions: {
+          select: {
+            id: true,
+            type: true,
+            hours: true,
+          },
+        },
+        departments: {
+          select: {
+            id: true,
+            department: true,
+            studentCount: true,
+          },
+        },
+        hardcodedSchedules: {
+          include: {
+            classroom: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -168,51 +203,86 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
 
   /**
    * Create new course
+   * Uses transaction to prevent race conditions
    */
   async createCourse(data: CreateCourseInput): Promise<Course> {
-    // Check if code already exists
-    const existing = await this.getCourseByCode(data.code);
-    if (existing) {
-      throw new Error('Bu ders kodu zaten kullanılıyor');
-    }
+    const course = await prisma.$transaction(async (tx) => {
+      // Check if code already exists (inside transaction for atomicity)
+      const existing = await tx.course.findUnique({
+        where: { code: data.code },
+      });
 
-    const course = await prisma.course.create({
-      data: {
-        name: data.name,
-        code: data.code,
-        teacherId: data.teacher_id || null,
-        faculty: data.faculty,
-        level: data.level,
-        category: data.category,
-        semester: data.semester,
-        ects: data.ects,
-        totalHours: data.total_hours,
-        capacityMargin: data.capacity_margin || 0,
-        isActive: data.is_active,
-        sessions: {
-          create: data.sessions.map(s => ({
-            type: s.type,
-            hours: s.hours,
-          })),
-        },
-        departments: {
-          create: data.departments.map(d => ({
-            department: d.department,
-            studentCount: d.student_count,
-          })),
-        },
-      },
-      include: {
-        teacher: {
-          select: {
-            id: true,
-            name: true,
-            title: true,
+      if (existing) {
+        throw new Error('Bu ders kodu zaten kullanılıyor');
+      }
+
+      // Calculate total_hours from sessions if not provided
+      const totalHours = data.total_hours ?? data.sessions.reduce((sum, s) => sum + s.hours, 0);
+
+      // Create course with nested relations
+      return await tx.course.create({
+        data: {
+          name: data.name,
+          code: data.code,
+          teacherId: data.teacher_id || null,
+          faculty: data.faculty,
+          level: data.level,
+          category: data.category,
+          semester: data.semester,
+          ects: data.ects,
+          totalHours: totalHours,
+          capacityMargin: data.capacity_margin || 0,
+          isActive: data.is_active,
+          sessions: {
+            create: data.sessions.map(s => ({
+              type: s.type,
+              hours: s.hours,
+            })),
+          },
+          departments: {
+            create: data.departments.map(d => ({
+              department: d.department,
+              studentCount: d.student_count,
+            })),
           },
         },
-        sessions: true,
-        departments: true,
-      },
+        include: {
+          teacher: {
+            select: {
+              id: true,
+              name: true,
+              title: true,
+            },
+          },
+          sessions: {
+            select: {
+              id: true,
+              type: true,
+              hours: true,
+            },
+          },
+          departments: {
+            select: {
+              id: true,
+              department: true,
+              studentCount: true,
+            },
+          },
+          hardcodedSchedules: {
+            include: {
+              classroom: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    }, {
+      maxWait: 5000, // 5 seconds max wait to acquire transaction
+      timeout: 10000, // 10 seconds max transaction time
     });
 
     this.invalidateCache();
@@ -221,71 +291,108 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
 
   /**
    * Update course
+   * Uses transaction to prevent data loss if update fails after deletes
    */
   async updateCourse(id: number, data: UpdateCourseInput): Promise<Course> {
-    // If code is being updated, check for conflicts
-    if (data.code) {
-      const existing = await this.getCourseByCode(data.code);
-      if (existing && existing.id !== id) {
-        throw new Error('Bu ders kodu zaten kullanılıyor');
+    const course = await prisma.$transaction(async (tx) => {
+      // If code is being updated, check for conflicts (inside transaction)
+      if (data.code) {
+        const existing = await tx.course.findUnique({
+          where: { code: data.code },
+        });
+
+        if (existing && existing.id !== id) {
+          throw new Error('Bu ders kodu zaten kullanılıyor');
+        }
       }
-    }
 
-    // Delete existing sessions and departments if provided
-    if (data.sessions) {
-      await prisma.courseSession.deleteMany({
-        where: { courseId: id },
-      });
-    }
+      // Delete existing sessions and departments if provided
+      if (data.sessions) {
+        await tx.courseSession.deleteMany({
+          where: { courseId: id },
+        });
+      }
 
-    if (data.departments) {
-      await prisma.courseDepartment.deleteMany({
-        where: { courseId: id },
-      });
-    }
+      if (data.departments) {
+        await tx.courseDepartment.deleteMany({
+          where: { courseId: id },
+        });
+      }
 
-    const course = await prisma.course.update({
-      where: { id },
-      data: {
-        ...(data.name && { name: data.name }),
-        ...(data.code && { code: data.code }),
-        ...(data.teacher_id !== undefined && { teacherId: data.teacher_id }),
-        ...(data.faculty && { faculty: data.faculty }),
-        ...(data.level && { level: data.level }),
-        ...(data.category && { category: data.category }),
-        ...(data.semester && { semester: data.semester }),
-        ...(data.ects && { ects: data.ects }),
-        ...(data.total_hours && { totalHours: data.total_hours }),
-        ...(data.capacity_margin !== undefined && { capacityMargin: data.capacity_margin }),
-        ...(data.is_active !== undefined && { isActive: data.is_active }),
-        ...(data.sessions && {
+      // Calculate total_hours from sessions if sessions are provided but total_hours is not
+      const totalHours = data.sessions && !data.total_hours
+        ? data.sessions.reduce((sum, s) => sum + s.hours, 0)
+        : data.total_hours;
+
+      // Update course with new data
+      return await tx.course.update({
+        where: { id },
+        data: {
+          ...(data.name && { name: data.name }),
+          ...(data.code && { code: data.code }),
+          ...(data.teacher_id !== undefined && { teacherId: data.teacher_id }),
+          ...(data.faculty && { faculty: data.faculty }),
+          ...(data.level && { level: data.level }),
+          ...(data.category && { category: data.category }),
+          ...(data.semester && { semester: data.semester }),
+          ...(data.ects && { ects: data.ects }),
+          ...(totalHours && { totalHours: totalHours }),
+          ...(data.capacity_margin !== undefined && { capacityMargin: data.capacity_margin }),
+          ...(data.is_active !== undefined && { isActive: data.is_active }),
+          ...(data.sessions && {
+            sessions: {
+              create: data.sessions.map(s => ({
+                type: s.type,
+                hours: s.hours,
+              })),
+            },
+          }),
+          ...(data.departments && {
+            departments: {
+              create: data.departments.map(d => ({
+                department: d.department,
+                studentCount: d.student_count,
+              })),
+            },
+          }),
+        },
+        include: {
+          teacher: {
+            select: {
+              id: true,
+              name: true,
+              title: true,
+            },
+          },
           sessions: {
-            create: data.sessions.map(s => ({
-              type: s.type,
-              hours: s.hours,
-            })),
+            select: {
+              id: true,
+              type: true,
+              hours: true,
+            },
           },
-        }),
-        ...(data.departments && {
           departments: {
-            create: data.departments.map(d => ({
-              department: d.department,
-              studentCount: d.student_count,
-            })),
+            select: {
+              id: true,
+              department: true,
+              studentCount: true,
+            },
           },
-        }),
-      },
-      include: {
-        teacher: {
-          select: {
-            id: true,
-            name: true,
-            title: true,
+          hardcodedSchedules: {
+            include: {
+              classroom: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
           },
         },
-        sessions: true,
-        departments: true,
-      },
+      });
+    }, {
+      maxWait: 5000,
+      timeout: 10000,
     });
 
     this.invalidateCache(id);
@@ -363,7 +470,16 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
   /**
    * Transform Prisma course to API format
    */
-  private transformCourse(course: any): Course {
+  private transformCourse(
+    course: Prisma.CourseGetPayload<{
+      include: {
+        teacher: { select: { id: true; name: true; title: true } };
+        sessions: { select: { id: true; type: true; hours: true } };
+        departments: { select: { id: true; department: true; studentCount: true } };
+        hardcodedSchedules: { include: { classroom: { select: { id: true; name: true } } } };
+      };
+    }>
+  ): Course {
     return {
       id: course.id,
       name: course.name,
@@ -371,30 +487,30 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
       teacher_id: course.teacherId,
       faculty: course.faculty,
       level: course.level,
-      category: course.category,
+      category: course.category as 'zorunlu' | 'secmeli',
       semester: course.semester,
       ects: course.ects,
       total_hours: course.totalHours,
       capacity_margin: course.capacityMargin,
       is_active: course.isActive,
-      sessions: course.sessions?.map((s: any) => ({
+      sessions: course.sessions?.map((s) => ({
         id: s.id,
-        type: s.type,
+        type: s.type as 'teorik' | 'lab' | 'tümü',
         hours: s.hours,
       })) || [],
-      departments: course.departments?.map((d: any) => ({
+      departments: course.departments?.map((d) => ({
         id: d.id,
         department: d.department,
         student_count: d.studentCount,
       })) || [],
-      hardcoded_schedules: course.hardcodedSchedules?.map((h: any) => ({
+      hardcoded_schedules: course.hardcodedSchedules?.map((h) => ({
         id: h.id,
         course_id: h.courseId,
-        session_type: h.sessionType,
+        session_type: h.sessionType as 'teorik' | 'lab',
         day: h.day,
         start_time: h.startTime,
         end_time: h.endTime,
-        classroom_id: h.classroomId,
+        classroom_id: h.classroomId ?? undefined,
         classroom: h.classroom,
       })) || [],
       teacher: course.teacher ? {

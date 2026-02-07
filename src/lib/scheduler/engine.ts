@@ -210,7 +210,12 @@ export async function* generateSchedule(
   config: SchedulerConfig
 ): AsyncGenerator<SchedulerProgress> {
   const { courses, classrooms, timeBlocks } = config;
-  
+
+  console.log('\n🚀 SCHEDULER STARTING');
+  console.log(`Courses: ${courses.length}, Classrooms: ${classrooms.length}, Time blocks: ${timeBlocks.length}`);
+  console.log('Time blocks:', timeBlocks.map(b => `${b.start}-${b.end}`).join(', '));
+  console.log('Classrooms:', classrooms.map(c => `${c.name} (${c.type}, cap:${c.capacity})`).join(', '));
+
   yield {
     stage: 'initializing',
     progress: 0,
@@ -315,10 +320,16 @@ export async function* generateSchedule(
       let sessionScheduled = false;
       const duration = session.hours;
 
+      console.log(`\n🔍 Scheduling session: ${course.code} - ${session.type} (${duration}h)`);
+      console.log(`   Students: ${totalStudents}, Capacity margin: ${course.capacityMargin}%`);
+      console.log(`   Time blocks available: ${timeBlocks.length}`);
+
       const shuffledDays = [...DAYS].sort(() => Math.random() - 0.5);
 
       for (const day of shuffledDays) {
         if (sessionScheduled) break;
+
+        console.log(`\n  Trying day: ${day}`);
 
         const possibleStartIndices = Array.from({ length: timeBlocks.length - duration + 1 }, (_, i) => i)
           .sort(() => Math.random() - 0.5);
@@ -344,6 +355,7 @@ export async function* generateSchedule(
             blockRanges.push(`${currentBlock.start}-${currentBlock.end}`);
 
             if (!isTeacherAvailable(course.teacherWorkingHours, day, currentBlock)) {
+              console.log(`      ❌ Teacher not available at ${currentBlock.start}-${currentBlock.end} on ${day}`);
               isValidSequence = false;
               break;
             }
@@ -370,6 +382,8 @@ export async function* generateSchedule(
             occupiedClassroomsByBlock.push(occupied);
           }
 
+          console.log(`    Trying time: ${currentBlocks[0].start}-${currentBlocks[duration-1].end}`);
+
           const classroom = findSuitableClassroomForBlocks(
             classrooms,
             session.type,
@@ -380,6 +394,12 @@ export async function* generateSchedule(
             day,
             currentBlocks
           );
+
+          if (classroom) {
+            console.log(`    ✅ FOUND classroom: ${classroom.name} (capacity: ${classroom.capacity})`);
+          } else {
+            console.log(`    ❌ No suitable classroom found`);
+          }
 
           if (classroom) {
             const startBlock = currentBlocks[0];

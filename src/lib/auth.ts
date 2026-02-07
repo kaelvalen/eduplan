@@ -1,9 +1,20 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { db, prisma, isTurso } from './db';
+import { prisma } from './db';
 import type { User } from '@/types';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this';
+// CRITICAL: JWT_SECRET must be set in environment variables
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error(
+    'CRITICAL SECURITY ERROR: JWT_SECRET environment variable is required. ' +
+    'Please set JWT_SECRET in your .env file with a strong random secret.'
+  );
+}
+
+// Type assertion after validation
+const SECRET: string = JWT_SECRET;
 
 export interface JWTPayload {
   userId: number;
@@ -20,12 +31,12 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 export function generateToken(payload: JWTPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
+  return jwt.sign(payload, SECRET, { expiresIn: '24h' });
 }
 
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JWTPayload;
+    return jwt.verify(token, SECRET) as JWTPayload;
   } catch {
     return null;
   }
@@ -45,22 +56,6 @@ export async function getCurrentUser(request: Request): Promise<User & { id: num
 
   const payload = verifyToken(token);
   if (!payload) return null;
-
-  if (isTurso && db) {
-    const result = await db.execute({
-      sql: 'SELECT id, username, role FROM User WHERE id = ?',
-      args: [payload.userId],
-    });
-    if (result.rows.length === 0) return null;
-    const row = result.rows[0];
-    const role = (row.role as 'admin' | 'teacher') || 'teacher';
-    return {
-      id: row.id as number,
-      username: row.username as string,
-      role: role,
-      permissions: role === 'admin' ? ['admin'] : ['teacher'],
-    };
-  }
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },

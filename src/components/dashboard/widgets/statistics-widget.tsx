@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { BarChart3, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { WidgetContainer, WidgetHeader, WidgetBody } from './widget-container';
 import { getEntityColors } from '@/lib/design-tokens';
@@ -16,7 +17,7 @@ interface StatisticsWidgetProps {
   stats: StatItem[];
 }
 
-export function StatisticsWidget({ stats }: StatisticsWidgetProps) {
+const StatisticsWidgetComponent = ({ stats }: StatisticsWidgetProps) => {
   const getTrendIcon = (change?: number) => {
     if (!change || change === 0) return Minus;
     return change > 0 ? TrendingUp : TrendingDown;
@@ -87,4 +88,6 @@ export function StatisticsWidget({ stats }: StatisticsWidgetProps) {
       </WidgetBody>
     </WidgetContainer>
   );
-}
+};
+
+export const StatisticsWidget = React.memo(StatisticsWidgetComponent);

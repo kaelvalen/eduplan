@@ -6,7 +6,7 @@
 import { NextRequest } from 'next/server';
 import { requireAdmin } from '@/middleware';
 import logger, { logSchedulerEvent } from '@/lib/logger';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import {
   generateSchedule,
   calculateScheduleMetrics,
@@ -14,7 +14,6 @@ import {
   type SchedulerProgress,
 } from '@/lib/scheduler';
 import { courseService, classroomService } from '@/services';
-import { deleteNonHardcodedSchedules, createManySchedules } from '@/lib/turso-helpers';
 
 /**
  * GET /api/scheduler/generate-stream
@@ -68,7 +67,9 @@ export async function GET(request: NextRequest) {
           }
 
           // Delete existing non-hardcoded schedules
-          await deleteNonHardcodedSchedules();
+          await prisma.schedule.deleteMany({
+            where: { isHardcoded: false },
+          });
 
           // Get time settings and generate time blocks
           const timeSettings = await prisma.systemSettings.findFirst();
@@ -112,15 +113,16 @@ export async function GET(request: NextRequest) {
             const { schedule, unscheduled } = finalResult.value;
 
             if (schedule.length > 0) {
-              await createManySchedules(
-                schedule.map((s: any) => ({
+              await prisma.schedule.createMany({
+                data: schedule.map((s: any) => ({
                   day: s.day,
                   timeRange: s.timeRange,
                   courseId: s.courseId,
                   classroomId: s.classroomId,
                   sessionType: s.sessionType,
-                }))
-              );
+                  isHardcoded: s.isHardcoded || false,
+                })),
+              });
             }
 
             // Calculate metrics

@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { Calendar, Clock, MapPin, Users } from 'lucide-react';
 import { WidgetContainer, WidgetHeader, WidgetBody, WidgetFooter } from './widget-container';
 import { Button } from '@/components/ui/button';
@@ -55,7 +56,7 @@ const defaultEvents: Event[] = [
   },
 ];
 
-export function UpcomingEventsWidget({ events = defaultEvents }: UpcomingEventsWidgetProps) {
+const UpcomingEventsWidgetComponent = ({ events = defaultEvents }: UpcomingEventsWidgetProps) => {
   return (
     <WidgetContainer>
       <WidgetHeader
@@ -128,4 +129,6 @@ export function UpcomingEventsWidget({ events = defaultEvents }: UpcomingEventsW
       </WidgetFooter>
     </WidgetContainer>
   );
-}
+};
+
+export const UpcomingEventsWidget = React.memo(UpcomingEventsWidgetComponent);

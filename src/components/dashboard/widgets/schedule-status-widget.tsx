@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { Calendar, CheckCircle2, AlertCircle, Clock, Play } from 'lucide-react';
 import { WidgetContainer, WidgetHeader, WidgetBody, WidgetFooter } from './widget-container';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,7 @@ interface ScheduleStatusWidgetProps {
   isAdmin: boolean;
 }
 
-export function ScheduleStatusWidget({ schedulerStatus, isAdmin }: ScheduleStatusWidgetProps) {
+const ScheduleStatusWidgetComponent = ({ schedulerStatus, isAdmin }: ScheduleStatusWidgetProps) => {
   if (!schedulerStatus) {
     return (
       <WidgetContainer variant="gradient">
@@ -168,4 +169,6 @@ export function ScheduleStatusWidget({ schedulerStatus, isAdmin }: ScheduleStatu
       )}
     </WidgetContainer>
   );
-}
+};
+
+export const ScheduleStatusWidget = React.memo(ScheduleStatusWidgetComponent);

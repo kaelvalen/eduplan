@@ -3,6 +3,7 @@
  */
 
 import prisma from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 import { BaseService } from './base.service';
 import type { Classroom, ClassroomCreate, ClassroomWithSchedule } from '@/types';
 import type { CreateClassroomInput, UpdateClassroomInput } from '@/lib/schemas';
@@ -22,8 +23,8 @@ export class ClassroomService extends BaseService<Classroom, CreateClassroomInpu
   /**
    * Build where clause for filtering
    */
-  private buildWhereClause(filters?: ClassroomFilters) {
-    const where: any = {};
+  private buildWhereClause(filters?: ClassroomFilters): Prisma.ClassroomWhereInput {
+    const where: Prisma.ClassroomWhereInput = {};
 
     if (filters?.isActive !== undefined) {
       where.isActive = filters.isActive;
@@ -44,7 +45,6 @@ export class ClassroomService extends BaseService<Classroom, CreateClassroomInpu
     if (filters?.searchTerm) {
       where.name = {
         contains: filters.searchTerm,
-        mode: 'insensitive',
       };
     }
 

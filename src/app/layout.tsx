@@ -5,6 +5,8 @@ import { ThemeProvider } from "@/contexts/theme-context";
 import { QueryProvider } from "@/contexts/query-provider";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Toaster } from "@/components/ui/sonner";
+import { WebVitals } from "@/components/web-vitals";
+import { SkipToContent } from "@/components/skip-to-content";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -49,6 +51,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <SkipToContent />
+        <WebVitals />
         <ThemeProvider>
           <QueryProvider>
             <AuthProvider>

@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
-import { db, prisma, isTurso } from '@/lib/db';
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
 import { verifyPassword, generateToken, hashPassword } from '@/lib/auth';
+import { authRateLimit } from '@/middleware/rate-limit';
 
 interface User {
   id: number;
@@ -10,52 +11,23 @@ interface User {
 }
 
 async function findUser(username: string): Promise<User | null> {
-  if (isTurso && db) {
-    const result = await db.execute({
-      sql: 'SELECT id, username, passwordHash, role FROM User WHERE username = ?',
-      args: [username],
-    });
-    if (result.rows.length === 0) return null;
-    const row = result.rows[0];
-    return {
-      id: row.id as number,
-      username: row.username as string,
-      passwordHash: row.passwordHash as string,
-      role: row.role as string,
-    };
-  }
   return prisma.user.findUnique({ where: { username } });
 }
 
 async function countUsers(): Promise<number> {
-  if (isTurso && db) {
-    const result = await db.execute('SELECT COUNT(*) as count FROM User');
-    return Number(result.rows[0].count);
-  }
   return prisma.user.count();
 }
 
-async function createDemoUsers(adminHash: string, teacherHash: string) {
-  if (isTurso && db) {
-    await db.execute({
-      sql: 'INSERT INTO User (username, passwordHash, role) VALUES (?, ?, ?)',
-      args: ['admin', adminHash, 'admin'],
-    });
-    await db.execute({
-      sql: 'INSERT INTO User (username, passwordHash, role) VALUES (?, ?, ?)',
-      args: ['teacher', teacherHash, 'teacher'],
-    });
-  } else {
-    await prisma.user.createMany({
-      data: [
-        { username: 'admin', passwordHash: adminHash, role: 'admin' },
-        { username: 'teacher', passwordHash: teacherHash, role: 'teacher' },
-      ],
-    });
-  }
+async function createDemoUsers(adminHash: string, teacherHash: string): Promise<void> {
+  await prisma.user.createMany({
+    data: [
+      { username: 'admin', passwordHash: adminHash, role: 'admin' },
+      { username: 'teacher', passwordHash: teacherHash, role: 'teacher' },
+    ],
+  });
 }
 
-export async function POST(request: Request) {
+async function handleLogin(request: NextRequest) {
   try {
     const { username, password } = await request.json();
 
@@ -118,3 +90,6 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// Apply rate limiting to login endpoint (5 attempts per 15 minutes)
+export const POST = authRateLimit(handleLogin);

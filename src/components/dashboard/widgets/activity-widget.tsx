@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { Activity, CheckCircle2, AlertTriangle, Info, XCircle } from 'lucide-react';
 import { WidgetContainer, WidgetHeader, WidgetBody, WidgetFooter } from './widget-container';
 import { Button } from '@/components/ui/button';
@@ -45,7 +46,7 @@ const activityConfig = {
   },
 };
 
-export function ActivityWidget({ activities, maxItems = 5 }: ActivityWidgetProps) {
+const ActivityWidgetComponent = ({ activities, maxItems = 5 }: ActivityWidgetProps) => {
   const displayedActivities = activities.slice(0, maxItems);
 
   return (
@@ -121,4 +122,6 @@ export function ActivityWidget({ activities, maxItems = 5 }: ActivityWidgetProps
       )}
     </WidgetContainer>
   );
-}
+};
+
+export const ActivityWidget = React.memo(ActivityWidgetComponent);

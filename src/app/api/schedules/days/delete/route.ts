@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser, isAdmin } from '@/lib/auth';
-import { deleteSchedulesByDay } from '@/lib/turso-helpers';
+import { prisma } from '@/lib/db';
 
 // POST /api/schedules/days/delete - Delete schedules by days
 export async function POST(request: Request) {
@@ -20,9 +20,13 @@ export async function POST(request: Request) {
       );
     }
 
-    for (const day of days) {
-      await deleteSchedulesByDay(day);
-    }
+    await prisma.schedule.deleteMany({
+      where: {
+        day: {
+          in: days,
+        },
+      },
+    });
 
     return NextResponse.json({ message: 'Programlar silindi' });
   } catch (error) {

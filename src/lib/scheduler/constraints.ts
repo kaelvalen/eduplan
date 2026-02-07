@@ -108,8 +108,15 @@ export function findSuitableClassroomForBlocks(
     if (c.capacity < adjustedStudentCount) return false;
 
     // Check classroom type matching
-    if (sessionType === 'lab' && c.type !== 'lab') return false;
-    if (sessionType === 'teorik' && c.type === 'lab') return false;
+    // Hibrit classrooms can handle both teorik and lab sessions
+    if (sessionType === 'lab') {
+      // Lab sessions can use 'lab' or 'hibrit' classrooms
+      if (c.type !== 'lab' && c.type !== 'hibrit') return false;
+    }
+    if (sessionType === 'teorik') {
+      // Teorik sessions cannot use pure 'lab' classrooms (but hibrit is OK)
+      if (c.type === 'lab') return false;
+    }
 
     // Check availability and occupancy for ALL blocks
     for (let i = 0; i < timeBlocks.length; i++) {

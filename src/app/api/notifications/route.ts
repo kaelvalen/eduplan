@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser, isAdmin } from '@/lib/auth';
-import { getAllNotifications, createNotification } from '@/lib/turso-helpers';
+import { prisma } from '@/lib/db';
 import { sendPushNotification, broadcastPushNotification } from '../push/route';
 import type { NotificationCreate } from '@/types';
 
@@ -16,17 +16,37 @@ export async function GET(request: Request) {
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
     const category = searchParams.get('category');
 
-    let notifications = await getAllNotifications(user.id);
+    const whereClause: any = {
+      OR: [
+        { userId: user.id },
+        { userId: null },
+      ],
+    };
 
-    // Filter by unread status
     if (unreadOnly) {
-      notifications = notifications.filter(n => !n.isRead);
+      whereClause.isRead = false;
     }
 
-    // Filter by category
     if (category) {
-      notifications = notifications.filter(n => n.category === category);
+      whereClause.category = category;
     }
+
+    const rawNotifications = await prisma.notification.findMany({
+      where: whereClause,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const notifications = rawNotifications.map((n) => ({
+      id: n.id,
+      userId: n.userId,
+      title: n.title,
+      message: n.message,
+      type: n.type,
+      category: n.category,
+      isRead: n.isRead,
+      actionUrl: n.actionUrl,
+      createdAt: n.createdAt.toISOString(),
+    }));
 
     return NextResponse.json(notifications);
   } catch (error) {
@@ -56,7 +76,29 @@ export async function POST(request: Request) {
       );
     }
 
-    const notification = await createNotification(body);
+    const rawNotification = await prisma.notification.create({
+      data: {
+        userId: body.userId || null,
+        title: body.title,
+        message: body.message,
+        type: body.type || 'info',
+        category: body.category || 'general',
+        actionUrl: body.actionUrl || null,
+        isRead: false,
+      },
+    });
+
+    const notification = {
+      id: rawNotification.id,
+      userId: rawNotification.userId,
+      title: rawNotification.title,
+      message: rawNotification.message,
+      type: rawNotification.type,
+      category: rawNotification.category,
+      isRead: rawNotification.isRead,
+      actionUrl: rawNotification.actionUrl,
+      createdAt: rawNotification.createdAt.toISOString(),
+    };
 
     // Send push notification if userId is specified
     if (body.userId) {

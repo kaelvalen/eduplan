@@ -46,7 +46,7 @@ model Course {
   name               String
   code               String              @unique
   teacherId          Int?
-  teacher            Teacher?            @relation(fields: [teacherId], references: [id])
+  teacher            Teacher?            @relation(fields: [teacherId], references: [id], onDelete: SetNull)
   faculty            String
   level              String              @default("1")
   category           String              @default("zorunlu") // "zorunlu" | "secmeli"
@@ -75,6 +75,8 @@ model CourseSession {
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
   type     String @default("teorik") // "teorik" | "lab" | "tümü"
   hours    Int    @default(2)
+
+  @@index([courseId])
 }
 
 // ==================== COURSE DEPARTMENT ====================
@@ -84,6 +86,8 @@ model CourseDepartment {
   course       Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
   department   String
   studentCount Int    @default(0)
+
+  @@index([courseId])
 }
 
 // ==================== CLASSROOM ====================
@@ -110,21 +114,24 @@ model Classroom {
 
 // ==================== SCHEDULE ====================
 model Schedule {
-  id          Int       @id @default(autoincrement())
-  day         String // "Pazartesi", "Salı", etc.
-  timeRange   String // "09:00-10:00"
-  courseId    Int
-  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  classroomId Int
-  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
-  isHardcoded Boolean   @default(false) // Hardcoded mi?
-  sessionType String    @default("teorik") // "teorik" | "lab"
-  createdAt   DateTime  @default(now())
+  id           Int       @id @default(autoincrement())
+  day          String // "Pazartesi", "Salı", etc.
+  timeRange    String // "09:00-10:00"
+  courseId     Int
+  course       Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  classroomId  Int
+  classroom    Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  isHardcoded  Boolean   @default(false) // Hardcoded mi?
+  sessionType  String    @default("teorik") // "teorik" | "lab"
+  sessionHours Int       @default(1) // Duration in hours
+  createdAt    DateTime  @default(now())
 
   @@index([day, timeRange])
   @@index([courseId, classroomId])
   @@index([isHardcoded])
   @@index([day])
+  @@index([courseId, day, timeRange]) // Conflict detection optimization
+  @@index([classroomId, day, timeRange]) // Conflict detection optimization
 }
 
 // ==================== HARDCODED SCHEDULE ====================
@@ -137,8 +144,12 @@ model HardcodedSchedule {
   startTime   String // "09:00"
   endTime     String // "10:00"
   classroomId Int? // Opsiyonel derslik
-  classroom   Classroom? @relation(fields: [classroomId], references: [id])
+  classroom   Classroom? @relation(fields: [classroomId], references: [id], onDelete: SetNull)
   createdAt   DateTime   @default(now())
+
+  @@index([courseId])
+  @@index([classroomId])
+  @@index([day])
 }
 
 // ==================== NOTIFICATIONS ====================
@@ -149,7 +160,7 @@ model Notification {
   type      String    @default("info") // "info" | "success" | "warning" | "error"
   category  String    @default("general") // "schedule" | "teacher" | "course" | "classroom" | "general"
   userId    Int?
-  user      User?     @relation(fields: [userId], references: [id])
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
   isRead    Boolean   @default(false)
   actionUrl String? // Bildirime tıklandığında yönlendirme URL'i
   data      String? // JSON string - ek veriler için

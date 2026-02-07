@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser, isAdmin } from '@/lib/auth';
-import { getNotificationById, markNotificationAsRead, deleteNotification } from '@/lib/turso-helpers';
+import { prisma } from '@/lib/db';
 
 // GET /api/notifications/[id] - Get a single notification
 export async function GET(
@@ -14,16 +14,30 @@ export async function GET(
     }
 
     const { id } = await params;
-    const notification = await getNotificationById(parseInt(id));
+    const rawNotification = await prisma.notification.findUnique({
+      where: { id: parseInt(id) },
+    });
 
-    if (!notification) {
+    if (!rawNotification) {
       return NextResponse.json({ detail: 'Bildirim bulunamadı' }, { status: 404 });
     }
 
     // Check if user can access this notification
-    if (notification.userId && notification.userId !== user.id && !isAdmin(user)) {
+    if (rawNotification.userId && rawNotification.userId !== user.id && !isAdmin(user)) {
       return NextResponse.json({ detail: 'Bu bildirime erişim yetkiniz yok' }, { status: 403 });
     }
+
+    const notification = {
+      id: rawNotification.id,
+      userId: rawNotification.userId,
+      title: rawNotification.title,
+      message: rawNotification.message,
+      type: rawNotification.type,
+      category: rawNotification.category,
+      isRead: rawNotification.isRead,
+      actionUrl: rawNotification.actionUrl,
+      createdAt: rawNotification.createdAt.toISOString(),
+    };
 
     return NextResponse.json(notification);
   } catch (error) {
@@ -47,7 +61,9 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const notification = await getNotificationById(parseInt(id));
+    const notification = await prisma.notification.findUnique({
+      where: { id: parseInt(id) },
+    });
 
     if (!notification) {
       return NextResponse.json({ detail: 'Bildirim bulunamadı' }, { status: 404 });
@@ -58,7 +74,11 @@ export async function PUT(
       return NextResponse.json({ detail: 'Bu bildirime erişim yetkiniz yok' }, { status: 403 });
     }
 
-    await markNotificationAsRead(parseInt(id));
+    await prisma.notification.update({
+      where: { id: parseInt(id) },
+      data: { isRead: true },
+    });
+
     return NextResponse.json({ message: 'Bildirim okundu olarak işaretlendi' });
   } catch (error) {
     console.error('Mark notification as read error:', error);
@@ -81,7 +101,9 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const notification = await getNotificationById(parseInt(id));
+    const notification = await prisma.notification.findUnique({
+      where: { id: parseInt(id) },
+    });
 
     if (!notification) {
       return NextResponse.json({ detail: 'Bildirim bulunamadı' }, { status: 404 });
@@ -92,7 +114,10 @@ export async function DELETE(
       return NextResponse.json({ detail: 'Bu bildirimi silme yetkiniz yok' }, { status: 403 });
     }
 
-    await deleteNotification(parseInt(id));
+    await prisma.notification.delete({
+      where: { id: parseInt(id) },
+    });
+
     return NextResponse.json({ message: 'Bildirim silindi' });
   } catch (error) {
     console.error('Delete notification error:', error);

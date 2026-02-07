@@ -28,6 +28,45 @@ import type {
 
 const API_URL = '/api';
 
+// CSRF Token Management
+let csrfToken: string | null = null;
+let csrfTokenExpiry: number | null = null;
+
+/**
+ * Fetches a new CSRF token from the server
+ */
+async function fetchCsrfToken(): Promise<string> {
+  try {
+    const response = await axios.get<{ csrfToken: string; expiresIn: number }>(`${API_URL}/csrf-token`);
+    csrfToken = response.data.csrfToken;
+    // Set expiry to 1 hour before actual expiry for safety
+    csrfTokenExpiry = Date.now() + (response.data.expiresIn - 3600) * 1000;
+    return csrfToken;
+  } catch (error) {
+    console.error('Failed to fetch CSRF token:', error);
+    throw error;
+  }
+}
+
+/**
+ * Gets the current CSRF token, fetching a new one if expired or missing
+ */
+async function getCsrfToken(): Promise<string | null> {
+  // Return cached token if still valid
+  if (csrfToken && csrfTokenExpiry && Date.now() < csrfTokenExpiry) {
+    return csrfToken;
+  }
+
+  // Fetch new token
+  try {
+    return await fetchCsrfToken();
+  } catch (error) {
+    // Don't fail the request if CSRF token fetch fails
+    // Server will handle the missing token
+    return null;
+  }
+}
+
 // Axios instance with interceptors
 const api = axios.create({
   baseURL: API_URL,
@@ -36,12 +75,23 @@ const api = axios.create({
   },
 });
 
-// Request interceptor - add token to headers
-api.interceptors.request.use((config) => {
+// Request interceptor - add auth token and CSRF token to headers
+api.interceptors.request.use(async (config) => {
+  // Add authentication token
   const token = Cookies.get('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // Add CSRF token for state-changing requests
+  const method = config.method?.toUpperCase();
+  if (method && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+    const csrfToken = await getCsrfToken();
+    if (csrfToken) {
+      config.headers['x-csrf-token'] = csrfToken;
+    }
+  }
+
   return config;
 });
 

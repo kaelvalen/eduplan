@@ -5,10 +5,26 @@ import { ChevronLeft, UserPlus } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { styles } from '@/lib/design-tokens';
 import { Button } from '@/components/ui/button';
-import { TeacherForm } from '@/components/teachers/teacher-form';
 import { PageHeader } from '@/components/ui/page-header';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const TeacherForm = dynamic(
+  () => import('@/components/teachers/teacher-form').then(mod => ({ default: mod.TeacherForm })),
+  {
+    loading: () => (
+      <div className="space-y-6">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    ),
+    ssr: false,
+  }
+);
 
 export default function NewTeacherPage() {
   const { isAdmin } = useAuth();

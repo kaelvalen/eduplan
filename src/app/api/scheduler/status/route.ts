@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { getSchedulerStatus } from '@/lib/turso-helpers';
+import { prisma } from '@/lib/db';
 
 // GET /api/scheduler/status - Get scheduling status
 export async function GET(request: Request) {
@@ -10,7 +10,23 @@ export async function GET(request: Request) {
       return NextResponse.json({ detail: 'Yetkisiz erişim' }, { status: 401 });
     }
 
-    const { totalActiveCourses, totalActiveSessions, scheduledSessions } = await getSchedulerStatus();
+    // Get total active courses
+    const totalActiveCourses = await prisma.course.count({
+      where: { isActive: true },
+    });
+
+    // Get all active courses with their sessions to calculate total active sessions
+    const activeCourses = await prisma.course.findMany({
+      where: { isActive: true },
+      include: { sessions: true },
+    });
+
+    const totalActiveSessions = activeCourses.reduce((sum, course) => {
+      return sum + course.sessions.reduce((sessionSum, session) => sessionSum + session.hours, 0);
+    }, 0);
+
+    // Get total scheduled sessions
+    const scheduledSessions = await prisma.schedule.count();
 
     const completionPercentage = totalActiveSessions > 0
       ? Math.round((scheduledSessions / totalActiveSessions) * 100)

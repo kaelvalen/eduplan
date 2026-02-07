@@ -3,9 +3,10 @@
  */
 
 import prisma from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 import { BaseService } from './base.service';
 import type { Teacher, TeacherCreate, TeacherWithSchedule } from '@/types';
-import type { CreateTeacherInput, UpdateTeacherInput } from '@/lib/schemas';
+import type { CreateTeacherInput, UpdateTeacherInput} from '@/lib/schemas';
 
 export interface TeacherFilters {
   isActive?: boolean;
@@ -22,8 +23,8 @@ export class TeacherService extends BaseService<Teacher, CreateTeacherInput, Upd
   /**
    * Build where clause for filtering
    */
-  private buildWhereClause(filters?: TeacherFilters) {
-    const where: any = {};
+  private buildWhereClause(filters?: TeacherFilters): Prisma.TeacherWhereInput {
+    const where: Prisma.TeacherWhereInput = {};
 
     if (filters?.isActive !== undefined) {
       where.isActive = filters.isActive;
@@ -39,8 +40,8 @@ export class TeacherService extends BaseService<Teacher, CreateTeacherInput, Upd
 
     if (filters?.searchTerm) {
       where.OR = [
-        { name: { contains: filters.searchTerm, mode: 'insensitive' } },
-        { email: { contains: filters.searchTerm, mode: 'insensitive' } },
+        { name: { contains: filters.searchTerm } },
+        { email: { contains: filters.searchTerm } },
       ];
     }
 

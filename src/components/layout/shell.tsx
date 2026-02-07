@@ -22,9 +22,13 @@ interface ShellProps
   as?: React.ElementType;
 }
 
-function Shell({ className, layout, as: Component = 'div', ...props }: ShellProps) {
+function Shell({ className, layout, as: Component = 'main', ...props }: ShellProps) {
   return (
-    <Component className={cn(shellVariants({ layout }), className)} {...props} />
+    <Component
+      id="main-content"
+      className={cn(shellVariants({ layout }), className)}
+      {...props}
+    />
   );
 }
 

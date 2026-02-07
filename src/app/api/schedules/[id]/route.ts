@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser, isAdmin } from '@/lib/auth';
-import { deleteSchedule, updateSchedule } from '@/lib/turso-helpers';
 import { prisma } from '@/lib/db';
 
 // GET /api/schedules/[id] - Get a schedule by ID
@@ -100,13 +99,84 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    const updated = await updateSchedule(parseInt(id), body);
+    const scheduleId = parseInt(id);
 
-    if (!updated) {
+    // Check if schedule exists
+    const existing = await prisma.schedule.findUnique({
+      where: { id: scheduleId },
+    });
+
+    if (!existing) {
       return NextResponse.json({ detail: 'Program bulunamadı' }, { status: 404 });
     }
 
-    return NextResponse.json(updated);
+    // Update schedule
+    const updated = await prisma.schedule.update({
+      where: { id: scheduleId },
+      data: {
+        day: body.day,
+        timeRange: body.time_range || body.timeRange,
+        classroomId: body.classroom_id || body.classroomId,
+        courseId: body.course_id || body.courseId,
+        sessionType: body.session_type || body.sessionType,
+        isHardcoded: body.is_hardcoded !== undefined ? body.is_hardcoded : body.isHardcoded,
+      },
+      include: {
+        course: {
+          include: {
+            teacher: { select: { id: true, name: true, workingHours: true } },
+            departments: true,
+            sessions: true,
+          },
+        },
+        classroom: true,
+      },
+    });
+
+    const schedule = {
+      id: updated.id,
+      day: updated.day,
+      time_range: updated.timeRange,
+      course_id: updated.courseId,
+      classroom_id: updated.classroomId,
+      session_type: (updated as any).sessionType,
+      is_hardcoded: updated.isHardcoded,
+      course: updated.course ? {
+        id: updated.course.id,
+        code: updated.course.code,
+        name: updated.course.name,
+        teacher_id: updated.course.teacherId,
+        faculty: updated.course.faculty,
+        level: updated.course.level,
+        category: updated.course.category,
+        semester: updated.course.semester,
+        ects: updated.course.ects,
+        is_active: updated.course.isActive,
+        total_hours: updated.course.totalHours,
+        teacher: updated.course.teacher ? {
+          id: updated.course.teacher.id,
+          name: updated.course.teacher.name,
+          working_hours: updated.course.teacher.workingHours,
+        } : null,
+        departments: updated.course.departments.map((d: any) => ({
+          id: d.id, department: d.department, student_count: d.studentCount,
+        })),
+        sessions: updated.course.sessions.map((sess: any) => ({
+          id: sess.id, type: sess.type, hours: sess.hours,
+        })),
+      } : null,
+      classroom: updated.classroom ? {
+        id: updated.classroom.id,
+        name: updated.classroom.name,
+        type: updated.classroom.type,
+        capacity: updated.classroom.capacity,
+        faculty: updated.classroom.faculty,
+        department: updated.classroom.department,
+        available_hours: updated.classroom.availableHours,
+      } : null,
+    };
+
+    return NextResponse.json(schedule);
   } catch (error) {
     console.error('Update schedule error:', error);
     return NextResponse.json(
@@ -128,7 +198,21 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    await deleteSchedule(parseInt(id));
+    const scheduleId = parseInt(id);
+
+    // Check if schedule exists
+    const existing = await prisma.schedule.findUnique({
+      where: { id: scheduleId },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ detail: 'Program bulunamadı' }, { status: 404 });
+    }
+
+    await prisma.schedule.delete({
+      where: { id: scheduleId },
+    });
+
     return NextResponse.json({ message: 'Program silindi' });
   } catch (error) {
     console.error('Delete schedule error:', error);

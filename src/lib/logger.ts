@@ -125,4 +125,97 @@ export const logDatabaseQuery = (data: {
   }
 };
 
+/**
+ * Sensitive fields that should be redacted from logs
+ */
+const SENSITIVE_FIELDS = [
+  'password',
+  'passwordHash',
+  'token',
+  'accessToken',
+  'refreshToken',
+  'apiKey',
+  'secret',
+  'authorization',
+  'cookie',
+  'csrf',
+  'ssn',
+  'creditCard',
+];
+
+/**
+ * Sanitize object by redacting sensitive fields
+ */
+export function sanitizeObject(obj: any): any {
+  if (!obj || typeof obj !== 'object') return obj;
+
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeObject);
+  }
+
+  const sanitized: any = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const lowerKey = key.toLowerCase();
+
+    // Check if key contains sensitive field names
+    const isSensitive = SENSITIVE_FIELDS.some((field) =>
+      lowerKey.includes(field.toLowerCase())
+    );
+
+    if (isSensitive) {
+      sanitized[key] = '[REDACTED]';
+    } else if (value && typeof value === 'object') {
+      sanitized[key] = sanitizeObject(value);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+
+  return sanitized;
+}
+
+/**
+ * Safe logger that automatically sanitizes sensitive data
+ */
+export const safeLogger = {
+  error: (message: string, meta?: any) => {
+    logger.error(message, meta ? sanitizeObject(meta) : undefined);
+  },
+  warn: (message: string, meta?: any) => {
+    logger.warn(message, meta ? sanitizeObject(meta) : undefined);
+  },
+  info: (message: string, meta?: any) => {
+    logger.info(message, meta ? sanitizeObject(meta) : undefined);
+  },
+  debug: (message: string, meta?: any) => {
+    logger.debug(message, meta ? sanitizeObject(meta) : undefined);
+  },
+  http: (message: string, meta?: any) => {
+    logger.http(message, meta ? sanitizeObject(meta) : undefined);
+  },
+};
+
+/**
+ * Format error for logging
+ */
+export function formatError(error: unknown): {
+  message: string;
+  stack?: string;
+  code?: string;
+  name?: string;
+} {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      code: (error as any).code,
+    };
+  }
+
+  return {
+    message: String(error),
+  };
+}
+
 export default logger;

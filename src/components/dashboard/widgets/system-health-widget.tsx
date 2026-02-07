@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { Activity, Database, HardDrive, Users, Zap, CheckCircle2 } from 'lucide-react';
 import { WidgetContainer, WidgetHeader, WidgetBody } from './widget-container';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +15,7 @@ interface SystemHealthWidgetProps {
   isAdmin: boolean;
 }
 
-export function SystemHealthWidget({ isAdmin }: SystemHealthWidgetProps) {
+const SystemHealthWidgetComponent = ({ isAdmin }: SystemHealthWidgetProps) => {
   if (!isAdmin) return null;
 
   // Mock data - bu veriler gerçek API'den gelecek
@@ -127,4 +128,6 @@ export function SystemHealthWidget({ isAdmin }: SystemHealthWidgetProps) {
       </WidgetBody>
     </WidgetContainer>
   );
-}
+};
+
+export const SystemHealthWidget = React.memo(SystemHealthWidgetComponent);

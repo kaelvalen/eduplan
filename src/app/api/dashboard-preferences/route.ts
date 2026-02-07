@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { getUserDashboardPreference, createOrUpdateUserDashboardPreference } from '@/lib/turso-helpers';
+import { prisma } from '@/lib/db';
 import type { UserDashboardPreferenceCreate } from '@/types';
 
 // GET /api/dashboard-preferences - Get current user's dashboard preferences
@@ -11,7 +11,19 @@ export async function GET(request: Request) {
       return NextResponse.json({ detail: 'Yetkisiz erişim' }, { status: 401 });
     }
 
-    const preferences = await getUserDashboardPreference(user.id);
+    const rawPreference = await prisma.userDashboardPreference.findUnique({
+      where: { userId: user.id },
+    });
+
+    const preferences = rawPreference ? {
+      id: rawPreference.id,
+      userId: rawPreference.userId,
+      widgets: rawPreference.widgets as any,
+      layout: rawPreference.layout as any,
+      theme: rawPreference.theme,
+      createdAt: rawPreference.createdAt.toISOString(),
+      updatedAt: rawPreference.updatedAt.toISOString(),
+    } : null;
 
     // If no preferences exist, return default configuration
     if (!preferences) {
@@ -109,10 +121,40 @@ export async function PUT(request: Request) {
       }
     }
 
-    const preferences = await createOrUpdateUserDashboardPreference({
-      userId: user.id,
-      ...body
+    const existingPreference = await prisma.userDashboardPreference.findUnique({
+      where: { userId: user.id },
     });
+
+    let updatedPreference;
+    if (existingPreference) {
+      updatedPreference = await prisma.userDashboardPreference.update({
+        where: { userId: user.id },
+        data: {
+          widgets: body.widgets as any,
+          layout: body.layout as any,
+          theme: body.theme,
+        },
+      });
+    } else {
+      updatedPreference = await prisma.userDashboardPreference.create({
+        data: {
+          userId: user.id,
+          widgets: body.widgets as any,
+          layout: body.layout as any,
+          theme: body.theme || 'default',
+        },
+      });
+    }
+
+    const preferences = {
+      id: updatedPreference.id,
+      userId: updatedPreference.userId,
+      widgets: updatedPreference.widgets as any,
+      layout: updatedPreference.layout as any,
+      theme: updatedPreference.theme,
+      createdAt: updatedPreference.createdAt.toISOString(),
+      updatedAt: updatedPreference.updatedAt.toISOString(),
+    };
 
     return NextResponse.json(preferences);
   } catch (error) {

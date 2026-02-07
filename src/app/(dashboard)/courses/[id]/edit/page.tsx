@@ -6,10 +6,26 @@ import { ChevronLeft, BookOpenCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { styles } from '@/lib/design-tokens';
 import { Button } from '@/components/ui/button';
-import { CourseForm } from '@/components/courses/course-form';
 import { PageHeader } from '@/components/ui/page-header';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const CourseForm = dynamic(
+  () => import('@/components/courses/course-form').then(mod => ({ default: mod.CourseForm })),
+  {
+    loading: () => (
+      <div className="space-y-6">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    ),
+    ssr: false,
+  }
+);
 
 interface EditCoursePageProps {
   params: Promise<{ id: string }>;

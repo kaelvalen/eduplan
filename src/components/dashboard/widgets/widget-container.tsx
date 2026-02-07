@@ -8,12 +8,12 @@ interface WidgetContainerProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: 'default' | 'elevated' | 'gradient';
 }
 
-export function WidgetContainer({
+const WidgetContainerComponent = ({
   children,
   className,
   variant = 'default',
   ...props
-}: WidgetContainerProps) {
+}: WidgetContainerProps) => {
   return (
     <Card
       variant={variant === 'gradient' ? 'default' : variant}
@@ -27,7 +27,9 @@ export function WidgetContainer({
       {children}
     </Card>
   );
-}
+};
+
+export const WidgetContainer = React.memo(WidgetContainerComponent);
 
 interface WidgetHeaderProps {
   title: string;
@@ -38,14 +40,14 @@ interface WidgetHeaderProps {
   className?: string;
 }
 
-export function WidgetHeader({
+const WidgetHeaderComponent = ({
   title,
   subtitle,
   icon: Icon,
   iconColor,
   action,
   className,
-}: WidgetHeaderProps) {
+}: WidgetHeaderProps) => {
   return (
     <div className={cn('flex items-start justify-between p-6 pb-4', className)}>
       <div className="flex items-start gap-3 flex-1">
@@ -71,19 +73,21 @@ export function WidgetHeader({
       {action && <div className="ml-4">{action}</div>}
     </div>
   );
-}
+};
+
+export const WidgetHeader = React.memo(WidgetHeaderComponent);
 
 interface WidgetBodyProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
   padding?: boolean;
 }
 
-export function WidgetBody({
+const WidgetBodyComponent = ({
   children,
   padding = true,
   className,
   ...props
-}: WidgetBodyProps) {
+}: WidgetBodyProps) => {
   return (
     <div
       className={cn(
@@ -95,13 +99,15 @@ export function WidgetBody({
       {children}
     </div>
   );
-}
+};
+
+export const WidgetBody = React.memo(WidgetBodyComponent);
 
 interface WidgetFooterProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
 }
 
-export function WidgetFooter({ children, className, ...props }: WidgetFooterProps) {
+const WidgetFooterComponent = ({ children, className, ...props }: WidgetFooterProps) => {
   return (
     <div
       className={cn(
@@ -113,4 +119,6 @@ export function WidgetFooter({ children, className, ...props }: WidgetFooterProp
       {children}
     </div>
   );
-}
+};
+
+export const WidgetFooter = React.memo(WidgetFooterComponent);

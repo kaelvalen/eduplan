@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { getAllNotifications } from '@/lib/turso-helpers';
 
 // Simple in-memory store for SSE connections (in production, use Redis or similar)
 const clients = new Map<number, { controller: ReadableStreamDefaultController; lastNotificationId: number }>();
