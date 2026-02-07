@@ -2,15 +2,16 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { 
-  Plus, 
-  ChevronRight, 
-  Pencil, 
-  Trash2, 
-  BookOpen, 
-  Building2, 
+import {
+  Plus,
+  ChevronRight,
+  Pencil,
+  Trash2,
+  BookOpen,
+  Building2,
   GraduationCap,
-  MoreHorizontal
+  MoreHorizontal,
+  Users
 } from 'lucide-react';
 import { useCourses, useDeleteCourse } from '@/hooks/use-courses';
 import { useAuth } from '@/contexts/auth-context';

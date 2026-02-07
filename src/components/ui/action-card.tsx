@@ -25,14 +25,14 @@ export function ActionCard({
   return (
     <Link href={href}>
       <div className={cn(
-        'group p-4 rounded-xl border-2 border-dashed border-muted',
-        'hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer text-center',
+        'group p-4 rounded-xl border-2 border-dashed border-border/50',
+        'hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm transition-all cursor-pointer text-center',
         className
       )}>
         <div className={cn(
-          'inline-flex p-3 rounded-xl text-white mb-3',
-          'group-hover:scale-110 transition-transform',
-          entityColors ? `bg-gradient-to-br ${entityColors.gradient}` : 'bg-primary'
+          'inline-flex p-3 rounded-xl mb-3',
+          'group-hover:scale-105 transition-transform shadow-sm',
+          entityColors ? `bg-gradient-to-br ${entityColors.gradient} text-white` : 'bg-primary/80 text-white'
         )}>
           <Icon className="h-5 w-5" />
         </div>

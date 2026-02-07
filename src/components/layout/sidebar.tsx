@@ -25,17 +25,17 @@ import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
 
 const navigation = [
-  { name: 'Ana Sayfa', href: '/', icon: Home, color: 'text-violet-500' },
-  { name: 'Öğretmenler', href: '/teachers', icon: Users, color: 'text-blue-500' },
-  { name: 'Dersler', href: '/courses', icon: BookOpen, color: 'text-emerald-500' },
-  { name: 'Derslikler', href: '/classrooms', icon: Building2, color: 'text-amber-500' },
-  { name: 'Ders Programı', href: '/programs', icon: Calendar, color: 'text-rose-500' },
+  { name: 'Ana Sayfa', href: '/', icon: Home, color: 'text-purple-400' },
+  { name: 'Öğretmenler', href: '/teachers', icon: Users, color: 'text-blue-400' },
+  { name: 'Dersler', href: '/courses', icon: BookOpen, color: 'text-emerald-400' },
+  { name: 'Derslikler', href: '/classrooms', icon: Building2, color: 'text-amber-400' },
+  { name: 'Ders Programı', href: '/programs', icon: Calendar, color: 'text-rose-400' },
 ];
 
 const adminNavigation = [
-  { name: 'Program Oluşturucu', href: '/scheduler', icon: Cog, color: 'text-cyan-500' },
-  { name: 'Raporlar', href: '/reports', icon: BarChart3, color: 'text-indigo-500' },
-  { name: 'İçe/Dışa Aktar', href: '/import-export', icon: FileSpreadsheet, color: 'text-teal-500' },
+  { name: 'Program Oluşturucu', href: '/scheduler', icon: Cog, color: 'text-sky-400' },
+  { name: 'Raporlar', href: '/reports', icon: BarChart3, color: 'text-purple-400' },
+  { name: 'İçe/Dışa Aktar', href: '/import-export', icon: FileSpreadsheet, color: 'text-teal-400' },
 ];
 
 interface SidebarProps {
@@ -77,7 +77,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
         )}
       >
         {active && (
-          <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary to-purple-600 shadow-lg shadow-primary/25 animate-scale-in" />
+          <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary/90 to-accent/70 shadow-md shadow-primary/10 animate-scale-in" />
         )}
         <span className="relative flex items-center gap-3">
           <Icon className={cn(
@@ -107,17 +107,17 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
       {/* Logo */}
       <div className="flex h-16 items-center justify-between px-4 mt-2">
         <Link href="/" onClick={handleLinkClick} className="flex items-center gap-3 group">
-          <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-purple-600 shadow-lg shadow-primary/30 transition-transform group-hover:scale-105">
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/90 to-accent/70 shadow-md shadow-primary/15 transition-transform group-hover:scale-105">
             <GraduationCap className="h-5 w-5 text-white" />
-            <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-emerald-400 border-2 border-card animate-pulse" />
+            <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-emerald-400/80 border-2 border-card animate-pulse" />
           </div>
           {!isCollapsed && (
             <div className="flex flex-col">
-              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-indigo-500">
+              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-sky-400 to-teal-400">
                 PlanEdu
               </span>
               <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium">
-                <Sparkles className="h-2.5 w-2.5 text-amber-500" /> PRO v3.0
+                <Sparkles className="h-2.5 w-2.5 text-amber-400" /> PRO v3.0
               </span>
             </div>
           )}
@@ -147,16 +147,16 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
           <div className="rounded-xl bg-white/5 p-3 border border-white/10 backdrop-blur-sm shadow-sm">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold text-sm shadow-inner">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/90 to-accent/70 text-white font-bold text-sm shadow-sm">
                   {user?.username?.charAt(0).toUpperCase()}
                 </div>
-                <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400 border-2 border-card shadow-sm" />
+                <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400/80 border-2 border-card shadow-sm" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold truncate text-foreground">{user?.username}</p>
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   {user?.role === 'admin' ? (
-                    <span className="flex items-center gap-1 text-amber-500"><Sparkles className="h-2 w-2" /> Yönetici</span>
+                    <span className="flex items-center gap-1 text-amber-400"><Sparkles className="h-2 w-2" /> Yönetici</span>
                   ) : '👤 Öğretmen'}
                 </p>
               </div>

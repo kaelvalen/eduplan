@@ -205,17 +205,17 @@ export default function DashboardPage() {
         badge="PlanEdu v3.0"
         action={isAdmin ? (
           <Link href="/scheduler">
-            <Button size="lg" className="bg-white text-primary hover:bg-white/90 shadow-xl hover:-translate-y-0.5 transition-transform duration-300 font-bold border-0">
+            <Button size="lg" className="bg-white text-foreground hover:bg-white/95 shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 font-semibold border-0">
               <Play className="mr-2 h-5 w-5 fill-current" />
               Program Oluştur
             </Button>
           </Link>
         ) : undefined}
-        className="shadow-2xl shadow-primary/20 mb-8"
+        className="shadow-lg shadow-primary/10 mb-12"
       />
 
       {/* Onboarding Wizard - Shows only if setup is incomplete */}
-      <OnboardingWizard stats={stats} className="mb-8" />
+      <OnboardingWizard stats={stats} className="mb-12" />
 
       {/* Dashboard Grid */}
       <DashboardGrid
@@ -230,7 +230,7 @@ export default function DashboardPage() {
 
       {/* Tips Card - Always visible outside grid */}
       {!isEditMode && (
-        <div className="mt-6">
+        <div className="mt-8">
           <TipCard>
             <p className="text-sm text-muted-foreground">
               Klavye kısayollarını kullanarak daha hızlı gezinebilirsiniz.

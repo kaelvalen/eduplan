@@ -9,16 +9,17 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5",
+          "bg-primary text-primary-foreground shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/15 hover:-translate-y-0.5",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25 hover:shadow-xl hover:shadow-destructive/30 hover:-translate-y-0.5",
+          "bg-destructive text-destructive-foreground shadow-md shadow-destructive/10 hover:shadow-lg hover:shadow-destructive/15 hover:-translate-y-0.5",
         outline:
-          "border border-input bg-background/50 backdrop-blur-sm hover:bg-accent hover:text-accent-foreground hover:border-accent hover:shadow-md",
+          "border border-input bg-background/50 backdrop-blur-sm hover:bg-accent/50 hover:text-accent-foreground hover:border-accent/70 hover:shadow-sm",
         secondary:
-          "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
-        ghost: "hover:bg-accent/10 hover:text-accent font-medium",
+          "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/90 hover:shadow-md",
+        ghost: "hover:bg-accent/10 hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        premium: "bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/40 hover:-translate-y-0.5 border-0",
+        soft: "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 hover:border-primary/30 hover:shadow-sm",
+        premium: "bg-gradient-to-r from-primary/90 via-accent/80 to-primary/90 text-foreground shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 border-0",
       },
       size: {
         default: "h-10 px-5 py-2",

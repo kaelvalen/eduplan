@@ -27,21 +27,21 @@ export function StatsCard({
   
   const content = (
     <Card className={cn(styles.statCard, className)}>
-      {/* Hover overlay with gradient */}
+      {/* Subtle hover overlay with pastel gradient */}
       {entityColors && (
         <div className={cn(
           styles.statCardOverlay,
-          `bg-gradient-to-br ${entityColors.gradient}`
+          `bg-gradient-to-br ${entityColors.gradient} opacity-0 group-hover:opacity-10`
         )} />
       )}
-      
+
       <CardContent className={styles.statCardContent}>
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-sm font-medium text-muted-foreground group-hover:text-white/80 transition-colors">
+            <p className="text-sm font-medium text-muted-foreground transition-colors">
               {title}
             </p>
-            <p className="text-4xl font-bold mt-2 group-hover:text-white transition-colors">
+            <p className="text-4xl font-bold mt-2 transition-colors">
               {value}
             </p>
           </div>
@@ -49,17 +49,17 @@ export function StatsCard({
             <div className={cn(
               styles.iconContainer,
               entityColors?.bg || 'bg-primary/10',
-              'group-hover:bg-white/20 transition-colors'
+              'transition-all'
             )}>
               <Icon className={cn(
                 'h-6 w-6',
                 entityColors?.icon || 'text-primary',
-                'group-hover:text-white transition-colors'
+                'transition-colors'
               )} />
             </div>
           )}
         </div>
-        <div className="mt-4 flex items-center text-sm text-muted-foreground group-hover:text-white/70 transition-colors">
+        <div className="mt-4 flex items-center text-sm text-muted-foreground transition-colors">
           <TrendingUp className="h-4 w-4 mr-1" />
           <span>{description || 'Bu ay aktif'}</span>
           {href && (
