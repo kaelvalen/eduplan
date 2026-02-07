@@ -8,7 +8,7 @@ interface HeroSectionProps {
   title: string;
   subtitle?: string;
   description?: string;
-  badge?: string;
+  badge?: React.ReactNode;
   action?: React.ReactNode;
   className?: string;
 }
@@ -31,8 +31,14 @@ export function HeroSection({
         <div>
           {badge && (
             <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="h-5 w-5 opacity-80" />
-              <span className="text-sm font-medium opacity-90">{badge}</span>
+              {typeof badge === 'string' ? (
+                <>
+                  <Sparkles className="h-5 w-5 opacity-80" />
+                  <span className="text-sm font-medium opacity-90">{badge}</span>
+                </>
+              ) : (
+                badge
+              )}
             </div>
           )}
           <h1 className="text-3xl md:text-4xl font-bold mb-2">

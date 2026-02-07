@@ -84,6 +84,10 @@ export interface SchedulerProgress {
   currentCourse?: string;
   scheduledCount?: number;
   totalCourses?: number;
+  coursesProcessed?: number;
+  estimatedTimeRemaining?: number;
+  warnings?: string[];
+  startTime?: number;
 }
 
 export interface SchedulerResult {
