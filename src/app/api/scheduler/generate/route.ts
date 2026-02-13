@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
       unscheduledCourses: result.unscheduledCourses,
       warnings: result.warnings,
       processingTimeMs: result.processingTimeMs,
+      diagnostics: result.diagnostics, // Detailed failure diagnostics
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

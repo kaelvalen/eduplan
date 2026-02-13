@@ -27,6 +27,10 @@ import type {
   SchedulerProgress,
   SchedulerConfig,
   SchedulerResult,
+  CourseFailureDiagnostic,
+  SessionFailureDiagnostic,
+  DayAttemptDiagnostic,
+  TimeSlotAttemptDiagnostic,
 } from './types';
 
 /**
@@ -245,8 +249,8 @@ function performLocalImprovement(
 }
 
 /**
- * Attempt to split a session into smaller chunks if needed
- * Useful when no consecutive blocks are available for the full session
+ * Attempt to split a session into smaller chunks on the SAME DAY
+ * Priority: Place all chunks on the same day with breaks in between (e.g., morning + lunch + afternoon)
  *
  * @returns Array of schedule items if successful, empty array if failed
  */
@@ -260,134 +264,133 @@ function attemptSessionSplit(
   timeBlocks: TimeBlock[],
   rng: SeededRandom
 ): ScheduleItem[] {
-  const placements: ScheduleItem[] = [];
-  let remainingHours = session.hours;
-
-  debug.log(`  🔀 Attempting session split for ${session.hours}h session`);
-
-  // Try to split into 2-hour or 1-hour chunks
-  const chunkSizes = session.hours >= 3 ? [2, 1] : [1];
+  debug.log(`  🔀 Attempting same-day session split for ${session.hours}h session`);
 
   const totalStudents = course.departments.reduce((sum, d) => sum + d.studentCount, 0);
   const mainDept = course.departments[0]?.department || '';
 
-  // Try each day
+  // Calculate how to split (e.g., 4h → 2h + 2h)
+  const targetChunkSize = Math.ceil(session.hours / 2);
+  const numChunks = Math.ceil(session.hours / targetChunkSize);
+
+  debug.log(`    Plan: Split ${session.hours}h into ${numChunks} chunks of ~${targetChunkSize}h each`);
+
+  // Try each day to place ALL chunks on the same day
   const shuffledDays = rng.shuffle([...DAYS]);
 
-  for (const chunkSize of chunkSizes) {
-    while (remainingHours >= chunkSize) {
+  for (const day of shuffledDays) {
+    const dayPlacements: ScheduleItem[] = [];
+    let remainingHours = session.hours;
+    let success = true;
+
+    debug.log(`    Trying to place all chunks on ${day}...`);
+
+    // Try to place all chunks on this day
+    while (remainingHours > 0 && success) {
+      const chunkSize = Math.min(targetChunkSize, remainingHours);
       let chunkPlaced = false;
 
-      // Try each day
-      for (const day of shuffledDays) {
-        if (chunkPlaced) break;
+      // Find available slot for this chunk on this day
+      const possibleStartIndices = rng.shuffle(
+        Array.from({ length: timeBlocks.length - chunkSize + 1 }, (_, i) => i)
+      );
 
-        // Find available slot for this chunk
-        const possibleStartIndices = rng.shuffle(
-          Array.from({ length: timeBlocks.length - chunkSize + 1 }, (_, i) => i)
-        );
+      for (const startIndex of possibleStartIndices) {
+        const blocks: TimeBlock[] = [];
+        let isValidSequence = true;
 
-        for (const startIndex of possibleStartIndices) {
-          const blocks: TimeBlock[] = [];
-          let isValidSequence = true;
+        // Collect consecutive blocks
+        for (let i = 0; i < chunkSize; i++) {
+          const blockIndex = startIndex + i;
+          const currentBlock = timeBlocks[blockIndex];
+          const nextBlock = (i < chunkSize - 1) ? timeBlocks[blockIndex + 1] : null;
 
-          // Collect consecutive blocks
-          for (let i = 0; i < chunkSize; i++) {
-            const blockIndex = startIndex + i;
-            const currentBlock = timeBlocks[blockIndex];
-            const nextBlock = (i < chunkSize - 1) ? timeBlocks[blockIndex + 1] : null;
-
-            if (nextBlock && currentBlock.end !== nextBlock.start) {
-              isValidSequence = false;
-              break;
-            }
-
-            blocks.push(currentBlock);
-
-            // Check teacher availability
-            if (!isTeacherAvailable(course.teacherWorkingHours, day, currentBlock)) {
-              isValidSequence = false;
-              break;
-            }
-
-            // Check conflicts (including already placed chunks)
-            const allSchedule = [...schedule, ...placements];
-            const timeRange = `${currentBlock.start}-${currentBlock.end}`;
-
-            if (hasConflict(
-              allSchedule,
-              { courseId: course.id, day, timeRange, sessionType: session.type, sessionHours: 1 },
-              courseMap
-            )) {
-              isValidSequence = false;
-              break;
-            }
+          if (nextBlock && currentBlock.end !== nextBlock.start) {
+            isValidSequence = false;
+            break;
           }
 
-          if (!isValidSequence) continue;
+          blocks.push(currentBlock);
 
-          // Find classroom
-          const occupiedClassroomsByBlock: Set<number>[] = [];
-          for (const block of blocks) {
-            const range = `${block.start}-${block.end}`;
-            const occupied = new Set([
-              ...schedule.filter(s => s.day === day && s.timeRange === range).map(s => s.classroomId),
-              ...placements.filter(s => s.day === day && s.timeRange === range).map(s => s.classroomId),
-            ]);
-            occupiedClassroomsByBlock.push(occupied);
+          // Check teacher availability
+          if (!isTeacherAvailable(course.teacherWorkingHours, day, currentBlock)) {
+            isValidSequence = false;
+            break;
           }
 
-          const classroom = findSuitableClassroomForBlocks(
-            classrooms,
-            session.type,
-            totalStudents,
-            occupiedClassroomsByBlock,
-            course.capacityMargin,
-            mainDept,
-            day,
-            blocks
-          );
+          // Check conflicts (including already placed chunks on this day)
+          const allSchedule = [...schedule, ...dayPlacements];
+          const timeRange = `${currentBlock.start}-${currentBlock.end}`;
 
-          if (classroom) {
-            const startBlock = blocks[0];
-            const endBlock = blocks[chunkSize - 1];
-
-            placements.push({
-              courseId: course.id,
-              classroomId: classroom.id,
-              day,
-              timeRange: `${startBlock.start}-${endBlock.end}`,
-              sessionType: session.type,
-              sessionHours: chunkSize,
-              isHardcoded: false,
-            });
-
-            remainingHours -= chunkSize;
-            chunkPlaced = true;
-            debug.log(`    ✅ Placed ${chunkSize}h chunk on ${day} at ${startBlock.start}-${endBlock.end}`);
+          if (hasConflict(
+            allSchedule,
+            { courseId: course.id, day, timeRange, sessionType: session.type, sessionHours: 1 },
+            courseMap
+          )) {
+            isValidSequence = false;
             break;
           }
         }
 
-        if (chunkPlaced) break;
+        if (!isValidSequence) continue;
+
+        // Find classroom
+        const occupiedClassroomsByBlock: Set<number>[] = [];
+        for (const block of blocks) {
+          const range = `${block.start}-${block.end}`;
+          const occupied = new Set([
+            ...schedule.filter(s => s.day === day && s.timeRange === range).map(s => s.classroomId),
+            ...dayPlacements.filter(s => s.timeRange === range).map(s => s.classroomId),
+          ]);
+          occupiedClassroomsByBlock.push(occupied);
+        }
+
+        const classroom = findSuitableClassroomForBlocks(
+          classrooms,
+          session.type,
+          totalStudents,
+          occupiedClassroomsByBlock,
+          course.capacityMargin,
+          mainDept,
+          day,
+          blocks
+        );
+
+        if (classroom) {
+          const startBlock = blocks[0];
+          const endBlock = blocks[chunkSize - 1];
+
+          dayPlacements.push({
+            courseId: course.id,
+            classroomId: classroom.id,
+            day,
+            timeRange: `${startBlock.start}-${endBlock.end}`,
+            sessionType: session.type,
+            sessionHours: chunkSize,
+            isHardcoded: false,
+          });
+
+          remainingHours -= chunkSize;
+          chunkPlaced = true;
+          debug.log(`      ✅ Placed ${chunkSize}h chunk at ${startBlock.start}-${endBlock.end}`);
+          break;
+        }
       }
 
-      // If we couldn't place this chunk, give up
       if (!chunkPlaced) {
-        debug.log(`    ❌ Could not place ${chunkSize}h chunk, split failed`);
-        return [];
+        success = false;
+        debug.log(`      ❌ Could not place ${chunkSize}h chunk on ${day}`);
       }
+    }
+
+    // If all chunks placed successfully on this day, return them
+    if (success && remainingHours === 0) {
+      debug.log(`    ✅ SUCCESS! All chunks placed on ${day}`);
+      return dayPlacements;
     }
   }
 
-  // Check if we successfully placed all hours
-  const totalPlaced = placements.reduce((sum, p) => sum + p.sessionHours, 0);
-  if (totalPlaced === session.hours) {
-    debug.log(`  ✅ Session split successful: ${placements.length} chunks placed`);
-    return placements;
-  }
-
-  debug.log(`  ❌ Session split incomplete: ${totalPlaced}/${session.hours} hours placed`);
+  debug.log(`  ❌ Could not place all chunks on the same day`);
   return [];
 }
 
@@ -576,6 +579,9 @@ export async function* generateSchedule(
   const unscheduled: CourseData[] = [];
   const courseMap = new Map(courses.map((c) => [c.id, c]));
 
+  // Track detailed failure diagnostics for each course
+  const failureDiagnostics = new Map<number, CourseFailureDiagnostic>();
+
   // Initialize O(1) conflict index with hardcoded schedules
   const conflictIndex = new ConflictIndex(courses);
   for (const item of schedule) {
@@ -758,12 +764,28 @@ export async function* generateSchedule(
       debug.log(`   Students: ${totalStudents}, Capacity margin: ${course.capacityMargin}%`);
       debug.log(`   Time blocks available: ${timeBlocks.length}`);
 
+      // Initialize diagnostic tracking for this session
+      const sessionDiagnostic: SessionFailureDiagnostic = {
+        sessionType: session.type,
+        sessionHours: session.hours,
+        attemptedDays: [],
+        splitAttempted: false,
+        splitSucceeded: false,
+        combinedTheoryLabAttempted: false,
+      };
+
       const shuffledDays = rng.shuffle([...DAYS]);
 
       for (const day of shuffledDays) {
         if (sessionScheduled) break;
 
         debug.log(`\n  Trying day: ${day}`);
+
+        // Track attempts for this day
+        const dayDiagnostic: DayAttemptDiagnostic = {
+          day,
+          attemptedTimeSlots: [],
+        };
 
         const possibleStartIndices = rng.shuffle(
           Array.from({ length: timeBlocks.length - duration + 1 }, (_, i) => i)
@@ -775,6 +797,7 @@ export async function* generateSchedule(
           const currentBlocks: TimeBlock[] = [];
           const blockRanges: string[] = [];
           let isValidSequence = true;
+          let failureReason: TimeSlotAttemptDiagnostic['failureReason'] | null = null;
 
           for (let i = 0; i < duration; i++) {
             const blockIndex = startIndex + i;
@@ -783,6 +806,10 @@ export async function* generateSchedule(
 
             if (nextBlock && currentBlock.end !== nextBlock.start) {
               isValidSequence = false;
+              failureReason = {
+                type: 'insufficient_blocks',
+                message: `Yetersiz ardışık zaman bloğu (${currentBlock.end} - ${nextBlock.start} arası boşluk)`,
+              };
               break;
             }
 
@@ -792,6 +819,13 @@ export async function* generateSchedule(
             if (!isTeacherAvailable(course.teacherWorkingHours, day, currentBlock)) {
               debug.log(`      ❌ Teacher not available at ${currentBlock.start}-${currentBlock.end} on ${day}`);
               isValidSequence = false;
+              failureReason = {
+                type: 'teacher_unavailable',
+                message: `Öğretmen ${currentBlock.start}-${currentBlock.end} saatinde müsait değil`,
+                details: {
+                  teacherAvailableHours: course.teacherWorkingHours[day] || [],
+                },
+              };
               break;
             }
 
@@ -808,11 +842,40 @@ export async function* generateSchedule(
             if (conflictReason && conflictReason.type !== 'classroom') {
               debug.log(`      ❌ Conflict: ${conflictReason.message}`);
               isValidSequence = false;
+
+              // Determine failure type and get conflict details
+              if (conflictReason.type === 'teacher') {
+                failureReason = {
+                  type: 'teacher_conflict',
+                  message: conflictReason.message,
+                  details: {
+                    conflictingCourses: conflictReason.details?.conflictingCourses,
+                  },
+                };
+              } else if (conflictReason.type === 'department') {
+                failureReason = {
+                  type: 'department_conflict',
+                  message: conflictReason.message,
+                  details: {
+                    conflictingCourses: conflictReason.details?.conflictingCourses,
+                    conflictingDepartments: conflictReason.details?.departments,
+                  },
+                };
+              }
               break;
             }
           }
 
-          if (!isValidSequence) continue;
+          if (!isValidSequence) {
+            // Save this failed attempt
+            if (failureReason && currentBlocks.length > 0) {
+              dayDiagnostic.attemptedTimeSlots.push({
+                timeRange: `${currentBlocks[0].start}-${currentBlocks[currentBlocks.length - 1].end}`,
+                failureReason,
+              });
+            }
+            continue;
+          }
 
           const occupiedClassroomsByBlock: Set<number>[] = [];
           for (const range of blockRanges) {
@@ -841,6 +904,29 @@ export async function* generateSchedule(
             debug.log(`    ✅ FOUND classroom: ${classroom.name} (capacity: ${classroom.capacity})`);
           } else {
             debug.log(`    ❌ No suitable classroom found`);
+
+            // Track classroom finding failure
+            const availableClassrooms = classrooms.filter(c => {
+              if (!c.isActive) return false;
+              if (session.type === 'lab' && c.type !== 'lab' && c.type !== 'hibrit') return false;
+              if (session.type !== 'lab' && c.type === 'lab') return false;
+              return true;
+            });
+
+            const requiredCapacity = Math.ceil(totalStudents * (1 + course.capacityMargin / 100));
+
+            dayDiagnostic.attemptedTimeSlots.push({
+              timeRange: `${currentBlocks[0].start}-${currentBlocks[duration - 1].end}`,
+              failureReason: {
+                type: 'no_classroom',
+                message: `Bu zaman aralığında uygun ${session.type} dersliği bulunamadı`,
+                details: {
+                  requiredCapacity,
+                  availableClassrooms: availableClassrooms.length,
+                  requiredType: session.type,
+                },
+              },
+            });
           }
 
           if (classroom) {
@@ -875,12 +961,19 @@ export async function* generateSchedule(
             scheduledDays.add(day);
           }
         }
+
+        // Add this day's attempts to session diagnostic
+        if (dayDiagnostic.attemptedTimeSlots.length > 0) {
+          sessionDiagnostic.attemptedDays.push(dayDiagnostic);
+        }
       }
 
       if (!sessionScheduled) {
         // Try session splitting if enabled and session is longer than 1 hour
         if (config.features?.enableSessionSplitting && session.hours > 1) {
           debug.log(`  ⚠️ Failed to place ${session.hours}h session normally, attempting split...`);
+
+          sessionDiagnostic.splitAttempted = true;
 
           const splitPlacements = attemptSessionSplit(
             session,
@@ -911,13 +1004,36 @@ export async function* generateSchedule(
             }
 
             sessionScheduled = true;
+            sessionDiagnostic.splitSucceeded = true;
             debug.log(`  ✅ Session split and placed successfully`);
           } else {
             debug.log(`  ❌ Session splitting failed`);
+            sessionDiagnostic.splitSucceeded = false;
             courseFullyScheduled = false;
           }
         } else {
           courseFullyScheduled = false;
+        }
+
+        // If session failed, add diagnostic to course failure tracking
+        if (!sessionScheduled) {
+          if (!failureDiagnostics.has(course.id)) {
+            failureDiagnostics.set(course.id, {
+              courseId: course.id,
+              courseName: course.name,
+              courseCode: course.code,
+              totalHours: course.totalHours,
+              studentCount: totalStudents,
+              faculty: course.faculty,
+              level: course.level,
+              semester: course.semester,
+              teacherId: course.teacherId,
+              departments: course.departments,
+              failedSessions: [],
+            });
+          }
+
+          failureDiagnostics.get(course.id)!.failedSessions.push(sessionDiagnostic);
         }
       }
     }
@@ -977,7 +1093,11 @@ export async function* generateSchedule(
   debug.log('📊 Conflict check cache stats:', conflictCacheStats);
   debug.log(`   Cache hit rate: ${(conflictCacheStats.hitRate * 100).toFixed(1)}%`);
 
-  return { schedule, unscheduled };
+  // Convert diagnostics map to array
+  const diagnosticsArray = Array.from(failureDiagnostics.values());
+  debug.log(`📊 Failure diagnostics collected for ${diagnosticsArray.length} courses`);
+
+  return { schedule, unscheduled, diagnostics: diagnosticsArray };
 }
 
 /**

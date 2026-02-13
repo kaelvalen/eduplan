@@ -250,6 +250,64 @@ export interface SchedulerResult {
     timeRange: string;
     sessionType: string;
   }[];
+  diagnostics?: CourseFailureDiagnostic[];
+}
+
+/**
+ * Detailed failure diagnostic for a course that couldn't be scheduled
+ */
+export interface CourseFailureDiagnostic {
+  courseId: number;
+  courseName: string;
+  courseCode: string;
+  totalHours: number;
+  studentCount: number;
+  faculty: string;
+  level: string;
+  semester: string;
+  teacherId: number | null;
+  departments: { department: string; studentCount: number }[];
+  failedSessions: SessionFailureDiagnostic[];
+}
+
+/**
+ * Diagnostic for a session that couldn't be placed
+ */
+export interface SessionFailureDiagnostic {
+  sessionType: string;
+  sessionHours: number;
+  attemptedDays: DayAttemptDiagnostic[];
+  splitAttempted: boolean;
+  splitSucceeded: boolean;
+  combinedTheoryLabAttempted: boolean;
+}
+
+/**
+ * Diagnostic for a specific day attempt
+ */
+export interface DayAttemptDiagnostic {
+  day: string;
+  attemptedTimeSlots: TimeSlotAttemptDiagnostic[];
+}
+
+/**
+ * Diagnostic for a specific time slot attempt
+ */
+export interface TimeSlotAttemptDiagnostic {
+  timeRange: string;
+  failureReason: {
+    type: 'teacher_unavailable' | 'teacher_conflict' | 'department_conflict' | 'no_classroom' | 'insufficient_blocks' | 'already_scheduled_today' | 'classroom_capacity' | 'classroom_type' | 'classroom_unavailable';
+    message: string;
+    details?: {
+      requiredCapacity?: number;
+      availableClassrooms?: number;
+      teacherAvailableHours?: string[];
+      conflictingCourses?: { id: number; code: string; name: string }[];
+      conflictingDepartments?: string[];
+      requiredType?: string;
+      maxCapacity?: number;
+    };
+  };
 }
 
 // ==================== SYSTEM SETTINGS ====================

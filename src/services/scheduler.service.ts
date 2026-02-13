@@ -48,6 +48,7 @@ export interface SchedulerResult {
   }>;
   warnings: string[];
   processingTimeMs: number;
+  diagnostics?: any[]; // Detailed failure diagnostics
 }
 
 export class SchedulerService {
@@ -177,6 +178,11 @@ export class SchedulerService {
         courses,
         classrooms,
         timeBlocks,
+        features: {
+          enableSessionSplitting: true,      // Auto-split long sessions (e.g., 4h → 2h + 2h on same day)
+          enableCombinedTheoryLab: true,     // Prefer theory+lab on same day
+          enableBacktracking: true,          // Intelligent retry on failures
+        },
       };
 
       // Generate schedule using async generator
@@ -185,6 +191,7 @@ export class SchedulerService {
       // Manually iterate to get both progress AND final return value
       let schedule: any[] = [];
       let unscheduled: any[] = [];
+      let diagnostics: any[] = [];
       let done = false;
 
       while (!done) {
@@ -204,7 +211,9 @@ export class SchedulerService {
           // This is the final return value
           schedule = result.value.schedule || [];
           unscheduled = result.value.unscheduled || [];
+          diagnostics = result.value.diagnostics || [];
           console.log(`✅ Generator returned: ${schedule.length} schedules, ${unscheduled.length} unscheduled`);
+          console.log(`📊 Diagnostics collected for ${diagnostics.length} failed courses`);
         }
       }
 
@@ -263,6 +272,7 @@ export class SchedulerService {
         unscheduledCourses,
         warnings: [],
         processingTimeMs,
+        diagnostics, // Detailed failure diagnostics for each failed course
       };
     } catch (error) {
       const processingTimeMs = Date.now() - startTime;

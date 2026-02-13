@@ -3,7 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { Loader2, Play, CheckCircle, XCircle, AlertCircle, Cog } from 'lucide-react';
+import {
+  Loader2, Play, CheckCircle, XCircle, AlertCircle, Cog,
+  ChevronDown, ChevronRight, Info, Clock, Users, BookOpen,
+  AlertTriangle, XOctagon, CalendarX, Building, User
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/auth-context';
 import { schedulerApi } from '@/lib/api';
@@ -24,7 +28,307 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import type { SchedulerStatus, SchedulerResult } from '@/types';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import type {
+  SchedulerStatus,
+  SchedulerResult,
+  CourseFailureDiagnostic,
+  SessionFailureDiagnostic,
+  DayAttemptDiagnostic,
+  TimeSlotAttemptDiagnostic
+} from '@/types';
+
+/**
+ * Get color and icon for failure reason type
+ */
+function getFailureTypeStyle(type: string) {
+  switch (type) {
+    case 'teacher_unavailable':
+      return {
+        color: 'text-orange-600 dark:text-orange-400',
+        bg: 'bg-orange-50 dark:bg-orange-950/30',
+        border: 'border-orange-200 dark:border-orange-800',
+        icon: Clock
+      };
+    case 'teacher_conflict':
+      return {
+        color: 'text-red-600 dark:text-red-400',
+        bg: 'bg-red-50 dark:bg-red-950/30',
+        border: 'border-red-200 dark:border-red-800',
+        icon: XOctagon
+      };
+    case 'department_conflict':
+      return {
+        color: 'text-purple-600 dark:text-purple-400',
+        bg: 'bg-purple-50 dark:bg-purple-950/30',
+        border: 'border-purple-200 dark:border-purple-800',
+        icon: Users
+      };
+    case 'no_classroom':
+      return {
+        color: 'text-blue-600 dark:text-blue-400',
+        bg: 'bg-blue-50 dark:bg-blue-950/30',
+        border: 'border-blue-200 dark:border-blue-800',
+        icon: Building
+      };
+    case 'insufficient_blocks':
+      return {
+        color: 'text-amber-600 dark:text-amber-400',
+        bg: 'bg-amber-50 dark:bg-amber-950/30',
+        border: 'border-amber-200 dark:border-amber-800',
+        icon: CalendarX
+      };
+    default:
+      return {
+        color: 'text-gray-600 dark:text-gray-400',
+        bg: 'bg-gray-50 dark:bg-gray-950/30',
+        border: 'border-gray-200 dark:border-gray-800',
+        icon: AlertTriangle
+      };
+  }
+}
+
+/**
+ * Time slot attempt display component
+ */
+function TimeSlotAttempt({ attempt }: { attempt: TimeSlotAttemptDiagnostic }) {
+  const style = getFailureTypeStyle(attempt.failureReason.type);
+  const IconComponent = style.icon;
+
+  return (
+    <div className={cn('rounded-lg p-3 border', style.bg, style.border)}>
+      <div className="flex items-start gap-2">
+        <IconComponent className={cn('h-4 w-4 mt-0.5', style.color)} />
+        <div className="flex-1 space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="font-medium text-sm">{attempt.timeRange}</span>
+            <Badge variant="outline" className="text-xs">
+              {attempt.failureReason.type.replace(/_/g, ' ')}
+            </Badge>
+          </div>
+          <p className={cn('text-sm', style.color)}>
+            {attempt.failureReason.message}
+          </p>
+
+          {/* Show details if available */}
+          {attempt.failureReason.details && (
+            <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+              {attempt.failureReason.details.requiredCapacity && (
+                <div>Gerekli kapasite: {attempt.failureReason.details.requiredCapacity}</div>
+              )}
+              {attempt.failureReason.details.availableClassrooms !== undefined && (
+                <div>Uygun derslik sayısı: {attempt.failureReason.details.availableClassrooms}</div>
+              )}
+              {attempt.failureReason.details.requiredType && (
+                <div>Gerekli tip: {attempt.failureReason.details.requiredType}</div>
+              )}
+              {attempt.failureReason.details.teacherAvailableHours && (
+                <div>
+                  Öğretmen müsait saatler: {attempt.failureReason.details.teacherAvailableHours.join(', ') || 'Belirsiz'}
+                </div>
+              )}
+              {attempt.failureReason.details.conflictingCourses && attempt.failureReason.details.conflictingCourses.length > 0 && (
+                <div>
+                  <div className="font-medium mb-1">Çakışan dersler:</div>
+                  <ul className="list-disc list-inside ml-2">
+                    {attempt.failureReason.details.conflictingCourses.map((c, i) => (
+                      <li key={i}>{c.code} - {c.name}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {attempt.failureReason.details.conflictingDepartments && attempt.failureReason.details.conflictingDepartments.length > 0 && (
+                <div>
+                  Çakışan bölümler: {attempt.failureReason.details.conflictingDepartments.join(', ')}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Day attempt section component
+ */
+function DayAttemptSection({ dayAttempt }: { dayAttempt: DayAttemptDiagnostic }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <CollapsibleTrigger asChild>
+        <div className="flex items-center gap-2 p-2 hover:bg-muted/50 rounded-md cursor-pointer">
+          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          <span className="font-medium text-sm">{dayAttempt.day}</span>
+          <Badge variant="secondary" className="text-xs">
+            {dayAttempt.attemptedTimeSlots.length} deneme
+          </Badge>
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pl-6 pt-2 space-y-2">
+        {dayAttempt.attemptedTimeSlots.map((slot, idx) => (
+          <TimeSlotAttempt key={idx} attempt={slot} />
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+/**
+ * Session failure section component
+ */
+function SessionFailureSection({ session }: { session: SessionFailureDiagnostic }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="border rounded-lg p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <BookOpen className="h-4 w-4 text-muted-foreground" />
+          <span className="font-semibold">{session.sessionType}</span>
+          <Badge variant="outline">{session.sessionHours} saat</Badge>
+          {session.splitAttempted && (
+            <Badge variant={session.splitSucceeded ? "default" : "destructive"} className="text-xs">
+              {session.splitSucceeded ? '✓ Bölündü' : '✗ Bölünemedi'}
+            </Badge>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          {isOpen ? 'Gizle' : 'Detayları Göster'}
+        </Button>
+      </div>
+
+      <Collapsible open={isOpen}>
+        <CollapsibleContent className="space-y-3 pt-2">
+          <div className="text-sm text-muted-foreground">
+            {session.attemptedDays.length} gün denendi, toplam{' '}
+            {session.attemptedDays.reduce((sum, d) => sum + d.attemptedTimeSlots.length, 0)} zaman dilimi test edildi
+          </div>
+
+          {session.splitAttempted && (
+            <div className={cn(
+              'text-sm p-2 rounded',
+              session.splitSucceeded
+                ? 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300'
+                : 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300'
+            )}>
+              {session.splitSucceeded
+                ? '✓ Oturum aynı gün içinde daha küçük parçalara bölünerek yerleştirildi'
+                : '✗ Oturum bölünmeye çalışıldı ancak başarısız oldu'
+              }
+            </div>
+          )}
+
+          <div className="space-y-2">
+            {session.attemptedDays.map((day, idx) => (
+              <DayAttemptSection key={idx} dayAttempt={day} />
+            ))}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  );
+}
+
+/**
+ * Course failure card component
+ */
+function CourseFailureCard({ diagnostic }: { diagnostic: CourseFailureDiagnostic }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const totalAttempts = diagnostic.failedSessions.reduce(
+    (sum, session) => sum + session.attemptedDays.reduce(
+      (daySum, day) => daySum + day.attemptedTimeSlots.length, 0
+    ), 0
+  );
+
+  return (
+    <Card className="border-destructive/30">
+      <CardHeader>
+        <div className="flex items-start justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-destructive" />
+              <CardTitle className="text-lg">{diagnostic.courseCode}</CardTitle>
+            </div>
+            <CardDescription className="text-base font-medium">
+              {diagnostic.courseName}
+            </CardDescription>
+            <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                {diagnostic.studentCount} öğrenci
+              </div>
+              <div className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {diagnostic.totalHours} saat
+              </div>
+              <div>{diagnostic.faculty}</div>
+              <div>{diagnostic.level} - {diagnostic.semester}</div>
+            </div>
+            {diagnostic.departments.length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                Bölümler: {diagnostic.departments.map(d => `${d.department} (${d.studentCount})`).join(', ')}
+              </div>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            {isOpen ? <ChevronDown className="h-4 w-4 mr-2" /> : <ChevronRight className="h-4 w-4 mr-2" />}
+            {isOpen ? 'Detayları Gizle' : 'Detayları Göster'}
+          </Button>
+        </div>
+      </CardHeader>
+
+      <Collapsible open={isOpen}>
+        <CollapsibleContent>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Info className="h-4 w-4" />
+              <span>
+                {diagnostic.failedSessions.length} oturum programlanamadı • {totalAttempts} farklı zaman dilimi denendi
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {diagnostic.failedSessions.map((session, idx) => (
+                <SessionFailureSection key={idx} session={session} />
+              ))}
+            </div>
+
+            {/* Summary and suggestions */}
+            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <h4 className="font-semibold text-sm text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
+                <Info className="h-4 w-4" />
+                Öneriler
+              </h4>
+              <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
+                <li>Öğretmen müsaitlik saatlerini kontrol edin ve genişletin</li>
+                <li>Ek derslik tahsis etmeyi düşünün (özellikle {diagnostic.failedSessions.map(s => s.sessionType).join(', ')} için)</li>
+                <li>Dersin toplam saatini azaltmayı veya farklı günlere yaymayı değerlendirin</li>
+                <li>Benzer bölümlerdeki dersleri farklı saatlere kaydırın</li>
+              </ul>
+            </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
+}
 
 export default function SchedulerPage() {
   const { isAdmin } = useAuth();
@@ -62,11 +366,11 @@ export default function SchedulerPage() {
       const data = await schedulerApi.generate();
       setResult(data);
       await fetchStatus();
-      
+
       // ✅ Invalidate schedules cache - programs page will auto-update!
       queryClient.invalidateQueries({ queryKey: scheduleKeys.all });
       console.log('✅ Schedules cache invalidated - programs page will refresh!');
-      
+
       if (data.success) {
         toast.success(data.message + ' - Programlar sayfası otomatik güncellenecek!');
         if (data.lunch_overflow_warnings && data.lunch_overflow_warnings.length > 0) {
@@ -210,38 +514,24 @@ export default function SchedulerPage() {
               </div>
             </div>
 
-            {result.unscheduled && result.unscheduled.length > 0 && (
-              <div>
-                <h4 className="mb-2 flex items-center gap-2 font-semibold">
-                  <AlertCircle className="h-4 w-4 text-orange-500" />
-                  Programlanamayan Dersler
-                </h4>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Ders Kodu</TableHead>
-                      <TableHead>Ders Adı</TableHead>
-                      <TableHead>Saat</TableHead>
-                      <TableHead>Öğrenci</TableHead>
-                      <TableHead>Sebep</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {result.unscheduled.map((course) => (
-                      <TableRow key={course.id}>
-                        <TableCell className="font-medium">{course.code}</TableCell>
-                        <TableCell>{course.name}</TableCell>
-                        <TableCell>{course.total_hours}</TableCell>
-                        <TableCell>{course.student_count}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {course.reason}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+            {/* Detailed failure diagnostics */}
+            {result.diagnostics && result.diagnostics.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-destructive" />
+                  <h3 className="text-lg font-semibold">
+                    Detaylı Hata Analizi ({result.diagnostics.length} ders)
+                  </h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Her ders için tüm denenen gün ve saat dilimleri, başarısızlık nedenleri ve öneriler aşağıda gösterilmiştir.
+                  Detayları görmek için dersleri genişletin.
+                </p>
+                <div className="space-y-4">
+                  {result.diagnostics.map((diagnostic) => (
+                    <CourseFailureCard key={diagnostic.courseId} diagnostic={diagnostic} />
+                  ))}
+                </div>
               </div>
             )}
 
@@ -303,6 +593,15 @@ export default function SchedulerPage() {
             <li>Günlük maksimum 8 saat ders</li>
             <li>Dersler arası minimum 30 dakika ara</li>
             <li>Aynı dersin oturumlarının farklı günlerde olması</li>
+          </ul>
+          <p className="mt-4">
+            <strong>Gelişmiş Özellikler:</strong>
+          </p>
+          <ul className="ml-4 list-disc space-y-1">
+            <li>Otomatik oturum bölme (4 saatlik dersler aynı gün 2+2 olarak yerleştirilebilir)</li>
+            <li>Teorik ve lab oturumları aynı güne yerleştirme tercihi</li>
+            <li>Akıllı geri izleme (backtracking) sistemi</li>
+            <li>O(1) çakışma kontrolü ile hızlı işleme</li>
           </ul>
         </CardContent>
       </Card>
