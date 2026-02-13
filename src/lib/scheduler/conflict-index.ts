@@ -12,6 +12,7 @@
  * 5. Support for "what-if" analysis without modifying the schedule
  */
 
+import { normalizeDayName } from '@/constants/time';
 import type { ScheduleItem, CourseData, ConflictReason } from './types';
 
 export class ConflictIndex {
@@ -29,6 +30,10 @@ export class ConflictIndex {
   // Used for fast lookup of all courses at a given time
   private timeSlotCourses: Map<string, Set<number>>;
 
+  // Map: "classroomId|day|timeRange" -> courseId
+  // Used for finding which course occupies a specific classroom at a specific time
+  private classroomScheduleItems: Map<string, number>;
+
   // Course cache for quick lookups
   private courseMap: Map<number, CourseData>;
 
@@ -37,6 +42,7 @@ export class ConflictIndex {
     this.classroomSchedule = new Map();
     this.departmentSchedule = new Map();
     this.timeSlotCourses = new Map();
+    this.classroomScheduleItems = new Map();
     this.courseMap = new Map(courses.map(c => [c.id, c]));
   }
 
@@ -80,6 +86,10 @@ export class ConflictIndex {
       this.timeSlotCourses.set(timeKey, new Set());
     }
     this.timeSlotCourses.get(timeKey)!.add(item.courseId);
+
+    // Index by classroom schedule item
+    const classroomTimeKey = `${item.classroomId}|${timeKey}`;
+    this.classroomScheduleItems.set(classroomTimeKey, item.courseId);
   }
 
   /**
@@ -110,6 +120,10 @@ export class ConflictIndex {
 
     // Remove from time slot index
     this.timeSlotCourses.get(timeKey)?.delete(item.courseId);
+
+    // Remove from classroom schedule items index
+    const classroomTimeKey = `${item.classroomId}|${timeKey}`;
+    this.classroomScheduleItems.delete(classroomTimeKey);
   }
 
   /**
@@ -163,6 +177,9 @@ export class ConflictIndex {
     day: string,
     timeRange: string
   ): ConflictReason | null {
+    // Normalize day name to handle Turkish/English variations
+    const normalizedDay = normalizeDayName(day);
+
     const course = this.courseMap.get(courseId);
     if (!course) {
       return {
@@ -172,8 +189,8 @@ export class ConflictIndex {
     }
 
     // Check teacher conflict
-    if (course.teacherId && this.hasTeacherConflict(course.teacherId, day, timeRange)) {
-      const timeKey = `${day}|${timeRange}`;
+    if (course.teacherId && this.hasTeacherConflict(course.teacherId, normalizedDay, timeRange)) {
+      const timeKey = `${normalizedDay}|${timeRange}`;
       const conflictingCourses = Array.from(this.timeSlotCourses.get(timeKey) ?? [])
         .filter(id => {
           const c = this.courseMap.get(id);
@@ -186,45 +203,45 @@ export class ConflictIndex {
 
       return {
         type: 'teacher',
-        message: `Öğretmen çakışması: Bu öğretmen ${day} günü ${timeRange} saatinde başka bir derste`,
+        message: `Öğretmen çakışması: Bu öğretmen ${normalizedDay} günü ${timeRange} saatinde başka bir derste`,
         details: {
           teacherId: course.teacherId,
           conflictingCourses,
-          day,
+          day: normalizedDay,
           timeRange,
         },
       };
     }
 
     // Check classroom conflict
-    if (this.hasClassroomConflict(classroomId, day, timeRange)) {
-      const timeKey = `${day}|${timeRange}`;
-      const conflictingCourses = Array.from(this.timeSlotCourses.get(timeKey) ?? [])
-        .filter(id => {
-          // Find which course is using this classroom at this time
-          // This is a bit slower but provides useful info
-          return true; // We know there's a conflict, include all courses at this time
-        })
-        .map(id => {
-          const c = this.courseMap.get(id);
-          return { id, code: c?.code, name: c?.name };
-        });
+    if (this.hasClassroomConflict(classroomId, normalizedDay, timeRange)) {
+      const timeKey = `${normalizedDay}|${timeRange}`;
+      const classroomTimeKey = `${classroomId}|${timeKey}`;
+
+      // Find the specific course using this classroom at this time
+      const conflictingCourseId = this.classroomScheduleItems.get(classroomTimeKey);
+      const conflictingCourses = conflictingCourseId
+        ? [conflictingCourseId].map(id => {
+            const c = this.courseMap.get(id);
+            return { id, code: c?.code, name: c?.name };
+          })
+        : [];
 
       return {
         type: 'classroom',
-        message: `Derslik çakışması: ${classroomId} numaralı derslik ${day} günü ${timeRange} saatinde dolu`,
+        message: `Derslik çakışması: ${classroomId} numaralı derslik ${normalizedDay} günü ${timeRange} saatinde dolu`,
         details: {
           classroomId,
           conflictingCourses,
-          day,
+          day: normalizedDay,
           timeRange,
         },
       };
     }
 
     // Check department conflict (compulsory courses)
-    if (this.hasDepartmentConflict(course, day, timeRange)) {
-      const timeKey = `${day}|${timeRange}`;
+    if (this.hasDepartmentConflict(course, normalizedDay, timeRange)) {
+      const timeKey = `${normalizedDay}|${timeRange}`;
       const conflictingCourses = Array.from(this.timeSlotCourses.get(timeKey) ?? [])
         .filter(id => {
           const c = this.courseMap.get(id);
@@ -244,13 +261,13 @@ export class ConflictIndex {
       const deptNames = course.departments.map(d => d.department).join(', ');
       return {
         type: 'department',
-        message: `Zorunlu ders çakışması: ${deptNames} bölümü ${course.level}. sınıf ${course.semester} döneminde ${day} günü ${timeRange} saatinde başka zorunlu ders var`,
+        message: `Zorunlu ders çakışması: ${deptNames} bölümü ${course.level}. sınıf ${course.semester} döneminde ${normalizedDay} günü ${timeRange} saatinde başka zorunlu ders var`,
         details: {
           departments: course.departments.map(d => d.department),
           semester: course.semester,
           level: course.level,
           conflictingCourses,
-          day,
+          day: normalizedDay,
           timeRange,
         },
       };

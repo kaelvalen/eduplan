@@ -3,7 +3,7 @@
  * Handles teacher availability, classroom availability, and conflict detection
  */
 
-import { DAY_MAPPING } from '@/constants/time';
+import { DAY_MAPPING, normalizeDayName } from '@/constants/time';
 import type { TimeBlock, ScheduleItem, CourseData, ClassroomData } from './types';
 
 function timeRangesOverlap(a: string, b: string): boolean {
@@ -35,11 +35,14 @@ export function isTeacherAvailable(
   const hasAnySlots = Object.values(workingHours).some((s) => Array.isArray(s) && s.length > 0);
   if (!hasAnySlots) return true;
 
-  let slots = workingHours[day];
+  // Normalize day name to handle Turkish/English variations
+  const normalizedDay = normalizeDayName(day);
+
+  let slots = workingHours[normalizedDay];
 
   // Try mapped key if direct access fails
   if (!slots) {
-    const mappedDay = DAY_MAPPING[day];
+    const mappedDay = DAY_MAPPING[normalizedDay];
     if (mappedDay) {
       slots = workingHours[mappedDay];
     }
@@ -65,11 +68,14 @@ export function isClassroomAvailable(
   const hasAnySlots = Object.values(availableHours).some((s) => Array.isArray(s) && s.length > 0);
   if (!hasAnySlots) return true;
 
-  let slots = availableHours[day];
+  // Normalize day name to handle Turkish/English variations
+  const normalizedDay = normalizeDayName(day);
+
+  let slots = availableHours[normalizedDay];
 
   // Try mapped key if direct access fails
   if (!slots) {
-    const mappedDay = DAY_MAPPING[day];
+    const mappedDay = DAY_MAPPING[normalizedDay];
     if (mappedDay) {
       slots = availableHours[mappedDay];
     }

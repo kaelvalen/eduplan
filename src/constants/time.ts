@@ -152,6 +152,47 @@ export function isValidWorkDay(day: string): boolean {
 }
 
 /**
+ * Normalize day name to Turkish standard
+ * Handles both Turkish and English inputs, case-insensitive
+ *
+ * @param day - Day name in Turkish or English
+ * @returns Normalized Turkish day name
+ *
+ * @example
+ * normalizeDayName("monday") => "Pazartesi"
+ * normalizeDayName("PAZARTESI") => "Pazartesi"
+ * normalizeDayName("Salı") => "Salı"
+ */
+export function normalizeDayName(day: string): string {
+  if (!day) return '';
+
+  const trimmed = day.trim();
+
+  // If already proper Turkish, return as-is
+  if (DAYS_TR.includes(trimmed as Day)) {
+    return trimmed;
+  }
+
+  // Try English -> Turkish conversion
+  const lowerDay = trimmed.toLowerCase();
+  const turkish = DAYS_EN_TO_TR[lowerDay];
+  if (turkish) {
+    return turkish;
+  }
+
+  // Try case-insensitive match against Turkish days
+  for (const turkishDay of DAYS_TR) {
+    if (turkishDay.toLowerCase() === lowerDay) {
+      return turkishDay;
+    }
+  }
+
+  // Fallback: return original with warning
+  console.warn(`Unknown day name: "${day}", using as-is`);
+  return trimmed;
+}
+
+/**
  * Verilen saatin geçerli bir zaman dilimi olup olmadığını kontrol eder
  */
 export function isValidTimeSlot(time: string): boolean {

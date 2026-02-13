@@ -75,6 +75,8 @@ export interface SchedulerConfig {
   courses: CourseData[];
   classrooms: ClassroomData[];
   timeBlocks: TimeBlock[];
+  seed?: number; // Optional seed for deterministic random number generation
+  timeoutMs?: number; // Optional timeout in milliseconds (default: 60000)
 }
 
 export interface SchedulerProgress {
