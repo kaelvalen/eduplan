@@ -7,6 +7,7 @@ import type { Prisma } from '@prisma/client';
 import { BaseService } from './base.service';
 import type { Course, CourseCreate } from '@/types';
 import type { CreateCourseInput, UpdateCourseInput } from '@/lib/schemas';
+import { parseTeacherWorkingHoursSafe } from '@/lib/time-utils';
 
 export interface CourseFilters {
   isActive?: boolean;
@@ -454,9 +455,7 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
         department: d.department,
         studentCount: d.studentCount,
       })),
-      teacherWorkingHours: course.teacher?.workingHours 
-        ? JSON.parse(course.teacher.workingHours) 
-        : {},
+      teacherWorkingHours: parseTeacherWorkingHoursSafe(course.teacher?.workingHours),
       hardcodedSchedules: course.hardcodedSchedules.map(h => ({
         day: h.day,
         startTime: h.startTime,

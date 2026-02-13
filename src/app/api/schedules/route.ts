@@ -14,7 +14,7 @@ export async function GET(request: Request) {
       include: {
         course: {
           include: {
-            teacher: { select: { id: true, name: true } },
+            teacher: { select: { id: true, name: true, workingHours: true } },
           },
         },
         classroom: true,
@@ -37,6 +37,7 @@ export async function GET(request: Request) {
         teacher: s.course.teacher ? {
           id: s.course.teacher.id,
           name: s.course.teacher.name,
+          working_hours: (s.course.teacher as { workingHours?: string }).workingHours ?? null,
         } : null,
       } : null,
       classroom: s.classroom ? {

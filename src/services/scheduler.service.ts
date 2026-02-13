@@ -19,6 +19,7 @@ import {
   type ClassroomData,
   type TimeSettings,
 } from '@/lib/scheduler';
+import { parseTeacherWorkingHoursSafe } from '@/lib/time-utils';
 import logger, { logSchedulerEvent } from '@/lib/logger';
 
 // SystemSettings is now imported as TimeSettings from scheduler types
@@ -104,9 +105,7 @@ export class SchedulerService {
         department: d.department,
         studentCount: d.studentCount,
       })),
-      teacherWorkingHours: course.teacher?.workingHours
-        ? JSON.parse(course.teacher.workingHours)
-        : {},
+      teacherWorkingHours: parseTeacherWorkingHoursSafe(course.teacher?.workingHours),
       hardcodedSchedules: course.hardcodedSchedules.map((h) => ({
         day: h.day,
         startTime: h.startTime,
@@ -293,30 +292,75 @@ export class SchedulerService {
    * Get current scheduler status (completion percentage, conflicts, etc.)
    */
   async getSchedulerStatus() {
-    const [
-      totalActiveCourses,
-      totalActiveSessions,
-      scheduledCount,
-    ] = await Promise.all([
-      prisma.course.count({ where: { isActive: true } }),
-      prisma.courseSession.count({
-        where: {
-          course: { isActive: true },
-        },
-      }),
-      prisma.schedule.count(),
-    ]);
+    // Get all active courses with their sessions
+    const activeCourses = await prisma.course.findMany({
+      where: { isActive: true },
+      include: {
+        sessions: true,
+      },
+    });
 
+    const totalActiveCourses = activeCourses.length;
+    const totalActiveSessions = activeCourses.reduce(
+      (sum, course) => sum + course.sessions.length,
+      0
+    );
+
+    // Get all schedules for active courses
+    const allSchedules = await prisma.schedule.findMany({
+      where: {
+        courseId: {
+          in: activeCourses.map(c => c.id),
+        },
+      },
+      select: {
+        courseId: true,
+        sessionHours: true,
+      },
+    });
+
+    const totalScheduleItems = allSchedules.length;
+
+    // Group schedules by course
+    const schedulesByCourse = new Map<number, number>();
+    for (const schedule of allSchedules) {
+      const current = schedulesByCourse.get(schedule.courseId) || 0;
+      schedulesByCourse.set(schedule.courseId, current + schedule.sessionHours);
+    }
+
+    // Calculate how many courses are fully scheduled
+    let fullyScheduledCourses = 0;
+    let totalRequiredHours = 0;
+    let totalScheduledHours = 0;
+
+    for (const course of activeCourses) {
+      const requiredHours = course.sessions.reduce((sum, s) => sum + s.hours, 0);
+      totalRequiredHours += requiredHours;
+
+      // Calculate scheduled hours for this course
+      const scheduledHours = schedulesByCourse.get(course.id) || 0;
+      totalScheduledHours += scheduledHours;
+
+      // Course is fully scheduled if scheduled hours >= required hours
+      if (scheduledHours >= requiredHours) {
+        fullyScheduledCourses++;
+      }
+    }
+
+    // Completion percentage based on scheduled hours vs required hours
     const completionPercentage =
-      totalActiveSessions > 0
-        ? Math.round((scheduledCount / totalActiveSessions) * 100)
+      totalRequiredHours > 0
+        ? Math.round((totalScheduledHours / totalRequiredHours) * 100)
         : 0;
 
     return {
       completion_percentage: completionPercentage,
       total_active_courses: totalActiveCourses,
       total_active_sessions: totalActiveSessions,
-      scheduled_sessions: scheduledCount,
+      scheduled_sessions: totalScheduleItems,
+      fully_scheduled_courses: fullyScheduledCourses,
+      total_required_hours: totalRequiredHours,
+      total_scheduled_hours: totalScheduledHours,
       conflicts: 0, // TODO: Detect actual conflicts
     };
   }

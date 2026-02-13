@@ -161,3 +161,23 @@ export function getEndTime(range: string): string {
 
 export const parseWorkingHours = parseAvailableHours;
 export const stringifyWorkingHours = stringifyAvailableHours;
+
+/**
+ * Backend-safe parse of teacher working hours JSON.
+ * Never throws: returns {} for empty, invalid or missing string.
+ */
+export function parseTeacherWorkingHoursSafe(raw: string | null | undefined): HoursMap {
+  if (raw == null || String(raw).trim() === '') return getEmptyHoursTr();
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (typeof parsed !== 'object' || parsed === null) return getEmptyHoursTr();
+    const result: HoursMap = {};
+    for (const day of DAYS_TR) {
+      const val = parsed[day] ?? parsed[DAY_MAPPING[day]];
+      result[day] = Array.isArray(val) ? val.filter((s): s is string => typeof s === 'string') : [];
+    }
+    return result;
+  } catch {
+    return getEmptyHoursTr();
+  }
+}

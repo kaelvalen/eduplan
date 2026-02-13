@@ -225,6 +225,9 @@ export interface SchedulerStatus {
   total_active_sessions: number;
   scheduled_sessions: number;
   completion_percentage: number;
+  fully_scheduled_courses?: number;
+  total_required_hours?: number;
+  total_scheduled_hours?: number;
 }
 
 export interface SchedulerResult {

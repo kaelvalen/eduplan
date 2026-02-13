@@ -678,7 +678,8 @@ export default function ProgramViewPage() {
 
                                                                         return (
                                                                             <DroppableTimeSlot
-                                                                                key={`${dayTr}-${slot}`}
+                                                                                key={`${deptCode}-${level}-${dayTr}-${slot}`}
+                                                                                id={`${deptCode}-${level}-${dayTr}-${slot}`}
                                                                                 day={dayTr}
                                                                                 slot={slot}
                                                                                 schedule={schedule}

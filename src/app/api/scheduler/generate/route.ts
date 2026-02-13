@@ -68,16 +68,30 @@ export async function POST(request: NextRequest) {
     // Generate schedule using service
     const result = await schedulerService.generateFullSchedule(options);
 
+    // Calculate counts and rates
+    const scheduledCount = result.schedules.length;
+    const unscheduledCount = result.unscheduledCourses.length;
+    const totalCourses = scheduledCount + unscheduledCount;
+    const successRate = totalCourses > 0
+      ? Math.round((scheduledCount / totalCourses) * 100)
+      : 0;
+
     // Return successful response
     return NextResponse.json({
       success: result.success,
       message: result.success
         ? 'Program başarıyla oluşturuldu'
         : 'Program oluşturuldu ancak bazı çakışmalar var',
+      schedule: result.schedules, // Keep for backward compatibility
       schedules: result.schedules,
+      scheduled_count: scheduledCount,
+      unscheduled: result.unscheduledCourses, // Keep for backward compatibility
+      unscheduledCourses: result.unscheduledCourses,
+      unscheduled_count: unscheduledCount,
+      success_rate: successRate,
+      perfect: unscheduledCount === 0,
       metrics: result.metrics,
       conflicts: result.conflicts,
-      unscheduledCourses: result.unscheduledCourses,
       warnings: result.warnings,
       processingTimeMs: result.processingTimeMs,
       diagnostics: result.diagnostics, // Detailed failure diagnostics

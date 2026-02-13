@@ -6,6 +6,8 @@ import { DraggableScheduleCard } from './draggable-schedule-card';
 import type { Schedule } from '@/types';
 
 interface DroppableTimeSlotProps {
+  /** Unique id for dnd-kit (must be unique across all droppables on the page) */
+  id: string;
   day: string;
   slot: string;
   schedule: Schedule | null;
@@ -16,6 +18,7 @@ interface DroppableTimeSlotProps {
 }
 
 export function DroppableTimeSlot({
+  id: droppableId,
   day,
   slot,
   schedule,
@@ -25,7 +28,7 @@ export function DroppableTimeSlot({
   isAdmin,
 }: DroppableTimeSlotProps) {
   const { isOver, setNodeRef } = useDroppable({
-    id: `${day}-${slot}`,
+    id: droppableId,
     data: {
       day,
       slot,

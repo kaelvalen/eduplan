@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Loader2, Play, CheckCircle, XCircle, AlertCircle, Cog,
   ChevronDown, ChevronRight, Info, Clock, Users, BookOpen,
-  AlertTriangle, XOctagon, CalendarX, Building, User
+  AlertTriangle, XOctagon, CalendarX, Building,
+  Calendar, ExternalLink, LayoutGrid
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/auth-context';
@@ -16,6 +18,7 @@ import { styles } from '@/lib/design-tokens';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { PageHeader } from '@/components/ui/page-header';
 import { CardSkeleton } from '@/components/ui/skeleton';
 import { getStatusColors } from '@/lib/design-tokens';
@@ -330,90 +333,20 @@ function CourseFailureCard({ diagnostic }: { diagnostic: CourseFailureDiagnostic
   );
 }
 
-export default function SchedulerPage() {
-  const { isAdmin } = useAuth();
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const [status, setStatus] = useState<SchedulerStatus | null>(null);
-  const [result, setResult] = useState<SchedulerResult | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isGenerating, setIsGenerating] = useState(false);
+type SchedulerContentProps = {
+  status: SchedulerStatus | null;
+  result: SchedulerResult | null;
+  onGenerate: () => Promise<void>;
+  isGenerating: boolean;
+};
 
-  useEffect(() => {
-    if (!isAdmin) {
-      router.push('/');
-      return;
-    }
-    fetchStatus();
-  }, [isAdmin, router]);
-
-  const fetchStatus = async () => {
-    try {
-      const data = await schedulerApi.getStatus();
-      setStatus(data);
-    } catch (error) {
-      console.error('Error fetching status:', error);
-      toast.error('Durum bilgisi alınamadı');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGenerate = async () => {
-    setIsGenerating(true);
-    setResult(null);
-    try {
-      const data = await schedulerApi.generate();
-      setResult(data);
-      await fetchStatus();
-
-      // ✅ Invalidate schedules cache - programs page will auto-update!
-      queryClient.invalidateQueries({ queryKey: scheduleKeys.all });
-      console.log('✅ Schedules cache invalidated - programs page will refresh!');
-
-      if (data.success) {
-        toast.success(data.message + ' - Programlar sayfası otomatik güncellenecek!');
-        if (data.lunch_overflow_warnings && data.lunch_overflow_warnings.length > 0) {
-          toast.warning(
-            `${data.lunch_overflow_warnings.length} oturum öğle arasına taşıyor. Ayrıntılar sonuç bölümünde.`
-          );
-        }
-      } else {
-        toast.error(data.message);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Program oluşturulurken bir hata oluştu';
-      toast.error(message);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  if (!isAdmin) {
-    return null;
-  }
-
-  if (isLoading) {
-    return (
-      <div className={styles.pageContainer}>
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <div className="h-8 w-48 bg-muted rounded-lg animate-pulse" />
-            <div className="h-4 w-64 bg-muted rounded animate-pulse" />
-          </div>
-        </div>
-        <div className="grid gap-4 md:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <CardSkeleton key={i} />
-          ))}
-        </div>
-      </div>
-    );
-  }
+function SchedulerContent({ status, result, onGenerate, isGenerating }: SchedulerContentProps) {
+  const [algorithmOpen, setAlgorithmOpen] = useState(false);
+  const completion = status?.completion_percentage ?? 0;
+  const hasSchedules = (status?.total_scheduled_hours ?? 0) > 0;
 
   return (
     <div className={styles.pageContainer}>
-      {/* Header */}
       <PageHeader
         title="Program Oluşturucu"
         description="Akıllı sezgisel algoritma ile otomatik ders programı oluşturun"
@@ -421,48 +354,122 @@ export default function SchedulerPage() {
         entity="scheduler"
       />
 
-      {/* Status Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      {/* Hero: completion + quick view */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_auto] mb-6">
+        <Card className="overflow-hidden">
+          <CardContent className="p-6 flex flex-col sm:flex-row items-center gap-6">
+            <div
+              className={cn(
+                'h-24 w-24 rounded-full flex items-center justify-center text-2xl font-bold flex-shrink-0',
+                completion === 100
+                  ? 'bg-green-500/15 text-green-600 dark:text-green-400'
+                  : completion >= 50
+                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                    : 'bg-muted text-muted-foreground'
+              )}
+            >
+              {completion}%
+            </div>
+            <div className="flex-1 text-center sm:text-left min-w-0">
+              <h3 className="font-semibold text-lg">Tamamlanma durumu</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                {status?.total_scheduled_hours ?? 0} / {status?.total_required_hours ?? 0} saat programlandı
+                ({status?.fully_scheduled_courses ?? 0}/{status?.total_active_courses ?? 0} ders tamamen yerleşti)
+              </p>
+              <Progress value={completion} className="mt-3 h-2 max-w-xs mx-auto sm:mx-0" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {hasSchedules && (
+          <Card className="lg:w-64 flex flex-col justify-center">
+            <CardContent className="p-6">
+              <LayoutGrid className="h-10 w-10 text-primary mb-2 opacity-80" />
+              <p className="font-medium">Program hazır</p>
+              <p className="text-sm text-muted-foreground mb-4">Bölüm ve sınıf bazlı görüntüleyin</p>
+              <Button asChild variant="default" className="w-full gap-2">
+                <Link href="/programs">
+                  <Calendar className="h-4 w-4" />
+                  Programı Görüntüle
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Stats grid */}
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-4 mb-6">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Aktif Ders</CardDescription>
-            <CardTitle className="text-2xl">{status?.total_active_courses || 0}</CardTitle>
+            <CardDescription className="flex items-center gap-1.5">
+              <BookOpen className="h-4 w-4" />
+              Aktif ders
+            </CardDescription>
+            <CardTitle className="text-2xl">{status?.total_active_courses ?? 0}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Toplam Oturum</CardDescription>
-            <CardTitle className="text-2xl">{status?.total_active_sessions || 0}</CardTitle>
+            <CardDescription className="flex items-center gap-1.5">
+              <CheckCircle className="h-4 w-4" />
+              Tamamen programlanan
+            </CardDescription>
+            <CardTitle className="text-2xl">
+              {status?.fully_scheduled_courses ?? 0}
+              <span className="text-base font-normal text-muted-foreground ml-1">
+                / {status?.total_active_courses ?? 0}
+              </span>
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Programlanan</CardDescription>
-            <CardTitle className="text-2xl">{status?.scheduled_sessions || 0}</CardTitle>
+            <CardDescription className="flex items-center gap-1.5">
+              <Clock className="h-4 w-4" />
+              Programlanan saat
+            </CardDescription>
+            <CardTitle className="text-2xl">
+              {status?.total_scheduled_hours ?? 0}
+              <span className="text-base font-normal text-muted-foreground ml-1">
+                / {status?.total_required_hours ?? 0}
+              </span>
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Tamamlanma</CardDescription>
-            <CardTitle className="text-2xl">{status?.completion_percentage || 0}%</CardTitle>
+            <CardTitle
+              className={cn(
+                'text-2xl',
+                completion === 100
+                  ? 'text-green-600 dark:text-green-400'
+                  : completion >= 50
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-muted-foreground'
+              )}
+            >
+              {completion}%
+            </CardTitle>
           </CardHeader>
         </Card>
       </div>
 
-      {/* Generate Button */}
-      <Card>
+      {/* Generate */}
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle>Program Oluştur</CardTitle>
           <CardDescription>
-            Akıllı sezgisel algoritma (Smart Greedy) kullanarak tüm aktif dersler için otomatik program oluşturur.
-            Mevcut program silinecek ve yeni program oluşturulacaktır.
+            Smart Greedy algoritması ile tüm aktif dersler için otomatik program oluşturur. Mevcut program silinir ve yenisi oluşturulur.
+            Öğretmen müsaitlik saatleri <strong>Öğretmenler</strong> sayfasında her öğretmen için &quot;Çalışma saatleri&quot; bölümünden girilir; girilmezse o öğretmen tüm saatlerde müsait kabul edilir.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Button
             size="lg"
-            onClick={handleGenerate}
-            disabled={isGenerating || (status?.total_active_courses || 0) === 0}
+            onClick={onGenerate}
+            disabled={isGenerating || (status?.total_active_courses ?? 0) === 0}
           >
             {isGenerating ? (
               <>
@@ -476,7 +483,7 @@ export default function SchedulerPage() {
               </>
             )}
           </Button>
-          {(status?.total_active_courses || 0) === 0 && (
+          {(status?.total_active_courses ?? 0) === 0 && (
             <p className="mt-2 text-sm text-muted-foreground">
               Programlanacak aktif ders bulunamadı.
             </p>
@@ -486,30 +493,42 @@ export default function SchedulerPage() {
 
       {/* Result */}
       {result && (
-        <Card>
+        <Card className="mb-6">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              {result.success ? (
-                <CheckCircle className="h-5 w-5 text-green-500" />
-              ) : (
-                <XCircle className="h-5 w-5 text-red-500" />
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                {result.success ? (
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                ) : (
+                  <XCircle className="h-5 w-5 text-red-500" />
+                )}
+                <div>
+                  <CardTitle>Sonuç</CardTitle>
+                  <CardDescription>{result.message}</CardDescription>
+                </div>
+              </div>
+              {result.success && result.scheduled_count > 0 && (
+                <Button asChild variant="default" className="gap-2 shrink-0">
+                  <Link href="/programs">
+                    <ExternalLink className="h-4 w-4" />
+                    Programı Görüntüle
+                  </Link>
+                </Button>
               )}
-              <CardTitle>Sonuç</CardTitle>
             </div>
-            <CardDescription>{result.message}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-lg border p-4">
-                <p className="text-sm text-muted-foreground">Programlanan</p>
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <p className="text-sm text-muted-foreground">Programlanan oturum</p>
                 <p className={cn('text-2xl font-bold', getStatusColors('success').text)}>{result.scheduled_count}</p>
               </div>
-              <div className="rounded-lg border p-4">
+              <div className="rounded-lg border bg-muted/30 p-4">
                 <p className="text-sm text-muted-foreground">Programlanamayan</p>
                 <p className={cn('text-2xl font-bold', getStatusColors('error').text)}>{result.unscheduled_count}</p>
               </div>
-              <div className="rounded-lg border p-4">
-                <p className="text-sm text-muted-foreground">Başarı Oranı</p>
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <p className="text-sm text-muted-foreground">Başarı oranı</p>
                 <p className="text-2xl font-bold">{result.success_rate}%</p>
               </div>
             </div>
@@ -576,35 +595,116 @@ export default function SchedulerPage() {
         </Card>
       )}
 
-      {/* Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Algoritma Bilgisi</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>
-            <strong>Akıllı Sezgisel Algoritma (Smart Greedy)</strong> kullanılarak program oluşturulur.
-          </p>
-          <p>Dikkate alınan kısıtlar:</p>
-          <ul className="ml-4 list-disc space-y-1">
-            <li>Öğretmen müsaitlik saatleri</li>
-            <li>Derslik kapasitesi ve türü (teorik/lab)</li>
-            <li>Aynı bölüm ve seviyedeki derslerin çakışmaması</li>
-            <li>Günlük maksimum 8 saat ders</li>
-            <li>Dersler arası minimum 30 dakika ara</li>
-            <li>Aynı dersin oturumlarının farklı günlerde olması</li>
-          </ul>
-          <p className="mt-4">
-            <strong>Gelişmiş Özellikler:</strong>
-          </p>
-          <ul className="ml-4 list-disc space-y-1">
-            <li>Otomatik oturum bölme (4 saatlik dersler aynı gün 2+2 olarak yerleştirilebilir)</li>
-            <li>Teorik ve lab oturumları aynı güne yerleştirme tercihi</li>
-            <li>Akıllı geri izleme (backtracking) sistemi</li>
-            <li>O(1) çakışma kontrolü ile hızlı işleme</li>
-          </ul>
-        </CardContent>
-      </Card>
+      {/* Algorithm info (collapsible) */}
+      <Collapsible open={algorithmOpen} onOpenChange={setAlgorithmOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Info className="h-4 w-4" />
+                  Algoritma bilgisi
+                </CardTitle>
+                <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', algorithmOpen && 'rotate-180')} />
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-2 text-sm text-muted-foreground pt-0">
+              <p>
+                <strong>Smart Greedy</strong> ile program oluşturulur.
+              </p>
+              <p>Kısıtlar: öğretmen müsaitliği (Öğretmenler → düzenle → Çalışma saatleri), derslik kapasite/türü, bölüm/seviye çakışmaması, günlük max 8 saat, dersler arası min 30 dk ara, aynı dersin oturumları farklı günlerde.</p>
+              <p className="mt-2">
+                <strong>Gelişmiş:</strong> oturum bölme (2+2), teorik/lab aynı gün tercihi, backtracking, O(1) çakışma kontrolü.
+              </p>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     </div>
+  );
+}
+
+export default function SchedulerPage() {
+  const { isAdmin } = useAuth();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [status, setStatus] = useState<SchedulerStatus | null>(null);
+  const [result, setResult] = useState<SchedulerResult | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      router.push('/');
+      return;
+    }
+    fetchStatus();
+  }, [isAdmin, router]);
+
+  const fetchStatus = async () => {
+    try {
+      const data = await schedulerApi.getStatus();
+      setStatus(data);
+    } catch (error) {
+      console.error('Error fetching status:', error);
+      toast.error('Durum bilgisi alınamadı');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    setResult(null);
+    try {
+      const data = await schedulerApi.generate();
+      setResult(data);
+      await fetchStatus();
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.all });
+      if (data.success) {
+        toast.success(data.message + ' - Programlar sayfası otomatik güncellenecek!');
+        if (data.lunch_overflow_warnings && data.lunch_overflow_warnings.length > 0) {
+          toast.warning(
+            `${data.lunch_overflow_warnings.length} oturum öğle arasına taşıyor. Ayrıntılar sonuç bölümünde.`
+          );
+        }
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Program oluşturulurken bir hata oluştu';
+      toast.error(message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  if (!isAdmin) return null;
+  if (isLoading) {
+    return (
+      <div className={styles.pageContainer}>
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="h-8 w-48 bg-muted rounded-lg animate-pulse" />
+            <div className="h-4 w-64 bg-muted rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <CardSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <SchedulerContent
+      status={status}
+      result={result}
+      onGenerate={handleGenerate}
+      isGenerating={isGenerating}
+    />
   );
 }

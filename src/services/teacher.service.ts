@@ -191,7 +191,7 @@ export class TeacherService extends BaseService<Teacher, CreateTeacherInput, Upd
         title: data.title || 'Öğr. Gör.',
         faculty: data.faculty,
         department: data.department,
-        workingHours: data.working_hours || '{}',
+        workingHours: (data.working_hours?.trim() === '' ? '{}' : data.working_hours) || '{}',
         isActive: data.is_active ?? true,
       },
     });
@@ -220,7 +220,7 @@ export class TeacherService extends BaseService<Teacher, CreateTeacherInput, Upd
         ...(data.title && { title: data.title }),
         ...(data.faculty && { faculty: data.faculty }),
         ...(data.department && { department: data.department }),
-        ...(data.working_hours !== undefined && { workingHours: data.working_hours }),
+        ...(data.working_hours !== undefined && { workingHours: (data.working_hours?.trim() === '' ? '{}' : data.working_hours) }),
         ...(data.is_active !== undefined && { isActive: data.is_active }),
       },
     });
