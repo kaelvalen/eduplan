@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-
-// In-memory store for push subscriptions (in production, store in database)
-const pushSubscriptions = new Map<number, PushSubscriptionJSON>();
+import { prisma } from '@/lib/db';
 
 // POST /api/push - Subscribe to push notifications
 export async function POST(request: Request) {
@@ -22,15 +20,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // Store subscription (in production, save to database)
-    pushSubscriptions.set(user.id, subscription);
-
-    // TODO: Save to database in production
-    // await prisma.pushSubscription.upsert({
-    //   where: { userId: user.id },
-    //   update: { subscription: JSON.stringify(subscription) },
-    //   create: { userId: user.id, subscription: JSON.stringify(subscription) }
-    // });
+    // Save to database
+    await prisma.pushSubscription.upsert({
+      where: { userId: user.id },
+      update: {
+        endpoint: subscription.endpoint,
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
+        updatedAt: new Date(),
+      },
+      create: {
+        userId: user.id,
+        endpoint: subscription.endpoint,
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
+      },
+    });
 
     return NextResponse.json({ message: 'Push notification subscription başarıyla kaydedildi' });
   } catch (error) {
@@ -50,13 +55,10 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ detail: 'Yetkisiz erişim' }, { status: 401 });
     }
 
-    // Remove subscription
-    pushSubscriptions.delete(user.id);
-
-    // TODO: Remove from database in production
-    // await prisma.pushSubscription.deleteMany({
-    //   where: { userId: user.id }
-    // });
+    // Remove from database
+    await prisma.pushSubscription.deleteMany({
+      where: { userId: user.id },
+    });
 
     return NextResponse.json({ message: 'Push notification subscription kaldırıldı' });
   } catch (error) {
@@ -71,11 +73,22 @@ export async function DELETE(request: Request) {
 // Function to send push notification to a user
 export async function sendPushNotification(userId: number, title: string, body: string, data?: any) {
   try {
-    const subscription = pushSubscriptions.get(userId);
-    if (!subscription) {
+    const subscriptionRecord = await prisma.pushSubscription.findUnique({
+      where: { userId },
+    });
+
+    if (!subscriptionRecord) {
       console.log(`No push subscription found for user ${userId}`);
       return false;
     }
+
+    const subscription: PushSubscriptionJSON = {
+      endpoint: subscriptionRecord.endpoint,
+      keys: {
+        p256dh: subscriptionRecord.p256dh,
+        auth: subscriptionRecord.auth,
+      },
+    };
 
     // In production, you would use a service like Firebase Cloud Messaging,
     // Web Push API with VAPID keys, or similar service
@@ -97,10 +110,13 @@ export async function sendPushNotification(userId: number, title: string, body: 
 
 // Function to broadcast push notification to all users
 export async function broadcastPushNotification(title: string, body: string, data?: any) {
+  const subscriptions = await prisma.pushSubscription.findMany();
   const results = [];
-  for (const [userId] of pushSubscriptions.entries()) {
-    const result = await sendPushNotification(userId, title, body, data);
-    results.push({ userId, success: result });
+
+  for (const sub of subscriptions) {
+    const result = await sendPushNotification(sub.userId, title, body, data);
+    results.push({ userId: sub.userId, success: result });
   }
+
   return results;
 }

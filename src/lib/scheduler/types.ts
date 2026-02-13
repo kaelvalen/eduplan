@@ -77,6 +77,11 @@ export interface SchedulerConfig {
   timeBlocks: TimeBlock[];
   seed?: number; // Optional seed for deterministic random number generation
   timeoutMs?: number; // Optional timeout in milliseconds (default: 60000)
+  features?: {
+    enableSessionSplitting?: boolean;
+    enableCombinedTheoryLab?: boolean;
+    enableBacktracking?: boolean;
+  };
 }
 
 export interface SchedulerProgress {

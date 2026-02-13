@@ -20,6 +20,7 @@ model User {
   updatedAt           DateTime                 @updatedAt
   notifications       Notification[]
   dashboardPreference UserDashboardPreference?
+  pushSubscription    PushSubscription?
 }
 
 // ==================== TEACHER ====================
@@ -197,4 +198,18 @@ model SystemSettings {
   lunchBreakEnd         String   @default("13:00")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+}
+
+// ==================== PUSH SUBSCRIPTIONS ====================
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String
+  p256dh    String // Public key
+  auth      String // Auth secret
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }

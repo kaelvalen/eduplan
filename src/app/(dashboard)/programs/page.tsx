@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { getDepartmentName, FACULTIES, DEPARTMENTS } from '@/constants/faculties';
 import { DAYS_TR as DAYS, DAYS_EN_TO_TR, DAYS_TR_TO_EN } from '@/constants/time';
 import { styles } from '@/lib/design-tokens';
+import { debug } from '@/lib/debug';
 import {
     validateTeacherAvailability,
     validateClassroomAvailability,
@@ -124,7 +125,7 @@ export default function ProgramViewPage() {
         // Validate
         const errors: string[] = [];
         
-        console.log('🔍 Validating teacher:', {
+        debug.log('🔍 Validating teacher:', {
             teacher: schedule.course?.teacher?.name,
             day,
             time: `${newStartTime}-${newEndTime}`,
@@ -138,7 +139,7 @@ export default function ProgramViewPage() {
             schedules,
             schedule.id
         );
-        console.log('📋 Teacher validation result:', teacherValid);
+        debug.log('📋 Teacher validation result:', teacherValid);
         errors.push(...teacherValid.errors);
 
         const classroom = schedules.find(s => s.id === schedule.id)?.classroom;
@@ -150,7 +151,7 @@ export default function ProgramViewPage() {
             schedules,
             schedule.id
         );
-        console.log('📋 Classroom validation result:', classroomValid);
+        debug.log('📋 Classroom validation result:', classroomValid);
         errors.push(...classroomValid.errors);
 
         const deptValid = validateDepartmentConflicts(
@@ -161,14 +162,14 @@ export default function ProgramViewPage() {
             schedules,
             schedule.id
         );
-        console.log('📋 Department validation result:', deptValid);
+        debug.log('📋 Department validation result:', deptValid);
         errors.push(...deptValid.errors);
         
-        console.log('⚠️ Total validation errors:', errors);
+        debug.log('⚠️ Total validation errors:', errors);
 
         // Prepare update function
         const performUpdate = () => {
-            console.log('🎯 Calling updateSchedule with:', {
+            debug.log('🎯 Calling updateSchedule with:', {
                 id: schedule.id,
                 day,
                 newTimeRange: `${newStartTime}-${newEndTime}`,
@@ -270,20 +271,20 @@ export default function ProgramViewPage() {
 
     // Group schedules by department and level
     const groupedSchedules = useMemo(() => {
-        console.log('🔄 Grouping schedules...', { schedulesCount: schedules?.length, coursesCount: courses?.length });
+        debug.log('🔄 Grouping schedules...', { schedulesCount: schedules?.length, coursesCount: courses?.length });
         
         if (!schedules || !courses) {
-            console.log('⚠️ Missing data:', { schedules: !!schedules, courses: !!courses });
+            debug.log('⚠️ Missing data:', { schedules: !!schedules, courses: !!courses });
             return {};
         }
 
         // Search filter
         let filteredSchedules = [...schedules];
-        console.log('📊 Total schedules before filtering:', filteredSchedules.length);
+        debug.log('📊 Total schedules before filtering:', filteredSchedules.length);
 
         // Create course map for level and department lookup
         const courseMap = new Map((courses || []).filter((c: Course) => c.id !== undefined).map((c: Course) => [c.id!, c]));
-        console.log('🗺️ Course map size:', courseMap.size);
+        debug.log('🗺️ Course map size:', courseMap.size);
 
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
@@ -304,7 +305,7 @@ export default function ProgramViewPage() {
             const courseData = (fullCourse || sCourse) as Course | undefined;
             
             if (index === 0) {
-                console.log('📖 First schedule details:', {
+                debug.log('📖 First schedule details:', {
                     schedule_id: schedule.id,
                     course_id: schedule.course_id,
                     sCourse,
@@ -351,8 +352,8 @@ export default function ProgramViewPage() {
             }
         });
 
-        console.log('✅ Grouped schedules result:', Object.keys(grouped).length, 'departments');
-        console.log('📦 Grouped structure:', Object.keys(grouped).map(dept => ({
+        debug.log('✅ Grouped schedules result:', Object.keys(grouped).length, 'departments');
+        debug.log('📦 Grouped structure:', Object.keys(grouped).map(dept => ({
             dept,
             levels: Object.keys(grouped[dept]),
             totalSchedules: Object.values(grouped[dept]).flat().length

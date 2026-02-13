@@ -88,6 +88,91 @@ export function isClassroomAvailable(
 }
 
 /**
+ * Cache for classroom selection results
+ * Speeds up repeated queries with same parameters
+ */
+class ClassroomSelectionCache {
+  private cache: Map<string, ClassroomData | null>;
+  private hits: number = 0;
+  private misses: number = 0;
+
+  constructor() {
+    this.cache = new Map();
+  }
+
+  private createKey(
+    sessionType: string,
+    studentCount: number,
+    day: string,
+    timeBlocksHash: string,
+    occupiedHash: string
+  ): string {
+    return `${sessionType}|${studentCount}|${day}|${timeBlocksHash}|${occupiedHash}`;
+  }
+
+  get(
+    sessionType: string,
+    studentCount: number,
+    day: string,
+    timeBlocks: TimeBlock[],
+    occupiedClassroomsByBlock: Set<number>[]
+  ): ClassroomData | null | undefined {
+    const timeBlocksHash = timeBlocks.map(b => `${b.start}-${b.end}`).join(',');
+    const occupiedHash = occupiedClassroomsByBlock.map(s => Array.from(s).sort().join('-')).join('|');
+    const key = this.createKey(sessionType, studentCount, day, timeBlocksHash, occupiedHash);
+
+    if (this.cache.has(key)) {
+      this.hits++;
+      return this.cache.get(key);
+    }
+
+    this.misses++;
+    return undefined;
+  }
+
+  set(
+    sessionType: string,
+    studentCount: number,
+    day: string,
+    timeBlocks: TimeBlock[],
+    occupiedClassroomsByBlock: Set<number>[],
+    result: ClassroomData | null
+  ): void {
+    const timeBlocksHash = timeBlocks.map(b => `${b.start}-${b.end}`).join(',');
+    const occupiedHash = occupiedClassroomsByBlock.map(s => Array.from(s).sort().join('-')).join('|');
+    const key = this.createKey(sessionType, studentCount, day, timeBlocksHash, occupiedHash);
+    this.cache.set(key, result);
+  }
+
+  clear(): void {
+    this.cache.clear();
+    this.hits = 0;
+    this.misses = 0;
+  }
+
+  getStats(): { hits: number; misses: number; hitRate: number; size: number } {
+    const total = this.hits + this.misses;
+    return {
+      hits: this.hits,
+      misses: this.misses,
+      hitRate: total > 0 ? this.hits / total : 0,
+      size: this.cache.size,
+    };
+  }
+}
+
+// Global cache instance (reset per schedule generation)
+let classroomCache = new ClassroomSelectionCache();
+
+export function resetClassroomCache(): void {
+  classroomCache = new ClassroomSelectionCache();
+}
+
+export function getClassroomCacheStats() {
+  return classroomCache.getStats();
+}
+
+/**
  * Find suitable classroom for multiple consecutive time blocks
  * Returns the best classroom based on capacity utilization and preferences
  */
@@ -105,6 +190,23 @@ export function findSuitableClassroomForBlocks(
   const adjustedStudentCount = courseCapacityMargin > 0
     ? Math.ceil(studentCount * (1 - courseCapacityMargin / 100))
     : studentCount;
+
+  // Check cache first
+  const cached = classroomCache.get(sessionType, adjustedStudentCount, day, timeBlocks, occupiedClassroomsByBlock);
+  if (cached !== undefined) {
+    // Verify cached classroom is still available and valid
+    if (cached === null) return null;
+
+    const stillValid = timeBlocks.every((block, idx) =>
+      !occupiedClassroomsByBlock[idx].has(cached.id) &&
+      isClassroomAvailable(cached.availableHours, day, block)
+    );
+
+    if (stillValid) {
+      return cached;
+    }
+    // Cache invalidated, continue to search
+  }
 
   const suitable = classrooms.filter((c) => {
     // Hard constraint: Check if classroom is active
@@ -180,7 +282,12 @@ export function findSuitableClassroomForBlocks(
     return a.capacity - b.capacity;
   });
 
-  return suitable[0] || null;
+  const result = suitable[0] || null;
+
+  // Cache the result for future lookups
+  classroomCache.set(sessionType, adjustedStudentCount, day, timeBlocks, occupiedClassroomsByBlock, result);
+
+  return result;
 }
 
 /**

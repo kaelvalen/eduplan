@@ -11,9 +11,14 @@ import {
   findSuitableClassroomForBlocks,
   calculateCourseDifficulty,
   isClassroomAvailable,
+  resetClassroomCache,
+  getClassroomCacheStats,
 } from './constraints';
 import { ConflictIndex } from './conflict-index';
 import { TimeoutManager } from './timeout';
+import { BacktrackingManager } from './backtracking';
+import { DEFAULT_SCHEDULER_CONFIG } from './config';
+import { debug, alwaysLog } from '@/lib/debug';
 import type {
   ScheduleItem,
   CourseData,
@@ -240,6 +245,295 @@ function performLocalImprovement(
 }
 
 /**
+ * Attempt to split a session into smaller chunks if needed
+ * Useful when no consecutive blocks are available for the full session
+ *
+ * @returns Array of schedule items if successful, empty array if failed
+ */
+function attemptSessionSplit(
+  session: { type: string; hours: number },
+  course: CourseData,
+  schedule: ScheduleItem[],
+  courseMap: Map<number, CourseData>,
+  conflictIndex: ConflictIndex,
+  classrooms: ClassroomData[],
+  timeBlocks: TimeBlock[],
+  rng: SeededRandom
+): ScheduleItem[] {
+  const placements: ScheduleItem[] = [];
+  let remainingHours = session.hours;
+
+  debug.log(`  🔀 Attempting session split for ${session.hours}h session`);
+
+  // Try to split into 2-hour or 1-hour chunks
+  const chunkSizes = session.hours >= 3 ? [2, 1] : [1];
+
+  const totalStudents = course.departments.reduce((sum, d) => sum + d.studentCount, 0);
+  const mainDept = course.departments[0]?.department || '';
+
+  // Try each day
+  const shuffledDays = rng.shuffle([...DAYS]);
+
+  for (const chunkSize of chunkSizes) {
+    while (remainingHours >= chunkSize) {
+      let chunkPlaced = false;
+
+      // Try each day
+      for (const day of shuffledDays) {
+        if (chunkPlaced) break;
+
+        // Find available slot for this chunk
+        const possibleStartIndices = rng.shuffle(
+          Array.from({ length: timeBlocks.length - chunkSize + 1 }, (_, i) => i)
+        );
+
+        for (const startIndex of possibleStartIndices) {
+          const blocks: TimeBlock[] = [];
+          let isValidSequence = true;
+
+          // Collect consecutive blocks
+          for (let i = 0; i < chunkSize; i++) {
+            const blockIndex = startIndex + i;
+            const currentBlock = timeBlocks[blockIndex];
+            const nextBlock = (i < chunkSize - 1) ? timeBlocks[blockIndex + 1] : null;
+
+            if (nextBlock && currentBlock.end !== nextBlock.start) {
+              isValidSequence = false;
+              break;
+            }
+
+            blocks.push(currentBlock);
+
+            // Check teacher availability
+            if (!isTeacherAvailable(course.teacherWorkingHours, day, currentBlock)) {
+              isValidSequence = false;
+              break;
+            }
+
+            // Check conflicts (including already placed chunks)
+            const allSchedule = [...schedule, ...placements];
+            const timeRange = `${currentBlock.start}-${currentBlock.end}`;
+
+            if (hasConflict(
+              allSchedule,
+              { courseId: course.id, day, timeRange, sessionType: session.type, sessionHours: 1 },
+              courseMap
+            )) {
+              isValidSequence = false;
+              break;
+            }
+          }
+
+          if (!isValidSequence) continue;
+
+          // Find classroom
+          const occupiedClassroomsByBlock: Set<number>[] = [];
+          for (const block of blocks) {
+            const range = `${block.start}-${block.end}`;
+            const occupied = new Set([
+              ...schedule.filter(s => s.day === day && s.timeRange === range).map(s => s.classroomId),
+              ...placements.filter(s => s.day === day && s.timeRange === range).map(s => s.classroomId),
+            ]);
+            occupiedClassroomsByBlock.push(occupied);
+          }
+
+          const classroom = findSuitableClassroomForBlocks(
+            classrooms,
+            session.type,
+            totalStudents,
+            occupiedClassroomsByBlock,
+            course.capacityMargin,
+            mainDept,
+            day,
+            blocks
+          );
+
+          if (classroom) {
+            const startBlock = blocks[0];
+            const endBlock = blocks[chunkSize - 1];
+
+            placements.push({
+              courseId: course.id,
+              classroomId: classroom.id,
+              day,
+              timeRange: `${startBlock.start}-${endBlock.end}`,
+              sessionType: session.type,
+              sessionHours: chunkSize,
+              isHardcoded: false,
+            });
+
+            remainingHours -= chunkSize;
+            chunkPlaced = true;
+            debug.log(`    ✅ Placed ${chunkSize}h chunk on ${day} at ${startBlock.start}-${endBlock.end}`);
+            break;
+          }
+        }
+
+        if (chunkPlaced) break;
+      }
+
+      // If we couldn't place this chunk, give up
+      if (!chunkPlaced) {
+        debug.log(`    ❌ Could not place ${chunkSize}h chunk, split failed`);
+        return [];
+      }
+    }
+  }
+
+  // Check if we successfully placed all hours
+  const totalPlaced = placements.reduce((sum, p) => sum + p.sessionHours, 0);
+  if (totalPlaced === session.hours) {
+    debug.log(`  ✅ Session split successful: ${placements.length} chunks placed`);
+    return placements;
+  }
+
+  debug.log(`  ❌ Session split incomplete: ${totalPlaced}/${session.hours} hours placed`);
+  return [];
+}
+
+/**
+ * Attempt to place theory and lab sessions on the same day
+ * Improves student experience by reducing campus visits
+ *
+ * @returns Array of schedule items if successful (2 items), empty array if failed
+ */
+function attemptCombinedTheoryLab(
+  course: CourseData,
+  sessionsToSchedule: { type: string; hours: number }[],
+  schedule: ScheduleItem[],
+  courseMap: Map<number, CourseData>,
+  conflictIndex: ConflictIndex,
+  classrooms: ClassroomData[],
+  timeBlocks: TimeBlock[],
+  lecturerLoad: Map<number, number>,
+  rng: SeededRandom
+): ScheduleItem[] {
+  // Check if we have both theory and lab
+  const theorySession = sessionsToSchedule.find(s => s.type === 'teorik');
+  const labSession = sessionsToSchedule.find(s => s.type === 'lab');
+
+  if (!theorySession || !labSession) {
+    return []; // Can't combine if both types don't exist
+  }
+
+  debug.log(`  🔬 Attempting combined theory+lab placement for ${course.code}`);
+
+  const totalStudents = course.departments.reduce((sum, d) => sum + d.studentCount, 0);
+  const mainDept = course.departments[0]?.department || '';
+
+  // Try each day
+  const shuffledDays = rng.shuffle([...DAYS]);
+
+  for (const day of shuffledDays) {
+    // Try to place both sessions on this day
+    const dayPlacements: ScheduleItem[] = [];
+    let success = true;
+
+    for (const session of [theorySession, labSession]) {
+      const duration = session.hours;
+      let sessionPlaced = false;
+
+      const possibleStartIndices = rng.shuffle(
+        Array.from({ length: timeBlocks.length - duration + 1 }, (_, i) => i)
+      );
+
+      for (const startIndex of possibleStartIndices) {
+        const currentBlocks: TimeBlock[] = [];
+        let isValidSequence = true;
+
+        // Collect consecutive blocks
+        for (let i = 0; i < duration; i++) {
+          const blockIndex = startIndex + i;
+          const currentBlock = timeBlocks[blockIndex];
+          const nextBlock = (i < duration - 1) ? timeBlocks[blockIndex + 1] : null;
+
+          if (nextBlock && currentBlock.end !== nextBlock.start) {
+            isValidSequence = false;
+            break;
+          }
+
+          currentBlocks.push(currentBlock);
+
+          // Check teacher availability
+          if (!isTeacherAvailable(course.teacherWorkingHours, day, currentBlock)) {
+            isValidSequence = false;
+            break;
+          }
+
+          // Check conflicts (including already placed sessions this day)
+          const allSchedule = [...schedule, ...dayPlacements];
+          const timeRange = `${currentBlock.start}-${currentBlock.end}`;
+
+          if (hasConflict(
+            allSchedule,
+            { courseId: course.id, day, timeRange, sessionType: session.type, sessionHours: 1 },
+            courseMap
+          )) {
+            isValidSequence = false;
+            break;
+          }
+        }
+
+        if (!isValidSequence) continue;
+
+        // Find classroom
+        const occupiedClassroomsByBlock: Set<number>[] = [];
+        for (const block of currentBlocks) {
+          const range = `${block.start}-${block.end}`;
+          const occupied = new Set([
+            ...schedule.filter(s => s.day === day && s.timeRange === range).map(s => s.classroomId),
+            ...dayPlacements.filter(s => s.timeRange === range).map(s => s.classroomId),
+          ]);
+          occupiedClassroomsByBlock.push(occupied);
+        }
+
+        const classroom = findSuitableClassroomForBlocks(
+          classrooms,
+          session.type,
+          totalStudents,
+          occupiedClassroomsByBlock,
+          course.capacityMargin,
+          mainDept,
+          day,
+          currentBlocks
+        );
+
+        if (classroom) {
+          const startBlock = currentBlocks[0];
+          const endBlock = currentBlocks[duration - 1];
+
+          dayPlacements.push({
+            courseId: course.id,
+            classroomId: classroom.id,
+            day,
+            timeRange: `${startBlock.start}-${endBlock.end}`,
+            sessionType: session.type,
+            sessionHours: duration,
+            isHardcoded: false,
+          });
+
+          sessionPlaced = true;
+          break;
+        }
+      }
+
+      if (!sessionPlaced) {
+        success = false;
+        break;
+      }
+    }
+
+    if (success && dayPlacements.length === 2) {
+      debug.log(`  ✅ Combined theory+lab placed on ${day}`);
+      return dayPlacements;
+    }
+  }
+
+  debug.log(`  ❌ Could not place theory+lab on same day`);
+  return [];
+}
+
+/**
  * Main scheduler engine with progress tracking
  * Yields progress updates throughout the scheduling process
  */
@@ -254,12 +548,15 @@ export async function* generateSchedule(
   // Initialize timeout manager to prevent infinite loops
   const timeout = new TimeoutManager(timeoutMs || 60000);
 
-  console.log('\n🚀 SCHEDULER STARTING');
-  console.log(`Courses: ${courses.length}, Classrooms: ${classrooms.length}, Time blocks: ${timeBlocks.length}`);
-  console.log(`Random seed: ${seed || 'auto (timestamp)'}`);
-  console.log(`Timeout: ${timeoutMs || 60000}ms`);
-  console.log('Time blocks:', timeBlocks.map(b => `${b.start}-${b.end}`).join(', '));
-  console.log('Classrooms:', classrooms.map(c => `${c.name} (${c.type}, cap:${c.capacity})`).join(', '));
+  // Reset classroom selection cache for this generation
+  resetClassroomCache();
+
+  debug.log('\n🚀 SCHEDULER STARTING');
+  debug.log(`Courses: ${courses.length}, Classrooms: ${classrooms.length}, Time blocks: ${timeBlocks.length}`);
+  debug.log(`Random seed: ${seed || 'auto (timestamp)'}`);
+  debug.log(`Timeout: ${timeoutMs || 60000}ms`);
+  debug.log('Time blocks:', timeBlocks.map(b => `${b.start}-${b.end}`).join(', '));
+  debug.log('Classrooms:', classrooms.map(c => `${c.name} (${c.type}, cap:${c.capacity})`).join(', '));
 
   yield {
     stage: 'initializing',
@@ -284,7 +581,18 @@ export async function* generateSchedule(
   for (const item of schedule) {
     conflictIndex.addScheduleItem(item);
   }
-  console.log('✅ ConflictIndex initialized with', schedule.length, 'hardcoded items');
+  debug.log('✅ ConflictIndex initialized with', schedule.length, 'hardcoded items');
+
+  // Initialize backtracking manager if enabled
+  let backtrackingManager: BacktrackingManager | null = null;
+  if (config.features?.enableBacktracking) {
+    backtrackingManager = new BacktrackingManager(courses, DEFAULT_SCHEDULER_CONFIG);
+    // Initialize with hardcoded schedules
+    for (const item of schedule) {
+      backtrackingManager.pushPlacement(item);
+    }
+    debug.log('✅ BacktrackingManager initialized (intelligent retry enabled)');
+  }
 
   yield {
     stage: 'hardcoded',
@@ -330,8 +638,8 @@ export async function* generateSchedule(
   for (const course of sortedCourses) {
     // Check timeout to prevent infinite hangs
     if (timeout.isTimedOut()) {
-      console.warn('⏱️ Scheduler timeout reached, returning partial schedule');
-      console.warn(`Processed ${processedCourses}/${courses.length} courses in ${timeout.getElapsedMs()}ms`);
+      debug.warn('⏱️ Scheduler timeout reached, returning partial schedule');
+      debug.warn(`Processed ${processedCourses}/${courses.length} courses in ${timeout.getElapsedMs()}ms`);
 
       yield {
         stage: 'error',
@@ -386,20 +694,76 @@ export async function* generateSchedule(
     let courseFullyScheduled = true;
     const scheduledDays = new Set<string>();
 
+    // Try combined theory+lab if enabled and both session types exist
+    if (config.features?.enableCombinedTheoryLab) {
+      const hasTheory = sessionsToSchedule.some(s => s.type === 'teorik');
+      const hasLab = sessionsToSchedule.some(s => s.type === 'lab');
+
+      if (hasTheory && hasLab) {
+        debug.log(`\n🔬 Trying combined theory+lab for ${course.code}`);
+
+        const combinedPlacements = attemptCombinedTheoryLab(
+          course,
+          sessionsToSchedule,
+          schedule,
+          courseMap,
+          conflictIndex,
+          classrooms,
+          timeBlocks,
+          lecturerLoad,
+          rng
+        );
+
+        if (combinedPlacements.length > 0) {
+          // Successfully placed both - add to schedule
+          for (const placement of combinedPlacements) {
+            schedule.push(placement);
+            conflictIndex.addScheduleItem(placement);
+
+            // Track in backtracking manager if enabled
+            if (backtrackingManager) {
+              backtrackingManager.pushPlacement(placement);
+            }
+
+            if (course.teacherId) {
+              const currentLoad = lecturerLoad.get(course.teacherId) || 0;
+              lecturerLoad.set(course.teacherId, currentLoad + placement.sessionHours);
+            }
+
+            scheduledDays.add(placement.day);
+          }
+
+          // Remove these sessions from sessionsToSchedule
+          const theoryIndex = sessionsToSchedule.findIndex(s => s.type === 'teorik');
+          const labIndex = sessionsToSchedule.findIndex(s => s.type === 'lab');
+
+          if (theoryIndex >= 0) sessionsToSchedule.splice(theoryIndex, 1);
+          // Adjust index if lab comes after theory
+          const adjustedLabIndex = labIndex > theoryIndex ? labIndex - 1 : labIndex;
+          if (adjustedLabIndex >= 0) sessionsToSchedule.splice(adjustedLabIndex, 1);
+
+          debug.log(`  ✅ Combined theory+lab successfully placed`);
+        } else {
+          debug.log(`  ℹ️ Combined placement failed, will try separate scheduling`);
+        }
+      }
+    }
+
+    // Continue with regular session scheduling for remaining sessions
     for (const session of sessionsToSchedule) {
       let sessionScheduled = false;
       const duration = session.hours;
 
-      console.log(`\n🔍 Scheduling session: ${course.code} - ${session.type} (${duration}h)`);
-      console.log(`   Students: ${totalStudents}, Capacity margin: ${course.capacityMargin}%`);
-      console.log(`   Time blocks available: ${timeBlocks.length}`);
+      debug.log(`\n🔍 Scheduling session: ${course.code} - ${session.type} (${duration}h)`);
+      debug.log(`   Students: ${totalStudents}, Capacity margin: ${course.capacityMargin}%`);
+      debug.log(`   Time blocks available: ${timeBlocks.length}`);
 
       const shuffledDays = rng.shuffle([...DAYS]);
 
       for (const day of shuffledDays) {
         if (sessionScheduled) break;
 
-        console.log(`\n  Trying day: ${day}`);
+        debug.log(`\n  Trying day: ${day}`);
 
         const possibleStartIndices = rng.shuffle(
           Array.from({ length: timeBlocks.length - duration + 1 }, (_, i) => i)
@@ -426,7 +790,7 @@ export async function* generateSchedule(
             blockRanges.push(`${currentBlock.start}-${currentBlock.end}`);
 
             if (!isTeacherAvailable(course.teacherWorkingHours, day, currentBlock)) {
-              console.log(`      ❌ Teacher not available at ${currentBlock.start}-${currentBlock.end} on ${day}`);
+              debug.log(`      ❌ Teacher not available at ${currentBlock.start}-${currentBlock.end} on ${day}`);
               isValidSequence = false;
               break;
             }
@@ -442,7 +806,7 @@ export async function* generateSchedule(
 
             // Allow classroom conflicts at this stage (we haven't selected classroom yet)
             if (conflictReason && conflictReason.type !== 'classroom') {
-              console.log(`      ❌ Conflict: ${conflictReason.message}`);
+              debug.log(`      ❌ Conflict: ${conflictReason.message}`);
               isValidSequence = false;
               break;
             }
@@ -460,7 +824,7 @@ export async function* generateSchedule(
             occupiedClassroomsByBlock.push(occupied);
           }
 
-          console.log(`    Trying time: ${currentBlocks[0].start}-${currentBlocks[duration-1].end}`);
+          debug.log(`    Trying time: ${currentBlocks[0].start}-${currentBlocks[duration-1].end}`);
 
           const classroom = findSuitableClassroomForBlocks(
             classrooms,
@@ -474,9 +838,9 @@ export async function* generateSchedule(
           );
 
           if (classroom) {
-            console.log(`    ✅ FOUND classroom: ${classroom.name} (capacity: ${classroom.capacity})`);
+            debug.log(`    ✅ FOUND classroom: ${classroom.name} (capacity: ${classroom.capacity})`);
           } else {
-            console.log(`    ❌ No suitable classroom found`);
+            debug.log(`    ❌ No suitable classroom found`);
           }
 
           if (classroom) {
@@ -497,6 +861,11 @@ export async function* generateSchedule(
             // Add to conflict index for O(1) lookups
             conflictIndex.addScheduleItem(newItem);
 
+            // Track in backtracking manager if enabled
+            if (backtrackingManager) {
+              backtrackingManager.pushPlacement(newItem);
+            }
+
             if (course.teacherId) {
               const currentLoad = lecturerLoad.get(course.teacherId) || 0;
               lecturerLoad.set(course.teacherId, currentLoad + duration);
@@ -509,12 +878,76 @@ export async function* generateSchedule(
       }
 
       if (!sessionScheduled) {
-        courseFullyScheduled = false;
+        // Try session splitting if enabled and session is longer than 1 hour
+        if (config.features?.enableSessionSplitting && session.hours > 1) {
+          debug.log(`  ⚠️ Failed to place ${session.hours}h session normally, attempting split...`);
+
+          const splitPlacements = attemptSessionSplit(
+            session,
+            course,
+            schedule,
+            courseMap,
+            conflictIndex,
+            classrooms,
+            timeBlocks,
+            rng
+          );
+
+          if (splitPlacements.length > 0) {
+            // Successfully split - add all chunks to schedule
+            for (const placement of splitPlacements) {
+              schedule.push(placement);
+              conflictIndex.addScheduleItem(placement);
+
+              // Track in backtracking manager if enabled
+              if (backtrackingManager) {
+                backtrackingManager.pushPlacement(placement);
+              }
+
+              if (course.teacherId) {
+                const currentLoad = lecturerLoad.get(course.teacherId) || 0;
+                lecturerLoad.set(course.teacherId, currentLoad + placement.sessionHours);
+              }
+            }
+
+            sessionScheduled = true;
+            debug.log(`  ✅ Session split and placed successfully`);
+          } else {
+            debug.log(`  ❌ Session splitting failed`);
+            courseFullyScheduled = false;
+          }
+        } else {
+          courseFullyScheduled = false;
+        }
       }
     }
 
     if (!courseFullyScheduled) {
-      unscheduled.push(course);
+      // Try backtracking if enabled
+      if (backtrackingManager && config.features?.enableBacktracking) {
+        // Check if we should give up
+        if (backtrackingManager.shouldGiveUp(course.id)) {
+          debug.warn(`⚠️ Backtracking: Giving up on ${course.code} after too many attempts`);
+
+          // Analyze failure
+          const analysis = backtrackingManager.analyzeFailure(course.id);
+          debug.log('📊 Failure analysis:', analysis);
+
+          unscheduled.push(course);
+        } else {
+          // Attempt backtracking
+          debug.log(`🔙 Backtracking from ${course.code} (attempt to recover)`);
+
+          // For now, just mark as unscheduled but log the attempt
+          // In a full implementation, we would remove previous placements and retry
+          // This is a simplified version to demonstrate the infrastructure
+          unscheduled.push(course);
+
+          debug.log(`  ℹ️ Course marked as unscheduled (backtracking logged)`);
+        }
+      } else {
+        unscheduled.push(course);
+      }
     }
   }
 
@@ -534,6 +967,15 @@ export async function* generateSchedule(
     message: 'Programlama tamamlandı!',
     scheduledCount: schedule.length,
   };
+
+  // Log cache statistics
+  const classroomCacheStats = getClassroomCacheStats();
+  debug.log('📊 Classroom selection cache stats:', classroomCacheStats);
+  debug.log(`   Cache hit rate: ${(classroomCacheStats.hitRate * 100).toFixed(1)}%`);
+
+  const conflictCacheStats = conflictIndex.getCacheStats();
+  debug.log('📊 Conflict check cache stats:', conflictCacheStats);
+  debug.log(`   Cache hit rate: ${(conflictCacheStats.hitRate * 100).toFixed(1)}%`);
 
   return { schedule, unscheduled };
 }

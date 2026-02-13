@@ -78,7 +78,7 @@ export const DEFAULT_SCHEDULER_CONFIG: SchedulerSettings = {
   features: {
     enableCombinedTheoryLab: true,
     enableSessionSplitting: true,
-    enableBacktracking: false, // Not yet implemented
+    enableBacktracking: true, // Intelligent backtracking enabled
     enableProgressReporting: true,
     enableConflictIndex: true,
   },

@@ -37,6 +37,11 @@ export class ConflictIndex {
   // Course cache for quick lookups
   private courseMap: Map<number, CourseData>;
 
+  // Conflict check cache
+  private conflictCache: Map<string, ConflictReason | null>;
+  private cacheHits: number = 0;
+  private cacheMisses: number = 0;
+
   constructor(courses: CourseData[]) {
     this.teacherSchedule = new Map();
     this.classroomSchedule = new Map();
@@ -44,6 +49,7 @@ export class ConflictIndex {
     this.timeSlotCourses = new Map();
     this.classroomScheduleItems = new Map();
     this.courseMap = new Map(courses.map(c => [c.id, c]));
+    this.conflictCache = new Map();
   }
 
   /**
@@ -90,6 +96,9 @@ export class ConflictIndex {
     // Index by classroom schedule item
     const classroomTimeKey = `${item.classroomId}|${timeKey}`;
     this.classroomScheduleItems.set(classroomTimeKey, item.courseId);
+
+    // Invalidate cache since schedule changed
+    this.conflictCache.clear();
   }
 
   /**
@@ -124,6 +133,9 @@ export class ConflictIndex {
     // Remove from classroom schedule items index
     const classroomTimeKey = `${item.classroomId}|${timeKey}`;
     this.classroomScheduleItems.delete(classroomTimeKey);
+
+    // Invalidate cache since schedule changed
+    this.conflictCache.clear();
   }
 
   /**
@@ -180,12 +192,24 @@ export class ConflictIndex {
     // Normalize day name to handle Turkish/English variations
     const normalizedDay = normalizeDayName(day);
 
+    // Check cache first
+    const cacheKey = this.getCacheKey(courseId, classroomId, normalizedDay, timeRange);
+
+    if (this.conflictCache.has(cacheKey)) {
+      this.cacheHits++;
+      return this.conflictCache.get(cacheKey)!;
+    }
+
+    this.cacheMisses++;
+
     const course = this.courseMap.get(courseId);
     if (!course) {
-      return {
-        type: 'department',
+      const result = {
+        type: 'department' as const,
         message: 'Course not found in index',
       };
+      this.conflictCache.set(cacheKey, result);
+      return result;
     }
 
     // Check teacher conflict
@@ -201,8 +225,8 @@ export class ConflictIndex {
           return { id, code: c?.code, name: c?.name };
         });
 
-      return {
-        type: 'teacher',
+      const result = {
+        type: 'teacher' as const,
         message: `Öğretmen çakışması: Bu öğretmen ${normalizedDay} günü ${timeRange} saatinde başka bir derste`,
         details: {
           teacherId: course.teacherId,
@@ -211,6 +235,8 @@ export class ConflictIndex {
           timeRange,
         },
       };
+      this.conflictCache.set(cacheKey, result);
+      return result;
     }
 
     // Check classroom conflict
@@ -227,8 +253,8 @@ export class ConflictIndex {
           })
         : [];
 
-      return {
-        type: 'classroom',
+      const result = {
+        type: 'classroom' as const,
         message: `Derslik çakışması: ${classroomId} numaralı derslik ${normalizedDay} günü ${timeRange} saatinde dolu`,
         details: {
           classroomId,
@@ -237,6 +263,8 @@ export class ConflictIndex {
           timeRange,
         },
       };
+      this.conflictCache.set(cacheKey, result);
+      return result;
     }
 
     // Check department conflict (compulsory courses)
@@ -259,8 +287,8 @@ export class ConflictIndex {
         });
 
       const deptNames = course.departments.map(d => d.department).join(', ');
-      return {
-        type: 'department',
+      const result = {
+        type: 'department' as const,
         message: `Zorunlu ders çakışması: ${deptNames} bölümü ${course.level}. sınıf ${course.semester} döneminde ${normalizedDay} günü ${timeRange} saatinde başka zorunlu ders var`,
         details: {
           departments: course.departments.map(d => d.department),
@@ -271,8 +299,12 @@ export class ConflictIndex {
           timeRange,
         },
       };
+      this.conflictCache.set(cacheKey, result);
+      return result;
     }
 
+    // No conflict found - cache the result
+    this.conflictCache.set(cacheKey, null);
     return null;
   }
 
@@ -335,5 +367,33 @@ export class ConflictIndex {
       uniqueTimeSlots: this.timeSlotCourses.size,
       totalScheduledItems: totalItems,
     };
+  }
+
+  /**
+   * Clear conflict check cache
+   * Call this when schedule is modified
+   */
+  clearCache(): void {
+    this.conflictCache.clear();
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getCacheStats(): { hits: number; misses: number; hitRate: number; size: number } {
+    const total = this.cacheHits + this.cacheMisses;
+    return {
+      hits: this.cacheHits,
+      misses: this.cacheMisses,
+      hitRate: total > 0 ? this.cacheHits / total : 0,
+      size: this.conflictCache.size,
+    };
+  }
+
+  /**
+   * Create cache key for conflict checking
+   */
+  private getCacheKey(courseId: number, classroomId: number, day: string, timeRange: string): string {
+    return `${courseId}|${classroomId}|${day}|${timeRange}`;
   }
 }
