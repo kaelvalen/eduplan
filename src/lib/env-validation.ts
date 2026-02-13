@@ -10,8 +10,6 @@ interface RequiredEnvVars {
 }
 
 interface OptionalEnvVars {
-  TURSO_DATABASE_URL?: string;
-  TURSO_AUTH_TOKEN?: string;
   NODE_ENV?: string;
   DATABASE_URL?: string;
 }
