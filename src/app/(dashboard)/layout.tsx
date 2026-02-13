@@ -124,16 +124,16 @@ export default function DashboardLayout({
         <LoadingBar />
       </Suspense>
       
-      {/* Desktop Sidebar */}
-      <div className="hidden md:block">
+      {/* Desktop Sidebar - hidden when printing */}
+      <div className="hidden md:block print:hidden">
         <Sidebar
           isCollapsed={sidebarCollapsed}
           onToggleCollapse={handleToggleCollapse}
         />
       </div>
       
-      {/* Mobile Sidebar */}
-      <div className="md:hidden">
+      {/* Mobile Sidebar - hidden when printing */}
+      <div className="md:hidden print:hidden">
         <Sidebar
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
@@ -143,27 +143,33 @@ export default function DashboardLayout({
       {/* Main Content */}
       <div
         className={cn(
-          'transition-all duration-300 min-h-screen',
+          'transition-all duration-300 min-h-screen print:pl-0',
           sidebarCollapsed ? 'md:pl-[72px]' : 'md:pl-72'
         )}
       >
-        <Header
-          onMenuClick={() => setSidebarOpen(true)}
-          showMenuButton
-          onSearchClick={commandPalette.open}
-        />
-        <main className="p-3 sm:p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
+        <div className="print:hidden">
+          <Header
+            onMenuClick={() => setSidebarOpen(true)}
+            showMenuButton
+            onSearchClick={commandPalette.open}
+          />
+        </div>
+        <main className="p-3 sm:p-4 md:p-6 lg:p-8 pb-24 md:pb-8 print:p-0 print:pb-0">
           {children}
         </main>
       </div>
       
-      {/* Mobile Bottom Navigation */}
-      <BottomNav />
+      {/* Mobile Bottom Navigation - hidden when printing */}
+      <div className="print:hidden">
+        <BottomNav />
+      </div>
 
-      {/* Scroll to Top Button */}
-      <ScrollToTop />
+      {/* Scroll to Top Button - hidden when printing */}
+      <div className="print:hidden">
+        <ScrollToTop />
+      </div>
       
-      {/* Command Palette */}
+      {/* Command Palette - hidden when printing */}
       <CommandPalette isOpen={commandPalette.isOpen} onClose={commandPalette.close} />
     </div>
   );

@@ -33,15 +33,18 @@ export function DraggableScheduleCard({
       }
     : undefined;
 
+  const slotHeightPx = 48; // Program tablosundaki tek satır yüksekliği (px)
+  const minHeightPx = rowSpan * slotHeightPx;
+
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ ...style, minHeight: minHeightPx, height: rowSpan > 1 ? '100%' : undefined }}
       {...listeners}
       {...attributes}
       onClick={onClick}
       className={cn(
-        'text-xs p-2 rounded border bg-card shadow-sm h-full flex flex-col justify-center transition-all',
+        'text-xs p-2 rounded border bg-card shadow-sm flex flex-col justify-center transition-all',
         isAdmin && 'cursor-move hover:bg-primary/10 hover:border-primary/50 hover:shadow-md',
         isDragging && 'opacity-50 scale-105 shadow-lg'
       )}

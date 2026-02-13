@@ -303,7 +303,8 @@ export function hasConflict(
   if (!course) return true;
 
   for (const item of schedule) {
-    if (item.day !== newItem.day || item.timeRange !== newItem.timeRange) continue;
+    if (item.day !== newItem.day) continue;
+    if (!timeRangesOverlap(item.timeRange, newItem.timeRange)) continue;
 
     const existingCourse = courses.get(item.courseId);
     if (!existingCourse) continue;

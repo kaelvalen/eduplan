@@ -59,7 +59,7 @@ const LEVELS = ['1', '2', '3', '4'] as const;
 export default function ProgramViewPage() {
     const { schedules, isLoading: schedulesLoading, deleteByDays, fetchSchedules, updateSchedule } = useSchedules();
     const { data: courses = [], isLoading: coursesLoading } = useCourses();
-    const { isAdmin } = useAuth();
+    const { isAdmin, token } = useAuth();
     const [settings, setSettings] = useState<SystemSettings | null>(null);
 
     const [selectedFaculty, setSelectedFaculty] = useState<string>('');
@@ -215,11 +215,12 @@ export default function ProgramViewPage() {
 
     // Fetch time settings for lunch break detection and dynamic slots
     useEffect(() => {
-        fetch('/api/settings', { credentials: 'include' })
+        if (!token) return;
+        fetch('/api/settings', { headers: { Authorization: `Bearer ${token}` } })
             .then(res => res.ok ? res.json() : null)
             .then(data => data && setSettings(data))
             .catch(console.error);
-    }, []);
+    }, [token]);
 
     // Generate dynamic time slots based on settings
     const dynamicTimeSlots = useMemo(() => {
@@ -430,6 +431,7 @@ export default function ProgramViewPage() {
         >
             <div className={styles.pageContainer}>
                 <PageHeader
+                    className="print:hidden"
                     title="Ders Programı"
                     description="Bölüm ve sınıf bazlı ders programları"
                     icon={Calendar}
@@ -466,7 +468,7 @@ export default function ProgramViewPage() {
                 }
             />
             
-            {/* Delete Confirmation Dialog */}
+            {/* Delete Confirmation Dialog - not printed */}
             <Dialog open={deleteConfirm} onOpenChange={setDeleteConfirm}>
                 <DialogContent>
                     <DialogHeader>
@@ -482,8 +484,8 @@ export default function ProgramViewPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Filters */}
-            <div className="flex flex-wrap gap-4 mb-6">
+            {/* Filters - hidden when printing */}
+            <div className="flex flex-wrap gap-4 mb-6 print:hidden">
                 <Select value={selectedFaculty} onValueChange={(value) => {
                     setSelectedFaculty(value === 'all' ? '' : value);
                     setSelectedDepartment('');
@@ -553,10 +555,12 @@ export default function ProgramViewPage() {
                 </Card>
             ) : (
                 <div className="space-y-6">
+                    {/* Print: title only on first page */}
+                    <h2 className="text-xl font-semibold mb-4 print:mb-2 hidden print:block">Ders Programları</h2>
                     {Object.entries(groupedSchedules)
                         .sort(([a], [b]) => a.localeCompare(b))
                         .map(([deptCode, levels]) => (
-                            <Card key={deptCode}>
+                            <Card key={deptCode} className="print:break-after-page print:shadow-none print:border print:break-inside-avoid">
                                 <CardHeader className="pb-2">
                                     <CardTitle className="flex items-center gap-2">
                                         <Building2 className="h-5 w-5 text-primary" />

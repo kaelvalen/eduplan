@@ -37,10 +37,14 @@ export function DroppableTimeSlot({
     disabled: !isAdmin || !!schedule, // Disable if not admin or slot is occupied
   });
 
+  const slotHeightPx = 48; // Her satır yüksekliği (padding + içerik)
+  const cellMinHeight = schedule ? rowSpan * slotHeightPx : undefined;
+
   return (
     <td
       ref={setNodeRef}
       rowSpan={schedule ? rowSpan : 1}
+      style={cellMinHeight != null ? { minHeight: cellMinHeight } : undefined}
       className={cn(
         'p-1 border-r last:border-r-0 align-top transition-colors',
         schedule && 'bg-primary/5',

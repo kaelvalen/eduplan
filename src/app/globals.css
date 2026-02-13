@@ -535,4 +535,18 @@
     outline: 3px solid hsl(var(--ring));
     outline-offset: 2px;
   }
+
+  /* Print: hide UI, show only program content */
+  @media print {
+    [role="dialog"],
+    [data-state="open"][role="dialog"],
+    [data-radix-popper-content-wrapper],
+    .pointer-events-none[style*="position: fixed"] {
+      display: none !important;
+    }
+    body {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
 }
