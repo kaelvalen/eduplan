@@ -22,7 +22,7 @@ export const CourseDepartmentSchema = z.object({
 const BaseCourseSchema = z.object({
   name: z.string().min(2, 'Ders adı en az 2 karakter olmalıdır').max(200, 'Ders adı en fazla 200 karakter olabilir'),
   code: z.string().regex(/^[A-Z]{2,4}\d{3,4}$/, 'Kod formatı hatalı (örn: BIL101, CENG1001)'),
-  teacher_id: z.number().positive('Geçerli bir öğretmen seçin').nullable().optional(),
+  teacher_id: z.number().positive('Geçerli bir öğretim elemanı seçin').nullable().optional(),
   faculty: z.string().min(1, 'Fakülte seçimi zorunludur'),
   level: z.enum(['1', '2', '3', '4'], 'Geçerli bir sınıf seçin (1-4)'),
   category: z.enum(['zorunlu', 'secmeli'], 'Kategori zorunlu veya seçmeli olmalıdır'),

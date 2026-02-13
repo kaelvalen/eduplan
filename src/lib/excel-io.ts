@@ -64,8 +64,8 @@ export function mapCoursesForExport(rows: Course[]): Record<string, unknown>[] {
       'Ders Kodu': c.code,
       'Ders Adı': c.name,
       'Fakülte': c.faculty,
-      'Öğretmen ID': c.teacher_id ?? '',
-      'Öğretmen': c.teacher?.name ?? '',
+      'Öğretim Elemanı ID': c.teacher_id ?? '',
+      'Öğretim Elemanı': c.teacher?.name ?? '',
       'Seviye': c.level,
       'Kategori': c.category,
       'Dönem': c.semester,
@@ -106,7 +106,7 @@ export function mapSchedulesForExport(rows: Schedule[]): Record<string, unknown>
     'Ders Kodu': s.course?.code ?? '',
     'Ders Adı': s.course?.name ?? '',
     'Derslik': s.classroom?.name ?? '',
-    'Öğretmen': s.course?.teacher?.name ?? '',
+    'Öğretim Elemanı': s.course?.teacher?.name ?? '',
   }));
 }
 
@@ -117,8 +117,8 @@ const COURSE_HEADERS = [
   'Ders Kodu',
   'Ders Adı',
   'Fakülte',
-  'Öğretmen ID',
-  'Öğretmen E-posta',
+  'Öğretim Elemanı ID',
+  'Öğretim Elemanı E-posta',
   'Seviye',
   'Kategori',
   'Dönem',
@@ -164,7 +164,7 @@ function workbookWithDataAndDescription(
 export function downloadTeacherTemplate(): void {
   const rows = [
     TEACHER_HEADERS,
-    ['Örnek Öğretmen', 'ornek@ankara.edu.tr', 'Öğr. Gör.', 'muhendislik', 'bilgisayar', 'Evet'],
+    ['Örnek Öğretim Elemanı', 'ornek@ankara.edu.tr', 'Öğr. Gör.', 'muhendislik', 'bilgisayar', 'Evet'],
   ];
   const desc = [
     'Fakülte: muhendislik, fen, dil-tarih, ... (sistemdeki ID)',
@@ -182,7 +182,7 @@ export function downloadCourseTemplate(): void {
   ];
   const desc = [
     'Ders Kodu: BIL101, CENG1001 gibi (büyük harf + rakam)',
-    'Öğretmen ID veya Öğretmen E-posta: ID geçerliyse kullanılır; yoksa e-posta ile sistemdeki öğretmen eşlenir.',
+    'Öğretim Elemanı ID veya Öğretim Elemanı E-posta: ID geçerliyse kullanılır; yoksa e-posta ile sistemdeki öğretim elemanı eşlenir.',
     'Oturum 1–3 Tür / Süre: Her oturum için Tür (Teorik / Laboratuvar) ve Süre (saat). Toplam = Haftalık Saat. Oturum yoksa yalnızca Haftalık Saat kullanılır.',
     'Seviye: 1, 2, 3 veya 4. Kategori: zorunlu / secmeli. Dönem: güz / bahar.',
     'Bölüm + Öğrenci Sayısı: dersin verildiği bölüm ve öğrenci sayısı.',
@@ -251,10 +251,14 @@ const COURSE_MAP: Record<string, string> = {
   'ad': 'Ders Adı',
   'fakülte': 'Fakülte',
   'fakulte': 'Fakülte',
-  'öğretmen id': 'Öğretmen ID',
-  'ogretmen id': 'Öğretmen ID',
-  'öğretmen e-posta': 'Öğretmen E-posta',
-  'ogretmen e-posta': 'Öğretmen E-posta',
+  'öğretmen id': 'Öğretim Elemanı ID',
+  'ogretmen id': 'Öğretim Elemanı ID',
+  'öğretim elemanı id': 'Öğretim Elemanı ID',
+  'ogretim elemani id': 'Öğretim Elemanı ID',
+  'öğretmen e-posta': 'Öğretim Elemanı E-posta',
+  'ogretmen e-posta': 'Öğretim Elemanı E-posta',
+  'öğretim elemanı e-posta': 'Öğretim Elemanı E-posta',
+  'ogretim elemani e-posta': 'Öğretim Elemanı E-posta',
   'seviye': 'Seviye',
   'kategori': 'Kategori',
   'dönem': 'Dönem',
@@ -381,15 +385,15 @@ export function validateAndMapCourses(
     const code = String(row['Ders Kodu'] ?? '').trim().toUpperCase();
     const name = String(row['Ders Adı'] ?? '').trim();
     const faculty = String(row['Fakülte'] ?? '').trim();
-    const teacherIdRaw = row['Öğretmen ID'];
+    const teacherIdRaw = row['Öğretim Elemanı ID'];
     let teacher_id = typeof teacherIdRaw === 'number' ? teacherIdRaw : parseInt(String(teacherIdRaw || ''), 10);
-    const emailRaw = String(row['Öğretmen E-posta'] ?? '').trim().toLowerCase();
+    const emailRaw = String(row['Öğretim Elemanı E-posta'] ?? '').trim().toLowerCase();
 
     if (isNaN(teacher_id) || !existingTeacherIds.has(teacher_id)) {
       if (emailRaw && teacherEmailToId?.has(emailRaw)) {
         teacher_id = teacherEmailToId.get(emailRaw)!;
       } else {
-        return { ok: false, error: 'Geçerli Öğretmen ID veya Öğretmen E-posta gerekli (e-posta sistemde kayıtlı olmalı)', rowIndex: i + 1 };
+        return { ok: false, error: 'Geçerli Öğretim Elemanı ID veya Öğretim Elemanı E-posta gerekli (e-posta sistemde kayıtlı olmalı)', rowIndex: i + 1 };
       }
     }
 

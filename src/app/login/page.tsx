@@ -45,7 +45,7 @@ const features = [
   { 
     icon: Users, 
     text: 'Kolay Yönetim', 
-    description: 'Öğretmen ve derslik yönetimi',
+    description: 'Öğretim elemanı ve derslik yönetimi',
     gradient: 'from-emerald-500 to-teal-500',
     bgGradient: 'from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20'
   },
@@ -120,7 +120,7 @@ export default function LoginPage() {
 
     try {
       await login(credentials.username, credentials.password);
-      toast.success(`${user === 'admin' ? 'Yönetici' : 'Öğretmen'} olarak giriş yapıldı!`);
+      toast.success(`${user === 'admin' ? 'Yönetici' : 'Öğretim Elemanı'} olarak giriş yapıldı!`);
       router.push('/');
     } catch (error: unknown) {
       toast.error('Giriş yapılamadı');
@@ -445,7 +445,7 @@ export default function LoginPage() {
                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/0 to-teal-500/0 group-hover:from-emerald-500/10 group-hover:to-teal-500/10 transition-all duration-300" />
                     <BookOpen className="h-4 w-4 text-emerald-600 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 relative z-10" />
                     <div className="text-center relative z-10">
-                      <div className="text-xs font-semibold">Öğretmen</div>
+                      <div className="text-xs font-semibold">Öğretim Elemanı</div>
                       <div className="text-[10px] text-muted-foreground font-medium">teacher</div>
                     </div>
                   </Button>

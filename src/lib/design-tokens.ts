@@ -97,8 +97,8 @@ export const colors = {
 // Page configurations
 export const pageConfig = {
   teachers: {
-    title: 'Öğretmenler',
-    description: 'Öğretmen bilgilerini görüntüle ve yönet',
+    title: 'Öğretim Elemanları',
+    description: 'Öğretim elemanı bilgilerini görüntüle ve yönet',
     ...colors.entities.teachers,
   },
   courses: {

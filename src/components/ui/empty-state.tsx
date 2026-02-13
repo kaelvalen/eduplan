@@ -74,9 +74,9 @@ export function NoTeachers({ onAdd }: { onAdd?: () => void }) {
   return (
     <EmptyState
       icon={Users}
-      title="Öğretmen bulunamadı"
-      description="Henüz öğretmen eklenmemiş. Yeni öğretmen ekleyerek başlayın."
-      action={onAdd ? { label: 'Öğretmen Ekle', onClick: onAdd } : undefined}
+      title="Öğretim elemanı bulunamadı"
+      description="Henüz öğretim elemanı eklenmemiş. Yeni öğretim elemanı ekleyerek başlayın."
+      action={onAdd ? { label: 'Öğretim Elemanı Ekle', onClick: onAdd } : undefined}
     />
   );
 }

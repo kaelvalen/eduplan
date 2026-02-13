@@ -20,7 +20,7 @@ export function BottomNav() {
       icon: CalendarDays,
     },
     {
-      label: 'Öğretmenler',
+      label: 'Öğretim Elemanları',
       href: '/teachers',
       icon: Users,
     },

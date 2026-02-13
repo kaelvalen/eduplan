@@ -84,7 +84,7 @@ export default function UserManualPage() {
                             <li className="flex items-start gap-3">
                                 <Badge className="mt-0.5">1</Badge>
                                 <div>
-                                    <p className="font-medium">Öğretmenleri Ekleyin</p>
+                                    <p className="font-medium">Öğretim Elemanlarını Ekleyin</p>
                                     <p className="text-sm text-muted-foreground">İsim, fakülte, bölüm ve uygunluk saatlerini belirleyin</p>
                                 </div>
                             </li>
@@ -122,22 +122,22 @@ export default function UserManualPage() {
                         {/* Teachers Module */}
                         <ModuleSection 
                             icon={<Users className="h-4 w-4 text-blue-500" />}
-                            title="Öğretmenler"
+                            title="Öğretim Elemanları"
                         >
                             <div className="space-y-3 text-sm">
-                                <p>Öğretmenler modülü, akademik personelin yönetimini sağlar.</p>
+                                <p>Öğretim Elemanları modülü, akademik personelin yönetimini sağlar.</p>
                                 <div className="space-y-2">
                                     <p className="font-medium">Temel Alanlar:</p>
                                     <ul className="ml-4 list-disc space-y-1 text-muted-foreground">
-                                        <li><strong>Ad Soyad:</strong> Öğretmenin tam adı</li>
+                                        <li><strong>Ad Soyad:</strong> Öğretim elemanının tam adı</li>
                                         <li><strong>Ünvan:</strong> Prof. Dr., Doç. Dr., Dr. Öğr. Üyesi vb.</li>
                                         <li><strong>Fakülte/Bölüm:</strong> Bağlı olduğu birim</li>
                                         <li><strong>Uygunluk Saatleri:</strong> Ders verilebilecek zaman dilimleri</li>
-                                        <li><strong>Aktif/Pasif:</strong> Pasif öğretmenler programlamaya dahil edilmez</li>
+                                        <li><strong>Aktif/Pasif:</strong> Pasif öğretim elemanları programlamaya dahil edilmez</li>
                                     </ul>
                                 </div>
                                 <div className="p-2 rounded bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-xs">
-                                    💡 Uygunluk saati belirtilmezse öğretmen tüm saatlerde müsait kabul edilir
+                                    💡 Uygunluk saati belirtilmezse öğretim elemanı tüm saatlerde müsait kabul edilir
                                 </div>
                             </div>
                         </ModuleSection>
@@ -251,7 +251,7 @@ export default function UserManualPage() {
                                 <div className="space-y-2">
                                     <p className="font-medium">Desteklenen İşlemler:</p>
                                     <ul className="ml-4 list-disc space-y-1 text-muted-foreground">
-                                        <li>Öğretmenleri Excel&apos;den içe aktar</li>
+                                        <li>Öğretim elemanlarını Excel&apos;den içe aktar</li>
                                         <li>Derslikleri Excel&apos;den içe aktar</li>
                                         <li>Dersleri Excel&apos;den içe aktar</li>
                                         <li>Ders programını Excel&apos;e dışa aktar</li>
@@ -276,9 +276,9 @@ export default function UserManualPage() {
                         </CardHeader>
                         <CardContent className="space-y-2 text-sm text-muted-foreground">
                             <p>• Önce az sayıda veri ile test edin</p>
-                            <p>• Pasif öğretmen/derslik/ders programlamaya dahil edilmez</p>
+                            <p>• Pasif öğretim elemanı/derslik/ders programlamaya dahil edilmez</p>
                             <p>• Sabit programlar her durumda korunur</p>
-                            <p>• Öğretmen profilinden haftalık programı görüntüleyebilirsiniz</p>
+                            <p>• Öğretim elemanı profilinden haftalık programı görüntüleyebilirsiniz</p>
                             <p>• Filtreler ile büyük veri setlerini yönetin</p>
                         </CardContent>
                     </Card>
@@ -295,7 +295,7 @@ export default function UserManualPage() {
                             <p>• Silme işlemleri kalıcıdır</p>
                             <p>• Çok sayıda ders olduğunda işlem zaman alabilir</p>
                             <p>• Yetersiz derslik varsa bazı dersler yerleştirilemez</p>
-                            <p>• Öğretmen çakışmaları program oluşturmayı engeller</p>
+                            <p>• Öğretim elemanı çakışmaları program oluşturmayı engeller</p>
                         </CardContent>
                     </Card>
                 </div>

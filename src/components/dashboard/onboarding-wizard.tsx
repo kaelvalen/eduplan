@@ -30,14 +30,14 @@ export function OnboardingWizard({ stats, className }: OnboardingWizardProps) {
     },
     {
       id: 'teachers',
-      title: 'Öğretmenler',
-      description: 'Okulunuzdaki öğretmenleri sisteme ekleyin.',
+      title: 'Öğretim Elemanları',
+      description: 'Öğretim elemanlarını sisteme ekleyin.',
       icon: Users,
       href: '/teachers/new',
       isComplete: stats.teacherCount > 0,
       currentCount: stats.teacherCount,
       targetCount: 5, // Suggest at least 5
-      actionLabel: 'Öğretmen Ekle',
+      actionLabel: 'Öğretim Elemanı Ekle',
     },
     {
       id: 'classrooms',

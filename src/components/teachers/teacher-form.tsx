@@ -70,7 +70,7 @@ export function TeacherForm({ teacherId }: TeacherFormProps) {
           });
           setWorkingHours(parseWorkingHours(teacher.working_hours ?? '{}'));
         } catch (error) {
-          toast.error('Öğretmen bilgileri yüklenirken bir hata oluştu');
+          toast.error('Öğretim elemanı bilgileri yüklenirken bir hata oluştu');
           router.push('/teachers');
         } finally {
           setIsFetching(false);
@@ -97,10 +97,10 @@ export function TeacherForm({ teacherId }: TeacherFormProps) {
 
       if (teacherId) {
         await teachersApi.update(teacherId, data);
-        toast.success('Öğretmen başarıyla güncellendi');
+        toast.success('Öğretim elemanı başarıyla güncellendi');
       } else {
         await teachersApi.create(data);
-        toast.success('Öğretmen başarıyla eklendi');
+        toast.success('Öğretim elemanı başarıyla eklendi');
       }
       router.push('/teachers');
       router.refresh(); // Force refresh to update the page
@@ -154,7 +154,7 @@ export function TeacherForm({ teacherId }: TeacherFormProps) {
               id="name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Öğretmen adı"
+              placeholder="Öğretim elemanı adı"
               required
             />
           </div>

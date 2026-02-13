@@ -548,5 +548,13 @@
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
+    /* Her sınıf bloğu yazdırmada açık görünsün (şablon: sayfa = 1 sınıf) */
+    .print-class-block[data-state="closed"],
+    .print-class-block[data-state="closed"] > div {
+      display: block !important;
+      height: auto !important;
+      overflow: visible !important;
+      visibility: visible !important;
+    }
   }
 }

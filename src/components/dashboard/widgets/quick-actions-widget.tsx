@@ -16,8 +16,8 @@ interface QuickAction {
 
 const quickActions: QuickAction[] = [
   {
-    label: 'Öğretmen Ekle',
-    description: 'Yeni öğretmen kaydı',
+    label: 'Öğretim Elemanı Ekle',
+    description: 'Yeni öğretim elemanı kaydı',
     icon: Users,
     href: '/teachers/new',
     color: 'bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/30',

@@ -16,7 +16,7 @@ export const GET = withAuth(async (request: NextRequest, user, context: any) => 
     
     if (isNaN(id)) {
       return NextResponse.json(
-        { error: 'Geçersiz öğretmen ID' },
+        { error: 'Geçersiz öğretim elemanı ID' },
         { status: 400 }
       );
     }
@@ -25,7 +25,7 @@ export const GET = withAuth(async (request: NextRequest, user, context: any) => 
     
     if (!teacher) {
       return NextResponse.json(
-        { error: 'Öğretmen bulunamadı' },
+        { error: 'Öğretim elemanı bulunamadı' },
         { status: 404 }
       );
     }
@@ -34,7 +34,7 @@ export const GET = withAuth(async (request: NextRequest, user, context: any) => 
   } catch (error) {
     console.error('Get teacher error:', error);
     return NextResponse.json(
-      { error: 'Öğretmen yüklenirken bir hata oluştu' },
+      { error: 'Öğretim elemanı yüklenirken bir hata oluştu' },
       { status: 500 }
     );
   }
@@ -55,7 +55,7 @@ export const PUT = withAdminAndValidation<UpdateTeacherInput>(
       
       if (isNaN(id)) {
         return NextResponse.json(
-          { error: 'Geçersiz öğretmen ID' },
+          { error: 'Geçersiz öğretim elemanı ID' },
           { status: 400 }
         );
       }
@@ -65,7 +65,7 @@ export const PUT = withAdminAndValidation<UpdateTeacherInput>(
     } catch (error) {
       console.error('Update teacher error:', error);
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : 'Öğretmen güncellenirken bir hata oluştu' },
+        { error: error instanceof Error ? error.message : 'Öğretim elemanı güncellenirken bir hata oluştu' },
         { status: error instanceof Error && error.message.includes('zaten') ? 400 : 500 }
       );
     }
@@ -85,17 +85,17 @@ export const DELETE = withAdmin(async (request: NextRequest, user, context: any)
     
     if (isNaN(id)) {
       return NextResponse.json(
-        { error: 'Geçersiz öğretmen ID' },
+        { error: 'Geçersiz öğretim elemanı ID' },
         { status: 400 }
       );
     }
 
     await teacherService.deleteTeacher(id);
-    return NextResponse.json({ message: 'Öğretmen başarıyla silindi' });
+    return NextResponse.json({ message: 'Öğretim elemanı başarıyla silindi' });
   } catch (error) {
     console.error('Delete teacher error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Öğretmen silinirken bir hata oluştu' },
+      { error: error instanceof Error ? error.message : 'Öğretim elemanı silinirken bir hata oluştu' },
       { status: error instanceof Error && error.message.includes('dersleri') ? 400 : 500 }
     );
   }

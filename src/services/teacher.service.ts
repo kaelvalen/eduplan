@@ -239,7 +239,7 @@ export class TeacherService extends BaseService<Teacher, CreateTeacherInput, Upd
     });
 
     if (courses.length > 0) {
-      throw new Error('Bu öğretmenin dersleri var. Önce dersleri silin veya başka öğretmene atayın.');
+      throw new Error('Bu öğretim elemanının dersleri var. Önce dersleri silin veya başka öğretim elemanına atayın.');
     }
 
     await prisma.teacher.delete({

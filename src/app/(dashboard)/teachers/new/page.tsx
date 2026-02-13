@@ -49,8 +49,8 @@ export default function NewTeacherPage() {
           </Button>
         </Link>
         <PageHeader
-          title="Yeni Öğretmen"
-          description="Yeni bir öğretmen ekleyin"
+          title="Yeni Öğretim Elemanı"
+          description="Yeni bir öğretim elemanı ekleyin"
           icon={UserPlus}
           entity="teachers"
         />

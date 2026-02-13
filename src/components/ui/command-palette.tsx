@@ -46,7 +46,7 @@ type SearchResult = {
 
 const pages: SearchResult[] = [
   { id: 'home', type: 'page', title: 'Ana Sayfa', icon: Home, href: '/', entity: 'scheduler' },
-  { id: 'teachers', type: 'page', title: 'Öğretmenler', subtitle: 'Öğretmen listesi', icon: Users, href: '/teachers', entity: 'teachers' },
+  { id: 'teachers', type: 'page', title: 'Öğretim Elemanları', subtitle: 'Öğretim elemanı listesi', icon: Users, href: '/teachers', entity: 'teachers' },
   { id: 'courses', type: 'page', title: 'Dersler', subtitle: 'Ders listesi', icon: BookOpen, href: '/courses', entity: 'courses' },
   { id: 'classrooms', type: 'page', title: 'Derslikler', subtitle: 'Derslik listesi', icon: Building2, href: '/classrooms', entity: 'classrooms' },
   { id: 'schedules', type: 'page', title: 'Ders Programı', subtitle: 'Haftalık program', icon: Calendar, href: '/programs', entity: 'schedules' },
@@ -96,7 +96,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   // Actions
   const actions: SearchResult[] = useMemo(() => [
     ...(isAdmin ? [
-      { id: 'new-teacher', type: 'action' as const, title: 'Yeni Öğretmen Ekle', icon: Plus, href: '/teachers/new', entity: 'teachers' as const },
+      { id: 'new-teacher', type: 'action' as const, title: 'Yeni Öğretim Elemanı Ekle', icon: Plus, href: '/teachers/new', entity: 'teachers' as const },
       { id: 'new-course', type: 'action' as const, title: 'Yeni Ders Ekle', icon: Plus, href: '/courses/new', entity: 'courses' as const },
       { id: 'new-classroom', type: 'action' as const, title: 'Yeni Derslik Ekle', icon: Plus, href: '/classrooms/new', entity: 'classrooms' as const },
     ] : []),
@@ -132,7 +132,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
           id: `teacher-${t.id}`,
           type: 'teacher' as const,
           title: t.name,
-          subtitle: t.email || 'Öğretmen',
+          subtitle: t.email || 'Öğretim elemanı',
           icon: Users,
           href: `/teachers/${t.id}/edit`,
           entity: 'teachers' as const,

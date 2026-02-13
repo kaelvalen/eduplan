@@ -48,7 +48,7 @@ const recentActivities = [
   },
   {
     id: '4',
-    title: 'Öğretmen eklendi',
+    title: 'Öğretim elemanı eklendi',
     description: 'Dr. Ayşe Yılmaz sisteme kaydedildi',
     timestamp: '3 saat önce',
     type: 'success' as const,
@@ -107,7 +107,7 @@ export default function DashboardPage() {
   // Prepare statistics for widget
   const statisticsData = [
     {
-      label: 'Öğretmenler',
+      label: 'Öğretim Elemanları',
       value: stats.teacherCount,
       change: 5, // Mock trend data
       entity: 'teachers' as const,

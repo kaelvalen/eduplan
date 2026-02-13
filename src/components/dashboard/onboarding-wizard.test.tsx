@@ -39,7 +39,7 @@ describe('OnboardingWizard', () => {
 
     expect(screen.getByText(/Kurulum Sihirbazı/)).toBeDefined();
     expect(screen.getByText('Sistem Ayarları')).toBeDefined();
-    expect(screen.getByText('Öğretmenler')).toBeDefined();
+    expect(screen.getByText('Öğretim Elemanları')).toBeDefined();
 
     // Progress should be low (only settings step might be considered implicitly started or 0)
     // Based on implementation: Settings is complete if teacher > 0 or classroom > 0. So here it's 0.

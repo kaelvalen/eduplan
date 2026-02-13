@@ -103,7 +103,7 @@ export default function SettingsPage() {
             <Separator />
             <div className="flex justify-between">
               <span className="text-muted-foreground">Rol</span>
-              <Badge>{user?.role === 'admin' ? 'Yönetici' : 'Öğretmen'}</Badge>
+              <Badge>{user?.role === 'admin' ? 'Yönetici' : 'Öğretim Elemanı'}</Badge>
             </div>
             <Separator />
             <div className="flex justify-between">
@@ -161,9 +161,9 @@ export default function SettingsPage() {
               <li>Kapasite marjı desteği</li>
               <li>Derslik önceliklendirme (bölüm bazlı)</li>
               <li>Sabit (hardcoded) program desteği</li>
-              <li>Derslik ve öğretmen uygunluk saatleri</li>
+              <li>Derslik ve öğretim elemanı uygunluk saatleri</li>
               <li>Aktif/pasif durum kontrolleri</li>
-              <li>Öğretmen ve derslik profil modelleri</li>
+              <li>Öğretim elemanı ve derslik profil modelleri</li>
               <li>Gelişmiş filtreler</li>
             </ul>
           </CardContent>

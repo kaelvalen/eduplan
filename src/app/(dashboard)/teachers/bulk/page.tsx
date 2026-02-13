@@ -163,7 +163,7 @@ export default function BulkTeachersPage() {
     }
 
     if (successCount > 0) {
-      toast.success(`${successCount} öğretmen başarıyla eklendi`);
+      toast.success(`${successCount} öğretim elemanı başarıyla eklendi`);
     }
 
     return { success: successCount, errors };
@@ -174,8 +174,8 @@ export default function BulkTeachersPage() {
   return (
     <div className="container mx-auto py-6 space-y-6">
       <PageHeader
-        title="Öğretmen Toplu Ekleme"
-        description="Birden fazla öğretmeni tek seferde ekleyin. Satır ekleyerek doldurun ve toplu kaydedin."
+        title="Öğretim Elemanı Toplu Ekleme"
+        description="Birden fazla öğretim elemanını tek seferde ekleyin. Satır ekleyerek doldurun ve toplu kaydedin."
         icon={Users}
       />
 
@@ -188,9 +188,9 @@ export default function BulkTeachersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Öğretmen Listesi</CardTitle>
+          <CardTitle>Öğretim Elemanı Listesi</CardTitle>
           <p className="text-sm text-muted-foreground mt-2">
-            Aşağıdaki tabloda öğretmen bilgilerini girebilirsiniz. * işaretli alanlar zorunludur.
+            Aşağıdaki tabloda öğretim elemanı bilgilerini girebilirsiniz. * işaretli alanlar zorunludur.
             E-posta adresleri benzersiz olmalıdır. Fakülte seçtikten sonra bölüm seçebilirsiniz.
           </p>
         </CardHeader>
@@ -201,7 +201,7 @@ export default function BulkTeachersPage() {
             onDataChange={updateRowData}
             onSave={handleSave}
             defaultRow={defaultRow}
-            emptyMessage="Henüz öğretmen eklenmemiş. 'Satır Ekle' butonuna tıklayarak başlayın."
+            emptyMessage="Henüz öğretim elemanı eklenmemiş. 'Satır Ekle' butonuna tıklayarak başlayın."
           />
         </CardContent>
       </Card>

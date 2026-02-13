@@ -26,7 +26,7 @@ import { Tooltip } from '@/components/ui/tooltip';
 
 const navigation = [
   { name: 'Ana Sayfa', href: '/', icon: Home, color: 'text-purple-400' },
-  { name: 'Öğretmenler', href: '/teachers', icon: Users, color: 'text-blue-400' },
+  { name: 'Öğretim Elemanları', href: '/teachers', icon: Users, color: 'text-blue-400' },
   { name: 'Dersler', href: '/courses', icon: BookOpen, color: 'text-emerald-400' },
   { name: 'Derslikler', href: '/classrooms', icon: Building2, color: 'text-amber-400' },
   { name: 'Ders Programı', href: '/programs', icon: Calendar, color: 'text-rose-400' },
@@ -157,7 +157,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   {user?.role === 'admin' ? (
                     <span className="flex items-center gap-1 text-amber-400"><Sparkles className="h-2 w-2" /> Yönetici</span>
-                  ) : '👤 Öğretmen'}
+                  ) : '👤 Öğretim Elemanı'}
                 </p>
               </div>
             </div>

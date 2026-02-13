@@ -31,7 +31,7 @@ import { NotificationCenter } from '@/components/ui/notification-center';
 const shortcuts = [
   { key: '⌘ K', description: 'Arama' },
   { key: 'G H', description: 'Ana sayfaya git' },
-  { key: 'G T', description: 'Öğretmenler' },
+  { key: 'G T', description: 'Öğretim Elemanları' },
   { key: 'G C', description: 'Dersler' },
   { key: 'G S', description: 'Program' },
 ];
@@ -69,7 +69,7 @@ export function Header({ onMenuClick, showMenuButton = false, onSearchClick }: H
     
     // Custom label mapping
     const labels: Record<string, string> = {
-      'teachers': 'Öğretmenler',
+      'teachers': 'Öğretim Elemanları',
       'courses': 'Dersler',
       'classrooms': 'Derslikler',
       'programs': 'Ders Programı',
@@ -170,7 +170,7 @@ export function Header({ onMenuClick, showMenuButton = false, onSearchClick }: H
                 <div className="hidden md:block text-left">
                   <p className="text-sm font-semibold leading-none text-foreground">{user?.username}</p>
                   <p className="text-xs text-muted-foreground mt-1 font-medium">
-                    {user?.role === 'admin' ? 'Yönetici' : 'Öğretmen'}
+                    {user?.role === 'admin' ? 'Yönetici' : 'Öğretim Elemanı'}
                   </p>
                 </div>
               </Button>
@@ -185,7 +185,7 @@ export function Header({ onMenuClick, showMenuButton = false, onSearchClick }: H
                     <p className="text-base font-bold text-foreground">{user?.username}</p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                       <Sparkles className="h-3 w-3 text-amber-400" />
-                      {user?.role === 'admin' ? 'Premium Üye' : 'Öğretmen'}
+                      {user?.role === 'admin' ? 'Premium Üye' : 'Öğretim Elemanı'}
                     </p>
                   </div>
                 </div>

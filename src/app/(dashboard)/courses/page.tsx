@@ -241,7 +241,7 @@ export default function CoursesPage() {
             placeholder={
               viewLevel === 'faculties' ? 'Fakülte ara...' :
               viewLevel === 'departments' ? 'Bölüm ara...' :
-              'Ders adı, kodu veya öğretmen ara...'
+              'Ders adı, kodu veya öğretim elemanı ara...'
             }
           />
         </div>

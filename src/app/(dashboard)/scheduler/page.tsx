@@ -131,7 +131,7 @@ function TimeSlotAttempt({ attempt }: { attempt: TimeSlotAttemptDiagnostic }) {
               )}
               {attempt.failureReason.details.teacherAvailableHours && (
                 <div>
-                  Öğretmen müsait saatler: {attempt.failureReason.details.teacherAvailableHours.join(', ') || 'Belirsiz'}
+                  Öğretim elemanı müsait saatler: {attempt.failureReason.details.teacherAvailableHours.join(', ') || 'Belirsiz'}
                 </div>
               )}
               {attempt.failureReason.details.conflictingCourses && attempt.failureReason.details.conflictingCourses.length > 0 && (
@@ -320,7 +320,7 @@ function CourseFailureCard({ diagnostic }: { diagnostic: CourseFailureDiagnostic
                 Öneriler
               </h4>
               <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
-                <li>Öğretmen müsaitlik saatlerini kontrol edin ve genişletin</li>
+                <li>Öğretim elemanı müsaitlik saatlerini kontrol edin ve genişletin</li>
                 <li>Ek derslik tahsis etmeyi düşünün (özellikle {diagnostic.failedSessions.map(s => s.sessionType).join(', ')} için)</li>
                 <li>Dersin toplam saatini azaltmayı veya farklı günlere yaymayı değerlendirin</li>
                 <li>Benzer bölümlerdeki dersleri farklı saatlere kaydırın</li>
@@ -462,7 +462,7 @@ function SchedulerContent({ status, result, onGenerate, isGenerating }: Schedule
           <CardTitle>Program Oluştur</CardTitle>
           <CardDescription>
             Smart Greedy algoritması ile tüm aktif dersler için otomatik program oluşturur. Mevcut program silinir ve yenisi oluşturulur.
-            Öğretmen müsaitlik saatleri <strong>Öğretmenler</strong> sayfasında her öğretmen için &quot;Çalışma saatleri&quot; bölümünden girilir; girilmezse o öğretmen tüm saatlerde müsait kabul edilir.
+            Öğretim elemanı müsaitlik saatleri <strong>Öğretim Elemanları</strong> sayfasında her öğretim elemanı için &quot;Çalışma saatleri&quot; bölümünden girilir; girilmezse o öğretim elemanı tüm saatlerde müsait kabul edilir.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -614,7 +614,7 @@ function SchedulerContent({ status, result, onGenerate, isGenerating }: Schedule
               <p>
                 <strong>Smart Greedy</strong> ile program oluşturulur.
               </p>
-              <p>Kısıtlar: öğretmen müsaitliği (Öğretmenler → düzenle → Çalışma saatleri), derslik kapasite/türü, bölüm/seviye çakışmaması, günlük max 8 saat, dersler arası min 30 dk ara, aynı dersin oturumları farklı günlerde.</p>
+              <p>Kısıtlar: öğretim elemanı müsaitliği (Öğretim Elemanları → düzenle → Çalışma saatleri), derslik kapasite/türü, bölüm/seviye çakışmaması, günlük max 8 saat, dersler arası min 30 dk ara, aynı dersin oturumları farklı günlerde.</p>
               <p className="mt-2">
                 <strong>Gelişmiş:</strong> oturum bölme (2+2), teorik/lab aynı gün tercihi, backtracking, O(1) çakışma kontrolü.
               </p>

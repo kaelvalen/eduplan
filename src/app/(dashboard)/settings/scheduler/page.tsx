@@ -92,7 +92,7 @@ export default function SchedulerSettingsPage() {
                     <CardContent className="space-y-3 text-sm">
                         <div className="flex items-start gap-2">
                             <span className="text-red-500">•</span>
-                            <span><strong>Öğretmen çakışması:</strong> Bir öğretmen aynı anda bir yerde</span>
+                            <span><strong>Öğretim elemanı çakışması:</strong> Bir öğretim elemanı aynı anda tek yerde</span>
                         </div>
                         <div className="flex items-start gap-2">
                             <span className="text-red-500">•</span>
@@ -136,7 +136,7 @@ export default function SchedulerSettingsPage() {
                         </div>
                         <div className="flex items-start gap-2">
                             <span className="text-amber-500">•</span>
-                            <span><strong>Öğretmen yükü dengesi:</strong> Saatler eşit dağıtılır</span>
+                            <span><strong>Öğretim elemanı yükü dengesi:</strong> Saatler eşit dağıtılır</span>
                         </div>
                         <div className="flex items-start gap-2">
                             <span className="text-amber-500">•</span>
@@ -176,7 +176,7 @@ export default function SchedulerSettingsPage() {
                             <div className="p-3 rounded-lg border">
                                 <p className="font-medium mb-1">🕐 Uygunluk Saatleri</p>
                                 <p className="text-xs text-muted-foreground">
-                                    Öğretmen ve derslik bazlı uygunluk kontrolü
+                                    Öğretim elemanı ve derslik bazlı uygunluk kontrolü
                                 </p>
                             </div>
                         </div>

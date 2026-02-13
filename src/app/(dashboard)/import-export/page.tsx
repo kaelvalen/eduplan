@@ -62,14 +62,14 @@ import { Progress } from '@/components/ui/progress';
 import type { Teacher, Course, Classroom } from '@/types';
 
 const EXPORT_OPTIONS = [
-  { id: 'teachers', label: 'Öğretmenler', icon: Users, entity: 'teachers' as EntityKey, description: 'Tüm öğretmenleri Excel\'e aktar' },
+  { id: 'teachers', label: 'Öğretim Elemanları', icon: Users, entity: 'teachers' as EntityKey, description: 'Tüm öğretim elemanlarını Excel\'e aktar' },
   { id: 'courses', label: 'Dersler', icon: BookOpen, entity: 'courses' as EntityKey, description: 'Tüm dersleri Excel\'e aktar' },
   { id: 'classrooms', label: 'Derslikler', icon: Building2, entity: 'classrooms' as EntityKey, description: 'Tüm derslikleri Excel\'e aktar' },
   { id: 'schedules', label: 'Ders Programı', icon: Calendar, entity: 'schedules' as EntityKey, description: 'Mevcut programı Excel\'e aktar' },
 ];
 
 const IMPORT_OPTIONS = [
-  { id: 'teachers', label: 'Öğretmenler', icon: Users, entity: 'teachers' as EntityKey, description: 'Excel\'den öğretmen ekle' },
+  { id: 'teachers', label: 'Öğretim Elemanları', icon: Users, entity: 'teachers' as EntityKey, description: 'Excel\'den öğretim elemanı ekle' },
   { id: 'courses', label: 'Dersler', icon: BookOpen, entity: 'courses' as EntityKey, description: 'Excel\'den ders ekle' },
   { id: 'classrooms', label: 'Derslikler', icon: Building2, entity: 'classrooms' as EntityKey, description: 'Excel\'den derslik ekle' },
 ];
@@ -225,7 +225,7 @@ export default function ImportExportPage() {
       switch (type) {
         case 'teachers': {
           const data = await teachersApi.getAll();
-          exportToExcel(mapTeachersForExport(data), 'Öğretmenler', 'ogretmenler');
+          exportToExcel(mapTeachersForExport(data), 'Öğretim Elemanları', 'ogretim-elemanlari');
           break;
         }
         case 'courses': {
@@ -432,7 +432,7 @@ export default function ImportExportPage() {
             <Info className="h-4 w-4" />
             <AlertTitle>Dışa aktarma</AlertTitle>
             <AlertDescription>
-              Veriler .xlsx formatında indirilir. Sütunlar otomatik boyutlandırılır. Öğretmen, ders veya derslik listesini düzenleyip içe aktarabilirsiniz.
+              Veriler .xlsx formatında indirilir. Sütunlar otomatik boyutlandırılır. Öğretim elemanı, ders veya derslik listesini düzenleyip içe aktarabilirsiniz.
             </AlertDescription>
           </Alert>
           <div className="grid gap-4 md:grid-cols-2">
@@ -517,11 +517,11 @@ export default function ImportExportPage() {
                 <CardDescription>
                   Önce şablonu indirip doldurun. Ardından .xlsx dosyanızı seçin.
                   {importType === 'teachers' && teachersLoading && (
-                    <span className="block mt-2 text-amber-600 dark:text-amber-400">Öğretmen listesi yükleniyor…</span>
+                    <span className="block mt-2 text-amber-600 dark:text-amber-400">Öğretim elemanı listesi yükleniyor…</span>
                   )}
                   {importType === 'courses' && (teachersLoading || coursesLoading) && (
                     <span className="block mt-2 text-amber-600 dark:text-amber-400">
-                      Öğretmen ve ders listesi yükleniyor…
+                      Öğretim elemanı ve ders listesi yükleniyor…
                     </span>
                   )}
                   {importType === 'classrooms' && classroomsLoading && (

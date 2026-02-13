@@ -821,7 +821,7 @@ export async function* generateSchedule(
               isValidSequence = false;
               failureReason = {
                 type: 'teacher_unavailable',
-                message: `Öğretmen ${currentBlock.start}-${currentBlock.end} saatinde müsait değil`,
+                message: `Öğretim elemanı ${currentBlock.start}-${currentBlock.end} saatinde müsait değil`,
                 details: {
                   teacherAvailableHours: course.teacherWorkingHours[day] || [],
                 },

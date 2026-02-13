@@ -55,8 +55,8 @@ export default function EditTeacherPage({ params }: EditTeacherPageProps) {
           </Button>
         </Link>
         <PageHeader
-          title="Öğretmen Düzenle"
-          description="Öğretmen bilgilerini güncelleyin"
+          title="Öğretim Elemanı Düzenle"
+          description="Öğretim elemanı bilgilerini güncelleyin"
           icon={UserCog}
           entity="teachers"
         />

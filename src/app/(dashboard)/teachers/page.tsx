@@ -165,8 +165,8 @@ export default function TeachersPage() {
   return (
     <Shell>
       <ShellHeader
-        heading="Öğretmenler"
-        text={`${teachers.length} kayıtlı öğretmen sistemde mevcut.`}
+        heading="Öğretim Elemanları"
+        text={`${teachers.length} kayıtlı öğretim elemanı sistemde mevcut.`}
       >
         {isAdmin && (
           <div className="flex gap-2">
@@ -179,7 +179,7 @@ export default function TeachersPage() {
             <Link href="/teachers/new">
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
-                Yeni Öğretmen
+                Yeni Öğretim Elemanı
               </Button>
             </Link>
           </div>
@@ -242,7 +242,7 @@ export default function TeachersPage() {
                 <TableRow>
                   <TableHead>Fakülte Adı</TableHead>
                   <TableHead>Bölüm Sayısı</TableHead>
-                  <TableHead>Öğretmen Sayısı</TableHead>
+                  <TableHead>Öğretim Elemanı Sayısı</TableHead>
                   <TableHead className="text-right">İşlem</TableHead>
                 </TableRow>
               </TableHeader>
@@ -291,7 +291,7 @@ export default function TeachersPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Bölüm Adı</TableHead>
-                  <TableHead>Öğretmen Sayısı</TableHead>
+                  <TableHead>Öğretim Elemanı Sayısı</TableHead>
                   <TableHead className="text-right">İşlem</TableHead>
                 </TableRow>
               </TableHeader>
@@ -396,7 +396,7 @@ export default function TeachersPage() {
             {filteredData.length === 0 && (
               <div className="col-span-full py-12 text-center text-muted-foreground bg-muted/10 rounded-lg border border-dashed">
                 <Users className="h-10 w-10 mx-auto mb-3 opacity-20" />
-                <p>Aranan kriterlere uygun öğretmen bulunamadı.</p>
+                <p>Aranan kriterlere uygun öğretim elemanı bulunamadı.</p>
               </div>
             )}
           </div>
@@ -407,9 +407,9 @@ export default function TeachersPage() {
       <Dialog open={deleteConfirm.show} onOpenChange={(open) => !open && setDeleteConfirm({ show: false, teacher: null })}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Öğretmeni Sil</DialogTitle>
-            <DialogDescription>
-              Bu işlem geri alınamaz. <strong>{deleteConfirm.teacher?.name}</strong> isimli öğretmeni silmek istediğinize emin misiniz?
+<DialogTitle>Öğretim Elemanını Sil</DialogTitle>
+              <DialogDescription>
+              Bu işlem geri alınamaz. <strong>{deleteConfirm.teacher?.name}</strong> isimli öğretim elemanını silmek istediğinize emin misiniz?
               Varsa atanmış dersleri boşa çıkacaktır.
             </DialogDescription>
           </DialogHeader>

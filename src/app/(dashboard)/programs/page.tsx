@@ -363,6 +363,24 @@ export default function ProgramViewPage() {
         return grouped;
     }, [schedules, courses, selectedFaculty, selectedDepartment, searchTerm]);
 
+    // Yazdırma: her sayfada 1 sınıf (şablon) için sıralı (dept, level) listesi
+    const flatClassBlocks = useMemo(() => {
+        const entries = Object.entries(groupedSchedules).sort(([a], [b]) => a.localeCompare(b));
+        const blocks: { deptCode: string; level: string; deptName: string }[] = [];
+        for (const [deptCode, levels] of entries) {
+            for (const level of LEVELS) {
+                if (levels[level]?.length) {
+                    blocks.push({
+                        deptCode,
+                        level,
+                        deptName: getDepartmentName(selectedFaculty, deptCode),
+                    });
+                }
+            }
+        }
+        return blocks;
+    }, [groupedSchedules, selectedFaculty]);
+
     const toggleLevel = (level: string) => {
         setExpandedLevels(prev => {
             const next = new Set(prev);
@@ -389,7 +407,7 @@ export default function ProgramViewPage() {
                 'Ders Kodu': s.course?.code || '',
                 'Ders Adı': s.course?.name || '',
                 'Derslik': s.classroom?.name || '',
-                'Öğretmen': s.course?.teacher?.name || '',
+                'Öğretim Elemanı': s.course?.teacher?.name || '',
             };
         });
         exportToExcel(exportData, 'Ders Programı', 'ders_programi');
@@ -560,8 +578,8 @@ export default function ProgramViewPage() {
                     {Object.entries(groupedSchedules)
                         .sort(([a], [b]) => a.localeCompare(b))
                         .map(([deptCode, levels]) => (
-                            <Card key={deptCode} className="print:break-after-page print:shadow-none print:border print:break-inside-avoid">
-                                <CardHeader className="pb-2">
+                            <Card key={deptCode} className="print:shadow-none print:border print:break-inside-avoid">
+                                <CardHeader className="pb-2 print:hidden">
                                     <CardTitle className="flex items-center gap-2">
                                         <Building2 className="h-5 w-5 text-primary" />
                                         <span>{getDepartmentName(selectedFaculty, deptCode)}</span>
@@ -571,16 +589,26 @@ export default function ProgramViewPage() {
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
-                                    {LEVELS.filter(level => levels[level] && levels[level].length > 0).map(level => (
-                                        <Collapsible
+                                    {LEVELS.filter(level => levels[level] && levels[level].length > 0).map(level => {
+                                        const blockIndex = flatClassBlocks.findIndex(b => b.deptCode === deptCode && b.level === level);
+                                        const isFirstPrintPage = blockIndex === 0;
+                                        return (
+                                        <div
                                             key={level}
+                                            className={!isFirstPrintPage ? 'print:break-before-page' : ''}
+                                        >
+                                            {/* Yazdırma: her sayfada sadece bu sınıf başlığı */}
+                                            <div className="hidden print:block print:mb-2 print:text-lg print:font-semibold">
+                                                {getDepartmentName(selectedFaculty, deptCode)} – {level}. Sınıf
+                                            </div>
+                                        <Collapsible
                                             open={expandedLevels.has(level)}
                                             onOpenChange={() => toggleLevel(level)}
                                         >
                                             <CollapsibleTrigger asChild>
                                                 <Button
                                                     variant="ghost"
-                                                    className="w-full justify-between p-3 h-auto hover:bg-muted/50"
+                                                    className="w-full justify-between p-3 h-auto hover:bg-muted/50 print:hidden"
                                                 >
                                                     <div className="flex items-center gap-2">
                                                         <Users className="h-4 w-4 text-primary" />
@@ -595,7 +623,7 @@ export default function ProgramViewPage() {
                                                     )} />
                                                 </Button>
                                             </CollapsibleTrigger>
-                                            <CollapsibleContent className="pt-2">
+                                            <CollapsibleContent className="pt-2 print-class-block print:pt-0">
                                                 <div className="border rounded-lg overflow-x-auto">
                                                     <table className="w-full text-sm">
                                                         <thead>
@@ -702,7 +730,8 @@ export default function ProgramViewPage() {
                                                 </div>
                                             </CollapsibleContent>
                                         </Collapsible>
-                                    ))}
+                                        </div>
+                                    );})}
                                 </CardContent>
                             </Card>
                         ))}

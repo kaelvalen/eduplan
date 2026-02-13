@@ -18,7 +18,7 @@ export async function GET(
         const teacherId = parseInt(id, 10);
 
         if (isNaN(teacherId)) {
-            return NextResponse.json({ detail: 'Geçersiz öğretmen ID' }, { status: 400 });
+            return NextResponse.json({ detail: 'Geçersiz öğretim elemanı ID' }, { status: 400 });
         }
 
         // Get teacher info
@@ -88,7 +88,7 @@ export async function GET(
     } catch (error) {
         logger.error('Get teacher schedule error:', { error });
         return NextResponse.json(
-            { detail: 'Öğretmen programı alınırken bir hata oluştu' },
+            { detail: 'Öğretim elemanı programı alınırken bir hata oluştu' },
             { status: 500 }
         );
     }

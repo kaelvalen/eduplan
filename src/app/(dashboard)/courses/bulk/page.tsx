@@ -110,16 +110,16 @@ export default function BulkCoursesPage() {
     },
     {
       key: 'teacher_id',
-      header: 'Öğretmen',
+      header: 'Öğretim Elemanı',
       type: 'select',
       options: [
-        { value: '', label: 'Öğretmen Seçilmedi' },
+        { value: '', label: 'Öğretim Elemanı Seçilmedi' },
         ...teachers.map((t) => ({
           value: String(t.id),
           label: `${t.title} ${t.name}`,
         })),
       ],
-      placeholder: 'Öğretmen seçin',
+      placeholder: 'Öğretim elemanı seçin',
     },
     {
       key: 'faculty',

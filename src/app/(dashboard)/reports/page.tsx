@@ -110,12 +110,12 @@ export default function ReportsPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Toplam Öğretmen</CardTitle>
+                <CardTitle className="text-sm font-medium">Toplam Öğretim Elemanı</CardTitle>
                 <Users className={cn('h-4 w-4', getEntityColors('teachers').icon)} />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats?.teacherCount || 0}</div>
-                <p className="text-xs text-muted-foreground">Aktif öğretmen sayısı</p>
+                <p className="text-xs text-muted-foreground">Aktif öğretim elemanı sayısı</p>
               </CardContent>
             </Card>
 
@@ -169,7 +169,7 @@ export default function ReportsPage() {
                     <div className="flex items-center justify-between text-sm">
                       <span className="flex items-center gap-2">
                         <div className={cn('h-3 w-3 rounded-full', getEntityColors('teachers').dot)} />
-                        Öğretmenler
+                        Öğretim Elemanları
                       </span>
                       <span>{stats?.teacherCount || 0}</span>
                     </div>
@@ -361,17 +361,17 @@ export default function ReportsPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className={cn('h-5 w-5', getEntityColors('teachers').icon)} />
-                  Öğretmen Analizi
+                  Öğretim Elemanı Analizi
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="text-center py-4">
                   <p className={cn('text-4xl font-bold', getEntityColors('teachers').text)}>{stats?.teacherCount || 0}</p>
-                  <p className="text-sm text-muted-foreground">Toplam Öğretmen</p>
+                  <p className="text-sm text-muted-foreground">Toplam Öğretim Elemanı</p>
                 </div>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Ortalama Ders/Öğretmen</span>
+                    <span className="text-muted-foreground">Ortalama Ders/Öğretim Elemanı</span>
                     <span className="font-medium">
                       {stats?.teacherCount ? ((stats?.courseCount || 0) / stats.teacherCount).toFixed(1) : 0}
                     </span>

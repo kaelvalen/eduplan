@@ -63,7 +63,7 @@ export function CourseForm({ courseId: initialCourseId }: CourseFormProps) {
         const data = await teachersApi.getAll();
         setTeachers(data);
       } catch (error) {
-        toast.error('Öğretmenler yüklenirken bir hata oluştu');
+        toast.error('Öğretim elemanları yüklenirken bir hata oluştu');
       }
     };
     const fetchClassrooms = async () => {
@@ -295,13 +295,13 @@ export function CourseForm({ courseId: initialCourseId }: CourseFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="teacher">Öğretmen</Label>
+            <Label htmlFor="teacher">Öğretim Elemanı</Label>
             <Select
               value={formData.teacher_id.toString()}
               onValueChange={(value) => setFormData({ ...formData, teacher_id: parseInt(value) })}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Öğretmen seçin" />
+                <SelectValue placeholder="Öğretim elemanı seçin" />
               </SelectTrigger>
               <SelectContent>
                 {teachers.map((teacher) => (

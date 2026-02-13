@@ -13,7 +13,7 @@ interface ScheduleCellContentProps {
 
 /**
  * Programlar sayfasındaki kart ile aynı görünüm.
- * Öğretmen / derslik detay modallarında kullanılır.
+ * Öğretim elemanı / derslik detay modallarında kullanılır.
  */
 export function ScheduleCellContent({
   schedule,

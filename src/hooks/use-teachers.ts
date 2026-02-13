@@ -65,10 +65,10 @@ export function useCreateTeacher() {
     mutationFn: (data: TeacherCreate) => teachersApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: teacherKeys.lists() });
-      toast.success('Öğretmen başarıyla eklendi');
+      toast.success('Öğretim elemanı başarıyla eklendi');
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Öğretmen eklenirken bir hata oluştu');
+      toast.error(error.message || 'Öğretim elemanı eklenirken bir hata oluştu');
     },
   });
 }
@@ -89,10 +89,10 @@ export function useUpdateTeacher() {
       );
       queryClient.invalidateQueries({ queryKey: teacherKeys.lists() });
       queryClient.invalidateQueries({ queryKey: teacherKeys.schedule(variables.id) });
-      toast.success('Öğretmen başarıyla güncellendi');
+      toast.success('Öğretim elemanı başarıyla güncellendi');
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Öğretmen güncellenirken bir hata oluştu');
+      toast.error(error.message || 'Öğretim elemanı güncellenirken bir hata oluştu');
     },
   });
 }
@@ -119,7 +119,7 @@ export function useDeleteTeacher() {
     onSuccess: (_, deletedId) => {
       queryClient.removeQueries({ queryKey: teacherKeys.detail(deletedId) });
       queryClient.removeQueries({ queryKey: teacherKeys.schedule(deletedId) });
-      toast.success('Öğretmen başarıyla silindi');
+      toast.success('Öğretim elemanı başarıyla silindi');
     },
     onError: (error: Error, _, context) => {
       if (context?.previousTeachers) {
@@ -127,7 +127,7 @@ export function useDeleteTeacher() {
           queryClient.setQueryData(queryKey, data);
         });
       }
-      toast.error(error.message || 'Öğretmen silinirken bir hata oluştu');
+      toast.error(error.message || 'Öğretim elemanı silinirken bir hata oluştu');
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: teacherKeys.lists() });

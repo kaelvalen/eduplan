@@ -227,7 +227,7 @@ export class ConflictIndex {
 
       const result = {
         type: 'teacher' as const,
-        message: `Öğretmen çakışması: Bu öğretmen ${normalizedDay} günü ${timeRange} saatinde başka bir derste`,
+        message: `Öğretim elemanı çakışması: Bu öğretim elemanı ${normalizedDay} günü ${timeRange} saatinde başka bir derste`,
         details: {
           teacherId: course.teacherId,
           conflictingCourses,

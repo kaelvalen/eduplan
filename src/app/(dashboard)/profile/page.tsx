@@ -72,7 +72,7 @@ export default function ProfilePage() {
               <UserAvatar name={user?.username || 'User'} size="lg" className="h-24 w-24 text-2xl" />
               <h2 className="mt-4 text-xl font-semibold">{user?.username}</h2>
               <Badge className="mt-2" variant={user?.role === 'admin' ? 'default' : 'secondary'}>
-                {user?.role === 'admin' ? 'Yönetici' : 'Öğretmen'}
+                {user?.role === 'admin' ? 'Yönetici' : 'Öğretim Elemanı'}
               </Badge>
               <p className="mt-4 text-sm text-muted-foreground">
                 PlanEdu sistemine hoş geldiniz. Bu sayfadan hesap bilgilerinizi görüntüleyebilir ve şifrenizi değiştirebilirsiniz.
@@ -103,7 +103,7 @@ export default function ProfilePage() {
                 <Label className="text-muted-foreground">Rol</Label>
                 <div className="flex items-center gap-2 p-3 rounded-md bg-muted/50">
                   <Shield className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">{user?.role === 'admin' ? 'Yönetici' : 'Öğretmen'}</span>
+                  <span className="font-medium">{user?.role === 'admin' ? 'Yönetici' : 'Öğretim Elemanı'}</span>
                 </div>
               </div>
             </div>
