@@ -81,6 +81,9 @@ export interface SchedulerConfig {
     enableSessionSplitting?: boolean;
     enableCombinedTheoryLab?: boolean;
     enableBacktracking?: boolean;
+    enableSimulatedAnnealing?: boolean;
+    enableAdaptiveConfig?: boolean;
+    enableLearning?: boolean;
   };
 }
 
@@ -186,7 +189,15 @@ export interface SchedulerMetrics {
 export interface ConflictReason {
   type: 'teacher' | 'classroom' | 'department' | 'capacity' | 'availability';
   message: string;
-  details?: Record<string, any>;
+  details?: {
+    requiredCapacity?: number;
+    availableClassrooms?: number;
+    teacherAvailableHours?: string[];
+    conflictingCourses?: { id: number; code: string; name: string }[];
+    conflictingDepartments?: string[];
+    requiredType?: string;
+    maxCapacity?: number;
+  };
 }
 
 export interface PlacementAttempt {

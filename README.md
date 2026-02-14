@@ -6,12 +6,23 @@ Modern, kullanici dostu ve yapay zeka destekli bir universite ders programi yone
 
 ## Ozellikler
 
+### 🎯 Temel Özellikler
 - **Akıllı Sezgisel Algoritma (Smart Greedy Heuristic)** ile otomatik program olusturma
 - Fakulte, bolum, ogretmen, ders ve sinif yonetimi
 - Rol tabanli yetkilendirme (Admin/Kullanici)
 - Modern, responsive arayuz
 - SQLite veritabani (Prisma ORM)
 - JWT tabanli kimlik dogrulama
+
+### 🚀 Gelişmiş Scheduler Özellikleri
+- **Adaptif Konfigürasyon**: Problem karakteristiklerine göre otomatik parametre ayarlama
+- **Simulated Annealing**: Lokal optimumlardan kaçmak için gelişmiş optimizasyon
+- **Parametre Öğrenme**: Geçmiş denemelerden öğrenerek sürekli iyileşme
+- **Paralel Zamanlama**: Farklı seed'lerle paralel denemeler, en iyi sonucu seçme
+- **O(1) Çakışma Kontrolü**: Hash-tabanlı hızlı çakışma tespiti
+- **Akıllı Geri İzleme**: Başarısız denemeleri analiz ederek akıllı yeniden deneme
+
+Detaylı bilgi için: [Gelişmiş Özellikler Dokümantasyonu](./ADVANCED_FEATURES.md)
 
 ## Teknoloji Stack
 

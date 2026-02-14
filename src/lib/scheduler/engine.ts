@@ -18,7 +18,10 @@ import { ConflictIndex } from './conflict-index';
 import { TimeoutManager } from './timeout';
 import { BacktrackingManager } from './backtracking';
 import { DEFAULT_SCHEDULER_CONFIG } from './config';
-import { debug, alwaysLog } from '@/lib/debug';
+import { debug } from '@/lib/debug';
+import { createAdaptiveConfig, logAdaptiveChanges, analyzeProblemCharacteristics } from './adaptive-config';
+import { simulatedAnnealing } from './simulated-annealing';
+import { recordSchedulingAttempt, learnOptimalParameters } from './learning-system';
 import type {
   ScheduleItem,
   CourseData,
@@ -26,7 +29,6 @@ import type {
   TimeBlock,
   SchedulerProgress,
   SchedulerConfig,
-  SchedulerResult,
   CourseFailureDiagnostic,
   SessionFailureDiagnostic,
   DayAttemptDiagnostic,
@@ -543,7 +545,35 @@ function attemptCombinedTheoryLab(
 export async function* generateSchedule(
   config: SchedulerConfig
 ): AsyncGenerator<SchedulerProgress> {
-  const { courses, classrooms, timeBlocks, seed, timeoutMs } = config;
+  const startTime = Date.now();
+  const { courses, classrooms, timeBlocks, seed } = config;
+  
+  // Apply adaptive configuration if enabled
+  let effectiveConfig = DEFAULT_SCHEDULER_CONFIG;
+  
+  if (config.features?.enableAdaptiveConfig) {
+    debug.log('🔧 Adaptive configuration enabled');
+    effectiveConfig = createAdaptiveConfig(courses, classrooms, DEFAULT_SCHEDULER_CONFIG);
+    const chars = analyzeProblemCharacteristics(courses, classrooms);
+    logAdaptiveChanges(DEFAULT_SCHEDULER_CONFIG, effectiveConfig, chars);
+  }
+  
+  // Apply learned parameters if enabled and available
+  if (config.features?.enableLearning) {
+    debug.log('🎓 Learning system enabled');
+    const learnedParams = learnOptimalParameters(courses, classrooms);
+    if (learnedParams) {
+      effectiveConfig = {
+        ...effectiveConfig,
+        ...learnedParams,
+        difficulty: { ...effectiveConfig.difficulty, ...learnedParams.difficulty },
+        hillClimbing: { ...effectiveConfig.hillClimbing, ...learnedParams.hillClimbing },
+      };
+      debug.log('✅ Applied learned parameters');
+    }
+  }
+  
+  const timeoutMs = config.timeoutMs || effectiveConfig.performance.timeoutMs;
 
   // Initialize seeded random number generator for deterministic results
   const rng = new SeededRandom(seed);
@@ -1074,8 +1104,30 @@ export async function* generateSchedule(
     scheduledCount: schedule.length,
   };
 
-  // Local improvement
-  performLocalImprovement(schedule, courseMap, classrooms, timeBlocks, rng, 30);
+  // Local improvement with hill climbing
+  const hillClimbingIterations = effectiveConfig.hillClimbing?.iterations || 30;
+  performLocalImprovement(schedule, courseMap, classrooms, timeBlocks, rng, hillClimbingIterations);
+  
+  // Apply simulated annealing if enabled
+  if (config.features?.enableSimulatedAnnealing && effectiveConfig.simulatedAnnealing) {
+    debug.log('🔥 Applying simulated annealing optimization');
+    const optimized = simulatedAnnealing(
+      schedule,
+      courseMap,
+      classrooms,
+      () => rng.next(),
+      effectiveConfig.simulatedAnnealing
+    );
+    schedule.length = 0;
+    schedule.push(...optimized);
+    
+    yield {
+      stage: 'optimizing',
+      progress: 95,
+      message: 'Simulated annealing tamamlandı',
+      scheduledCount: schedule.length,
+    };
+  }
 
   yield {
     stage: 'complete',
@@ -1096,6 +1148,20 @@ export async function* generateSchedule(
   // Convert diagnostics map to array
   const diagnosticsArray = Array.from(failureDiagnostics.values());
   debug.log(`📊 Failure diagnostics collected for ${diagnosticsArray.length} courses`);
+  
+  // Record this scheduling attempt for learning if enabled
+  if (config.features?.enableLearning) {
+    const duration = Date.now() - startTime;
+    const metrics = calculateScheduleMetrics(schedule, courses, classrooms);
+    recordSchedulingAttempt(
+      effectiveConfig,
+      courses,
+      classrooms,
+      schedule,
+      duration,
+      metrics
+    );
+  }
 
   return { schedule, unscheduled, diagnostics: diagnosticsArray };
 }

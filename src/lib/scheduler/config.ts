@@ -42,6 +42,17 @@ export interface SchedulerSettings {
     enableBacktracking: boolean;        // Enable backtracking (experimental)
     enableProgressReporting: boolean;   // Report progress during generation
     enableConflictIndex: boolean;       // Use fast O(1) conflict detection
+    enableSimulatedAnnealing: boolean;  // Use simulated annealing for optimization
+    enableAdaptiveConfig: boolean;      // Automatically adapt config to problem
+    enableLearning: boolean;            // Learn from past scheduling attempts
+  };
+
+  // Simulated annealing (if enabled)
+  simulatedAnnealing?: {
+    initialTemperature: number;         // Starting temperature
+    coolingRate: number;                // Temperature reduction rate
+    minTemperature: number;             // Stop temperature
+    maxIterations: number;              // Iterations per temperature
   };
 }
 
@@ -81,6 +92,16 @@ export const DEFAULT_SCHEDULER_CONFIG: SchedulerSettings = {
     enableBacktracking: true, // Intelligent backtracking enabled
     enableProgressReporting: true,
     enableConflictIndex: true,
+    enableSimulatedAnnealing: false, // Disabled by default (slower but better quality)
+    enableAdaptiveConfig: true,      // Enabled by default
+    enableLearning: true,            // Enabled by default
+  },
+
+  simulatedAnnealing: {
+    initialTemperature: 100,
+    coolingRate: 0.95,
+    minTemperature: 0.1,
+    maxIterations: 50,
   },
 };
 
