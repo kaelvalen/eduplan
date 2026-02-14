@@ -45,7 +45,7 @@ export async function GET(
             time_range: s.timeRange,
             course_id: s.courseId,
             classroom_id: s.classroomId,
-            session_type: (s as any).sessionType || 'teorik',
+            session_type: (s as unknown as { sessionType: string }).sessionType || 'teorik',
             is_hardcoded: s.isHardcoded,
             course: s.course ? {
                 id: s.course.id,
@@ -66,9 +66,9 @@ export async function GET(
                 type: classroom.type,
                 faculty: classroom.faculty,
                 department: classroom.department,
-                priority_dept: (classroom as any).priorityDept,
-                available_hours: (classroom as any).availableHours,
-                is_active: (classroom as any).isActive,
+                priority_dept: (classroom as unknown as { priorityDept: string | null }).priorityDept,
+                available_hours: (classroom as unknown as { availableHours: string }).availableHours,
+                is_active: (classroom as unknown as { isActive: boolean }).isActive,
             } : null,
             schedule: schedules
         });

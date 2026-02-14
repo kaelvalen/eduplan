@@ -35,6 +35,7 @@ export function exportToExcel(
   } else {
     const ws = XLSX.utils.json_to_sheet(data);
     const colWidths = Object.keys(data[0]).map((k) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       wch: Math.min(50, Math.max(k.length, ...data.map((r) => String((r as any)[k] ?? '').length)) + 2),
     }));
     ws['!cols'] = colWidths;
@@ -340,6 +341,7 @@ export function validateAndMapTeachers(
     if (!name || name.length < 2) return { ok: false, error: 'Ad Soyad gerekli (en az 2 karakter)', rowIndex: i + 1 };
     if (!email) return { ok: false, error: 'E-posta gerekli', rowIndex: i + 1 };
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Geçersiz e-posta', rowIndex: i + 1 };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (!TITLES.includes(title as any)) return { ok: false, error: `Ünvan geçersiz. Örnek: ${TITLES.slice(0, 3).join(', ')}`, rowIndex: i + 1 };
     if (!faculty) return { ok: false, error: 'Fakülte gerekli', rowIndex: i + 1 };
     if (!FACULTY_IDS.has(faculty)) return { ok: false, error: `Bilinmeyen fakülte: ${faculty}`, rowIndex: i + 1 };

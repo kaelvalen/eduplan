@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 
-describe('Notifications Stream Authentication', () => {
+// Integration test — requires a running server on localhost:3000
+const isServerAvailable = await fetch('http://localhost:3000/api/auth/login', { method: 'HEAD' })
+  .then(() => true)
+  .catch(() => false);
+
+describe.skipIf(!isServerAvailable)('Notifications Stream Authentication', () => {
   let token: string;
 
   beforeAll(async () => {

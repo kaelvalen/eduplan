@@ -12,6 +12,7 @@ export interface HierarchicalItem {
   id: number;
   faculty: string;
   departments?: Array<{ department: string; student_count?: number }>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 

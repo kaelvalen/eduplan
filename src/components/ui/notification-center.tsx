@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Bell, X, Check, CheckCheck, ExternalLink } from 'lucide-react';
+import { Bell, X, CheckCheck, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,7 +23,6 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
 
   // Fetch notifications
@@ -140,7 +139,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         }
       };
 
-      eventSource.onerror = (error) => {
+      eventSource.onerror = () => {
         // Only log if connection is actually closed, not just connecting
         if (eventSource.readyState === EventSource.CLOSED) {
           console.error('SSE connection closed');
@@ -173,11 +172,13 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
   }, [user, token]);
 
   // Initial fetch
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (user) {
       fetchNotifications();
     }
   }, [user]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Request notification permission
   useEffect(() => {
@@ -276,7 +277,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
                         onClick={() => handleNotificationClick(notification)}
                       >
                         <div className={cn(
-                          "flex-shrink-0 w-8 h-8 rounded-full border flex items-center justify-center text-sm font-medium",
+                          "shrink-0 w-8 h-8 rounded-full border flex items-center justify-center text-sm font-medium",
                           getNotificationColor(notification.type)
                         )}>
                           {getNotificationIcon(notification.type)}

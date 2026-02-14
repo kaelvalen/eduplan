@@ -156,6 +156,7 @@ export default function BulkTeachersPage() {
           is_active: row.is_active,
         });
         successCount++;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         const message = error?.response?.data?.detail || error?.message || 'Bilinmeyen hata';
         errors.push({ row: i, error: message });

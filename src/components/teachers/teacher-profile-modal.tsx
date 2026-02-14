@@ -30,6 +30,7 @@ export function TeacherProfileModal({ teacher, open, onOpenChange }: TeacherProf
         if (teacher && open) {
             fetchSchedule();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [teacher, open]);
 
     const fetchSchedule = async () => {

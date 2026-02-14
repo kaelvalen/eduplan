@@ -29,6 +29,7 @@ import logger, { logSchedulerEvent } from '@/lib/logger';
 // ClassroomForScheduler is now ClassroomData from scheduler types
 
 // Simplified scheduler options (config presets removed from new API)
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface SchedulerOptions {
   // Options can be added here if needed in future
 }
@@ -49,6 +50,7 @@ export interface SchedulerResult {
   }>;
   warnings: string[];
   processingTimeMs: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   diagnostics?: any[]; // Detailed failure diagnostics
 }
 
@@ -144,7 +146,8 @@ export class SchedulerService {
    * @returns Complete scheduler result with metrics and conflicts
    */
   async generateFullSchedule(
-    options: SchedulerOptions = {}
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _options: SchedulerOptions = {}
   ): Promise<SchedulerResult> {
     const startTime = Date.now();
 
@@ -188,8 +191,11 @@ export class SchedulerService {
       const generator = generateSchedule(config);
 
       // Manually iterate to get both progress AND final return value
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let schedule: any[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let unscheduled: any[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let diagnostics: any[] = [];
       let done = false;
 

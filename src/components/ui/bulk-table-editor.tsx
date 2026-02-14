@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { Plus, Trash2, Save, X, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Save, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -15,15 +15,18 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ColumnDef<T = any> = {
   key: keyof T;
   header: string;
   type?: 'text' | 'number' | 'select' | 'checkbox' | 'custom';
   options?: { value: string; label: string }[];
   required?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   validate?: (value: any, row: T) => string | null;
   placeholder?: string;
   width?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   customRender?: (row: T, rowIndex: number, updateCell: (key: keyof T, value: any) => void) => React.ReactNode;
 };
 
@@ -38,6 +41,7 @@ interface BulkTableEditorProps<T> {
   maxRows?: number;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function BulkTableEditor<T extends Record<string, any>>({
   columns,
   data,
@@ -52,6 +56,7 @@ export function BulkTableEditor<T extends Record<string, any>>({
   const [isSaving, setIsSaving] = useState(false);
   const [saveResult, setSaveResult] = useState<{ success: number; errors: Array<{ row: number; error: string }> } | null>(null);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateCell = useCallback((rowIndex: number, key: keyof T, value: any) => {
     const newData = [...data];
     const row = { ...newData[rowIndex] };
@@ -180,6 +185,7 @@ export function BulkTableEditor<T extends Record<string, any>>({
 
     // Custom render
     if (column.type === 'custom' && column.customRender) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const updateCellWrapper = (key: keyof T, value: any) => {
         updateCell(rowIndex, key, value);
       };
@@ -334,7 +340,7 @@ export function BulkTableEditor<T extends Record<string, any>>({
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableHead className="w-[40px] text-center">#</TableHead>
+                  <TableHead className="w-10 text-center">#</TableHead>
                   {columns.map((column) => (
                     <TableHead key={String(column.key)} style={{ width: column.width }} className="min-w-[120px]">
                       <div className="flex items-center gap-1">

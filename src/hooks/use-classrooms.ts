@@ -8,7 +8,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { classroomsApi } from '@/lib/api';
-import type { Classroom, ClassroomCreate, FilterOptions } from '@/types';
+import type { ClassroomCreate, FilterOptions } from '@/types';
 
 // Query keys
 export const classroomKeys = {
@@ -111,6 +111,7 @@ export function useDeleteClassroom() {
       
       queryClient.setQueriesData(
         { queryKey: classroomKeys.lists() },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (old: any) => old ? old.filter((classroom: any) => classroom.id !== deletedId) : []
       );
       

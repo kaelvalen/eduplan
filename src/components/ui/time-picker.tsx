@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Clock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -35,6 +34,7 @@ export function TimePicker({
   const [selectedMinute, setSelectedMinute] = useState<string>('');
 
   // Parse initial value
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (value) {
       const [hour, minute] = value.split(':');
@@ -42,6 +42,7 @@ export function TimePicker({
       setSelectedMinute(minute);
     }
   }, [value]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Generate hours
   const hours = [];

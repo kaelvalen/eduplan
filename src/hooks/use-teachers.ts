@@ -8,7 +8,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { teachersApi } from '@/lib/api';
-import type { Teacher, TeacherCreate, FilterOptions } from '@/types';
+import type { TeacherCreate, FilterOptions } from '@/types';
 
 // Query keys
 export const teacherKeys = {
@@ -111,6 +111,7 @@ export function useDeleteTeacher() {
       
       queryClient.setQueriesData(
         { queryKey: teacherKeys.lists() },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (old: any) => old ? old.filter((teacher: any) => teacher.id !== deletedId) : []
       );
       

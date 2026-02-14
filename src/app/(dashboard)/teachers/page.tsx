@@ -15,7 +15,7 @@ import {
 import { useTeachers, useDeleteTeacher } from '@/hooks/use-teachers';
 import { useAuth } from '@/contexts/auth-context';
 import { getFacultyName, getDepartmentName } from '@/constants/faculties';
-import { styles } from '@/lib/design-tokens';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -43,10 +43,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Shell, ShellHeader, ShellContent } from '@/components/layout/shell';
-import { TeachersListSkeleton, TeachersTableSkeleton } from '@/components/teachers/teachers-skeleton';
+import { TeachersTableSkeleton } from '@/components/teachers/teachers-skeleton';
 import { TeacherProfileModal } from '@/components/teachers/teacher-profile-modal';
 import type { Teacher } from '@/types';
-import { toast } from 'sonner';
 
 type ViewLevel = 'faculties' | 'departments' | 'teachers';
 
@@ -133,7 +132,7 @@ export default function TeachersPage() {
       await deleteTeacher(deleteConfirm.teacher.id);
       setDeleteConfirm({ show: false, teacher: null });
       // Optimistic UI handles the immediate removal visually
-    } catch (error) {
+    } catch {
       // Error handled by mutation hook
     }
   };

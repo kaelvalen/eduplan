@@ -7,7 +7,7 @@ import { withAuth, withAdminAndValidation } from '@/middleware';
  * GET /api/teachers - Get all teachers
  * Requires authentication
  */
-export const GET = withAuth(async (request: NextRequest, _user) => {
+export const GET = withAuth(async (request: NextRequest) => {
   try {
     // Parse query parameters for filtering
     const { searchParams } = new URL(request.url);

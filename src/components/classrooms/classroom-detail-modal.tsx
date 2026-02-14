@@ -30,6 +30,7 @@ export function ClassroomDetailModal({ classroom, open, onOpenChange }: Classroo
         if (classroom && open) {
             fetchSchedule();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [classroom, open]);
 
     const fetchSchedule = async () => {

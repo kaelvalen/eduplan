@@ -60,7 +60,7 @@ async function getCsrfToken(): Promise<string | null> {
   // Fetch new token
   try {
     return await fetchCsrfToken();
-  } catch (error) {
+  } catch {
     // Don't fail the request if CSRF token fetch fails
     // Server will handle the missing token
     return null;

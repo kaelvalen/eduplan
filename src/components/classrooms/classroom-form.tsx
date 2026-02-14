@@ -74,7 +74,7 @@ export function ClassroomForm({ classroomId: initialClassroomId }: ClassroomForm
               is_active: classroom.is_active !== false,
             };
           });
-        } catch (error) {
+        } catch {
           toast.error('Derslik bilgileri yüklenirken bir hata oluştu');
           router.push('/classrooms');
         } finally {

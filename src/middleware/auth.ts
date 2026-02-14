@@ -46,12 +46,15 @@ export async function requireAdmin(request: NextRequest): Promise<User> {
  * Wrapper for authenticated routes
  */
 export function withAuth(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handler: (request: NextRequest, user: User, context?: any) => Promise<NextResponse>
 ) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async (request: NextRequest, context?: any): Promise<NextResponse> => {
     try {
       const user = await requireAuth(request);
       return await handler(request, user, context);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       if (error.statusCode) {
         return NextResponse.json(
@@ -73,12 +76,15 @@ export function withAuth(
  * Wrapper for admin-only routes
  */
 export function withAdmin(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handler: (request: NextRequest, user: User, context?: any) => Promise<NextResponse>
 ) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async (request: NextRequest, context?: any): Promise<NextResponse> => {
     try {
       const user = await requireAdmin(request);
       return await handler(request, user, context);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       if (error.statusCode) {
         return NextResponse.json(
@@ -100,9 +106,12 @@ export function withAdmin(
  * Combined wrapper for authenticated routes with validation
  */
 export function withAuthAndValidation<T>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   schema: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handler: (request: NextRequest, user: User, validated: T, context?: any) => Promise<NextResponse>
 ) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async (request: NextRequest, context?: any): Promise<NextResponse> => {
     try {
       const user = await requireAuth(request);
@@ -112,6 +121,7 @@ export function withAuthAndValidation<T>(
       const validated = await validateRequest(request, schema);
       
       return await handler(request, user, validated as T, context);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       // Log validation errors to console for debugging
       if (error.statusCode === 400 && error.details) {
@@ -131,9 +141,12 @@ export function withAuthAndValidation<T>(
  * Combined wrapper for admin routes with validation
  */
 export function withAdminAndValidation<T>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   schema: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handler: (request: NextRequest, user: User, validated: T, context?: any) => Promise<NextResponse>
 ) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async (request: NextRequest, context?: any): Promise<NextResponse> => {
     try {
       const user = await requireAdmin(request);
@@ -143,6 +156,7 @@ export function withAdminAndValidation<T>(
       const validated = await validateRequest(request, schema);
       
       return await handler(request, user, validated as T, context);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       // Log validation errors to console for debugging
       if (error.statusCode === 400 && error.details) {

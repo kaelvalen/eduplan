@@ -5,7 +5,7 @@
 import prisma from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 import { BaseService } from './base.service';
-import type { Course, CourseCreate } from '@/types';
+import type { Course } from '@/types';
 import type { CreateCourseInput, UpdateCourseInput } from '@/lib/schemas';
 import { parseTeacherWorkingHoursSafe } from '@/lib/time-utils';
 
@@ -421,6 +421,7 @@ export class CourseService extends BaseService<Course, CreateCourseInput, Update
   /**
    * Get active courses for scheduler
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getActiveCoursesForScheduler(): Promise<any[]> {
     const courses = await prisma.course.findMany({
       where: { isActive: true },

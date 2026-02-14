@@ -73,6 +73,7 @@ export function setCsrfTokenCookie(response: NextResponse, token: string): void 
  * });
  * ```
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withCsrf<T extends any[]>(
   handler: (request: NextRequest, ...args: T) => Promise<NextResponse>
 ) {
@@ -102,7 +103,9 @@ export function withCsrf<T extends any[]>(
  * Combined auth + CSRF middleware
  * Use this for protected endpoints that require authentication AND CSRF protection
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withAuthAndCsrf<T extends any[]>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handler: (request: NextRequest, user: any, ...args: T) => Promise<NextResponse>
 ) {
   return async (request: NextRequest, ...args: T): Promise<NextResponse> => {
@@ -139,7 +142,9 @@ export function withAuthAndCsrf<T extends any[]>(
  * Combined admin + CSRF middleware
  * For admin-only endpoints that also require CSRF protection
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withAdminAndCsrf<T extends any[]>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handler: (request: NextRequest, user: any, ...args: T) => Promise<NextResponse>
 ) {
   return async (request: NextRequest, ...args: T): Promise<NextResponse> => {

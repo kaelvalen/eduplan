@@ -10,6 +10,7 @@ export function LoadingBar() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     // Start loading
     setLoading(true);
@@ -31,14 +32,15 @@ export function LoadingBar() {
       clearTimeout(timer3);
     };
   }, [pathname, searchParams]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!loading && progress === 0) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[100] h-1">
+    <div className="fixed top-0 left-0 right-0 z-100 h-1">
       <div
         className={cn(
-          'h-full bg-gradient-to-r from-primary via-violet-500 to-primary transition-all duration-300 ease-out shadow-lg shadow-primary/50',
+          'h-full bg-linear-to-r from-primary via-violet-500 to-primary transition-all duration-300 ease-out shadow-lg shadow-primary/50',
           loading ? 'opacity-100' : 'opacity-0'
         )}
         style={{ width: `${progress}%` }}

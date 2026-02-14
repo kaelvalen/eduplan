@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -21,20 +20,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { cn } from '@/lib/utils';
 import { NotificationCenter } from '@/components/ui/notification-center';
-
-const shortcuts = [
-  { key: '⌘ K', description: 'Arama' },
-  { key: 'G H', description: 'Ana sayfaya git' },
-  { key: 'G T', description: 'Öğretim Elemanları' },
-  { key: 'G C', description: 'Dersler' },
-  { key: 'G S', description: 'Program' },
-];
 
 
 interface HeaderProps {
@@ -46,7 +35,6 @@ interface HeaderProps {
 export function Header({ onMenuClick, showMenuButton = false, onSearchClick }: HeaderProps) {
   const { user, logout, isAdmin } = useAuth();
   const pathname = usePathname();
-  const [showShortcuts, setShowShortcuts] = useState(false);
 
   // Handle search click - use command palette
   const handleSearchClick = () => {
@@ -162,7 +150,7 @@ export function Header({ onMenuClick, showMenuButton = false, onSearchClick }: H
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-3 h-11 pl-2 pr-4 rounded-xl hover:bg-muted/50 transition-all border border-transparent hover:border-border/60">
                 <div className="relative">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary/90 to-accent/70 text-white font-semibold text-sm shadow-sm">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br from-primary/90 to-accent/70 text-white font-semibold text-sm shadow-sm">
                     {user?.username?.charAt(0).toUpperCase()}
                   </div>
                   <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400/80 ring-2 ring-background" />
@@ -178,7 +166,7 @@ export function Header({ onMenuClick, showMenuButton = false, onSearchClick }: H
             <DropdownMenuContent align="end" className="w-64 rounded-2xl p-3">
               <div className="px-3 py-3 mb-3 bg-muted/30 rounded-xl">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary/90 to-accent/70 text-white font-bold shadow-sm">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-linear-to-br from-primary/90 to-accent/70 text-white font-bold shadow-sm">
                     {user?.username?.charAt(0).toUpperCase()}
                   </div>
                   <div>

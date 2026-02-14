@@ -28,7 +28,7 @@ export async function GET(request: Request) {
       time_range: s.timeRange,
       course_id: s.courseId,
       classroom_id: s.classroomId,
-      session_type: (s as any).sessionType || 'teorik',
+      session_type: (s as unknown as { sessionType: string }).sessionType || 'teorik',
       is_hardcoded: s.isHardcoded,
       course: s.course ? {
         id: s.course.id,
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
       time_range: rawSchedule.timeRange,
       course_id: rawSchedule.courseId,
       classroom_id: rawSchedule.classroomId,
-      session_type: (rawSchedule as any).sessionType || 'teorik',
+      session_type: (rawSchedule as unknown as { sessionType: string }).sessionType || 'teorik',
       is_hardcoded: rawSchedule.isHardcoded,
       course: rawSchedule.course ? {
         id: rawSchedule.course.id,

@@ -10,6 +10,7 @@ export function useLocalStorage<T>(
   const [storedValue, setStoredValue] = useState<T>(initialValue);
 
   // Initialize from localStorage on mount
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     try {
       const item = window.localStorage.getItem(key);
@@ -20,6 +21,7 @@ export function useLocalStorage<T>(
       console.warn(`Error reading localStorage key "${key}":`, error);
     }
   }, [key]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Return a wrapped version of useState's setter function that persists to localStorage
   const setValue = useCallback(

@@ -18,8 +18,8 @@ export async function GET(request: Request) {
     const preferences = rawPreference ? {
       id: rawPreference.id,
       userId: rawPreference.userId,
-      widgets: rawPreference.widgets as any,
-      layout: rawPreference.layout as any,
+      widgets: JSON.parse(rawPreference.widgets) as Record<string, unknown>,
+      layout: JSON.parse(rawPreference.layout) as Record<string, unknown>,
       theme: rawPreference.theme,
       createdAt: rawPreference.createdAt.toISOString(),
       updatedAt: rawPreference.updatedAt.toISOString(),
@@ -130,8 +130,8 @@ export async function PUT(request: Request) {
       updatedPreference = await prisma.userDashboardPreference.update({
         where: { userId: user.id },
         data: {
-          widgets: body.widgets as any,
-          layout: body.layout as any,
+          widgets: body.widgets ? JSON.stringify(body.widgets) : undefined,
+          layout: body.layout ? JSON.stringify(body.layout) : undefined,
           theme: body.theme,
         },
       });
@@ -139,8 +139,8 @@ export async function PUT(request: Request) {
       updatedPreference = await prisma.userDashboardPreference.create({
         data: {
           userId: user.id,
-          widgets: body.widgets as any,
-          layout: body.layout as any,
+          widgets: body.widgets ? JSON.stringify(body.widgets) : '[]',
+          layout: body.layout ? JSON.stringify(body.layout) : '{}',
           theme: body.theme || 'default',
         },
       });
@@ -149,8 +149,8 @@ export async function PUT(request: Request) {
     const preferences = {
       id: updatedPreference.id,
       userId: updatedPreference.userId,
-      widgets: updatedPreference.widgets as any,
-      layout: updatedPreference.layout as any,
+      widgets: JSON.parse(updatedPreference.widgets) as Record<string, unknown>,
+      layout: JSON.parse(updatedPreference.layout) as Record<string, unknown>,
       theme: updatedPreference.theme,
       createdAt: updatedPreference.createdAt.toISOString(),
       updatedAt: updatedPreference.updatedAt.toISOString(),

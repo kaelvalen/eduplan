@@ -7,7 +7,7 @@ import { withAuth, withAdminAndValidation } from '@/middleware';
  * GET /api/classrooms - Get all classrooms
  * Requires authentication
  */
-export const GET = withAuth(async (request: NextRequest, _user) => {
+export const GET = withAuth(async (request: NextRequest) => {
   try {
     // Parse query parameters for filtering
     const { searchParams } = new URL(request.url);

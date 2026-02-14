@@ -1,12 +1,10 @@
 'use client';
 
-import { CheckCircle2, Circle, ArrowRight, Users, BookOpen, Building2, Calendar, Settings } from 'lucide-react';
+import { CheckCircle2, ArrowRight, Users, BookOpen, Building2, Calendar, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { styles } from '@/lib/design-tokens';
 import type { Statistics } from '@/types';
 
 interface OnboardingWizardProps {
@@ -79,7 +77,6 @@ export function OnboardingWizard({ stats, className }: OnboardingWizardProps) {
 
   // Find current active step (first incomplete step)
   const activeStepIndex = steps.findIndex(s => !s.isComplete);
-  const activeStep = steps[activeStepIndex !== -1 ? activeStepIndex : steps.length - 1];
 
   if (progress === 100) return null; // Hide if fully complete
 

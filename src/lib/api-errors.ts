@@ -4,7 +4,6 @@
  */
 
 import { NextResponse } from 'next/server';
-import logger, { formatError, safeLogger } from './logger';
 
 /**
  * Standard API error response format
@@ -13,6 +12,7 @@ export interface ApiErrorResponse {
   error: string;
   message: string;
   code?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   details?: any;
   timestamp: string;
 }
@@ -56,12 +56,61 @@ export class ApiError extends Error {
     public message: string,
     public statusCode: number,
     public code?: ErrorCode,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public details?: any
   ) {
     super(message);
     this.name = 'ApiError';
   }
 }
+
+/**
+ * Format error object for logging/response
+ */
+function formatError(error: unknown): { name: string; message: string; stack?: string } {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+  }
+
+  if (typeof error === 'string') {
+    return {
+      name: 'Error',
+      message: error,
+    };
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    return {
+      name: 'name' in error && typeof error.name === 'string' ? error.name : 'Error',
+      message: typeof error.message === 'string' ? error.message : String(error.message),
+      stack: 'stack' in error && typeof error.stack === 'string' ? error.stack : undefined,
+    };
+  }
+
+  return {
+    name: 'Error',
+    message: 'An unexpected error occurred',
+  };
+}
+
+/**
+ * Safe logger that handles errors gracefully
+ */
+const safeLogger = {
+  error: (message: string, data?: Record<string, unknown>) => {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        console.error(`[API Error] ${message}`, data);
+      }
+    } catch {
+      // Ignore logging errors
+    }
+  },
+};
 
 /**
  * Create standardized error response
@@ -107,6 +156,7 @@ export function handleApiError(error: unknown): NextResponse<ApiErrorResponse> {
 
   // Handle Prisma errors
   if (error && typeof error === 'object' && 'code' in error) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const prismaError = error as { code: string; meta?: any };
 
     switch (prismaError.code) {
@@ -149,6 +199,7 @@ export function handleApiError(error: unknown): NextResponse<ApiErrorResponse> {
  */
 export function validationError(
   message: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   details?: any
 ): NextResponse<ApiErrorResponse> {
   return NextResponse.json(

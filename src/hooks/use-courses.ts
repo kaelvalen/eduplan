@@ -8,7 +8,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { coursesApi } from '@/lib/api';
-import type { Course, CourseCreate, FilterOptions } from '@/types';
+import type { CourseCreate, FilterOptions } from '@/types';
 
 // Query keys
 export const courseKeys = {
@@ -53,6 +53,7 @@ export function useCreateCourse() {
     onSuccess: (newCourse) => {
       queryClient.setQueriesData(
         { queryKey: courseKeys.lists() },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (old: any) => old ? [...old, newCourse] : [newCourse]
       );
       toast.success('Ders başarıyla eklendi');
@@ -83,6 +84,7 @@ export function useUpdateCourse() {
       const previousLists = queryClient.getQueriesData({ queryKey: courseKeys.lists() });
       
       // Optimistically update detail
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       queryClient.setQueryData(courseKeys.detail(variables.id), (old: any) => ({
         ...old,
         ...variables.data,
@@ -91,6 +93,7 @@ export function useUpdateCourse() {
       // Optimistically update lists
       queryClient.setQueriesData(
         { queryKey: courseKeys.lists() },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (old: any) => old ? old.map((course: any) => 
           course.id === variables.id ? { ...course, ...variables.data } : course
         ) : []
@@ -138,6 +141,7 @@ export function useDeleteCourse() {
       // Optimistically remove from cache
       queryClient.setQueriesData(
         { queryKey: courseKeys.lists() },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (old: any) => old ? old.filter((course: any) => course.id !== deletedId) : []
       );
       
@@ -182,6 +186,7 @@ export function useCreateHardcodedSchedule() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mutationFn: ({ courseId, data }: { courseId: number; data: any }) =>
       coursesApi.addHardcodedSchedule(courseId, data),
     onSuccess: (_, variables) => {

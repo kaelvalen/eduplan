@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useHierarchicalNavigation, ViewLevel } from '@/hooks/use-hierarchical-navigation';
+import { useHierarchicalNavigation } from '@/hooks/use-hierarchical-navigation';
 
 // Generic grouped data structure
 export type GroupedData<T> = Record<string, Record<string, T[]>>;

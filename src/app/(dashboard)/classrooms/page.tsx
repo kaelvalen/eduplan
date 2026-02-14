@@ -41,7 +41,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Shell, ShellHeader, ShellContent } from '@/components/layout/shell';
-import { ClassroomsListSkeleton, ClassroomsTableSkeleton } from '@/components/classrooms/classrooms-skeleton';
+import { ClassroomsTableSkeleton } from '@/components/classrooms/classrooms-skeleton';
 import { ClassroomDetailModal } from '@/components/classrooms/classroom-detail-modal';
 import type { Classroom } from '@/types';
 
@@ -128,7 +128,7 @@ export default function ClassroomsPage() {
     try {
       await deleteClassroom(deleteConfirm.classroom.id);
       setDeleteConfirm({ show: false, classroom: null });
-    } catch (error) {
+    } catch {
       // Error handled by mutation hook
     }
   };

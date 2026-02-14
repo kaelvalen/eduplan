@@ -20,6 +20,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [colorTheme, setColorTheme] = useState<ColorTheme>('blue');
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const storedTheme = localStorage.getItem('theme') as Theme | null;
     const storedColorTheme = localStorage.getItem('color-theme') as ColorTheme | null;
@@ -27,6 +28,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (storedTheme) setTheme(storedTheme);
     if (storedColorTheme) setColorTheme(storedColorTheme);
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     const root = window.document.documentElement;

@@ -1,7 +1,6 @@
 import * as React from 'react';
-import { Zap, Plus, Upload, FileSpreadsheet, Calendar, Users } from 'lucide-react';
+import { Zap, Plus, Upload, Calendar, Users } from 'lucide-react';
 import { WidgetContainer, WidgetHeader, WidgetBody } from './widget-container';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { LucideIcon } from 'lucide-react';

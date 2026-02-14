@@ -41,6 +41,7 @@ const THRESHOLDS = {
 /**
  * Get rating for a metric value
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getRating(name: MetricName, value: number): 'good' | 'needs-improvement' | 'poor' {
   const threshold = THRESHOLDS[name];
   if (!threshold) return 'good';
@@ -83,7 +84,9 @@ export function reportWebVitals(metric: PerformanceMetric) {
  */
 function sendToAnalytics(metric: PerformanceMetric) {
   // Example: Google Analytics 4
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (typeof window !== 'undefined' && (window as any).gtag) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).gtag('event', metric.name, {
       value: Math.round(metric.value),
       metric_rating: metric.rating,
@@ -93,7 +96,9 @@ function sendToAnalytics(metric: PerformanceMetric) {
   }
 
   // Example: Vercel Analytics
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (typeof window !== 'undefined' && (window as any).va) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).va('track', 'Web Vitals', {
       metric: metric.name,
       value: Math.round(metric.value),
@@ -213,10 +218,14 @@ export function getCurrentPerformanceMetrics() {
     total: navigation.loadEventEnd - navigation.fetchStart,
 
     // Memory (if available)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     memory: (performance as any).memory
       ? {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           used: Math.round((performance as any).memory.usedJSHeapSize / 1048576),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           total: Math.round((performance as any).memory.totalJSHeapSize / 1048576),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           limit: Math.round((performance as any).memory.jsHeapSizeLimit / 1048576),
         }
       : null,

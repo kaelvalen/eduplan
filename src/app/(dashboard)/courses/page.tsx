@@ -43,7 +43,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Shell, ShellHeader, ShellContent } from '@/components/layout/shell';
-import { CoursesListSkeleton, CoursesTableSkeleton } from '@/components/courses/courses-skeleton';
+import { CoursesTableSkeleton } from '@/components/courses/courses-skeleton';
 import type { Course } from '@/types';
 
 type ViewLevel = 'faculties' | 'departments' | 'courses';
@@ -145,7 +145,7 @@ export default function CoursesPage() {
     try {
       await deleteCourse(deleteConfirm.course.id);
       setDeleteConfirm({ show: false, course: null });
-    } catch (error) {
+    } catch {
       // Error handled by mutation hook
     }
   };

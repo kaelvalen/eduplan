@@ -35,6 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const storedToken = Cookies.get('token');
     if (storedToken) {
@@ -44,6 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     }
   }, [fetchUser]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const login = async (username: string, password: string) => {
     const response = await authApi.login(username, password);

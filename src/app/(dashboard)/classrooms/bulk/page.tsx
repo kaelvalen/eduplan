@@ -180,6 +180,7 @@ export default function BulkClassroomsPage() {
           await classroomsApi.create(classroomData);
         }
         successCount++;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         const message = error?.response?.data?.detail || error?.message || 'Bilinmeyen hata';
         errors.push({ row: i, error: message });

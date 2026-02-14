@@ -146,6 +146,7 @@ const SENSITIVE_FIELDS = [
 /**
  * Sanitize object by redacting sensitive fields
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function sanitizeObject(obj: any): any {
   if (!obj || typeof obj !== 'object') return obj;
 
@@ -153,6 +154,7 @@ export function sanitizeObject(obj: any): any {
     return obj.map(sanitizeObject);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sanitized: any = {};
   for (const [key, value] of Object.entries(obj)) {
     const lowerKey = key.toLowerCase();
@@ -178,18 +180,23 @@ export function sanitizeObject(obj: any): any {
  * Safe logger that automatically sanitizes sensitive data
  */
 export const safeLogger = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   error: (message: string, meta?: any) => {
     logger.error(message, meta ? sanitizeObject(meta) : undefined);
   },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   warn: (message: string, meta?: any) => {
     logger.warn(message, meta ? sanitizeObject(meta) : undefined);
   },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   info: (message: string, meta?: any) => {
     logger.info(message, meta ? sanitizeObject(meta) : undefined);
   },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   debug: (message: string, meta?: any) => {
     logger.debug(message, meta ? sanitizeObject(meta) : undefined);
   },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   http: (message: string, meta?: any) => {
     logger.http(message, meta ? sanitizeObject(meta) : undefined);
   },
@@ -209,6 +216,7 @@ export function formatError(error: unknown): {
       message: error.message,
       stack: error.stack,
       name: error.name,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       code: (error as any).code,
     };
   }

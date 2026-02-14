@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Teacher, TeacherCreate } from '@/types';
+import type { TeacherCreate } from '@/types';
 
 // Akademik ünvanlar
 const ACADEMIC_TITLES = [
@@ -69,7 +69,7 @@ export function TeacherForm({ teacherId }: TeacherFormProps) {
             is_active: teacher.is_active !== false,
           });
           setWorkingHours(parseWorkingHours(teacher.working_hours ?? '{}'));
-        } catch (error) {
+          } catch {
           toast.error('Öğretim elemanı bilgileri yüklenirken bir hata oluştu');
           router.push('/teachers');
         } finally {

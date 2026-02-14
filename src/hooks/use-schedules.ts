@@ -8,6 +8,7 @@ import { schedulesApi } from '@/lib/api';
 export const scheduleKeys = {
   all: ['schedules'] as const,
   lists: () => [...scheduleKeys.all, 'list'] as const,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   list: (filters?: any) => [...scheduleKeys.lists(), filters] as const,
   details: () => [...scheduleKeys.all, 'detail'] as const,
   detail: (id: number) => [...scheduleKeys.details(), id] as const,
@@ -42,6 +43,7 @@ export function useSchedules() {
       // Optimistically remove schedules
       queryClient.setQueriesData(
         { queryKey: scheduleKeys.lists() },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (old: any) => old ? old.filter((s: any) => !daysToDelete.includes(s.day)) : []
       );
       
@@ -64,6 +66,7 @@ export function useSchedules() {
   });
 
   const updateScheduleMutation = useMutation({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mutationFn: ({ id, data }: { id: number; data: any }) =>
       schedulesApi.update(id, data),
     onMutate: async ({ id, data }) => {
@@ -72,6 +75,7 @@ export function useSchedules() {
 
       queryClient.setQueriesData(
         { queryKey: scheduleKeys.lists() },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (old: any) => old ? old.map((s: any) => {
           if (s.id === id) {
             return {

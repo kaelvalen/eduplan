@@ -129,11 +129,13 @@ export default function BulkCoursesPage() {
       required: true,
     },
     {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       key: 'departments' as any,
       header: 'Bölümler ve Kontenjanlar',
       type: 'custom' as const,
       width: '400px',
       required: true,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       customRender: (row: CourseRow, rowIndex: number, updateCell: (key: any, value: any) => void) => {
         const departments = row.departments || [];
         const facultyId = row.faculty;
@@ -192,7 +194,7 @@ export default function BulkCoursesPage() {
             )}
             {availableDepts.length > 0 && departments.length === 0 && (
               <p className="text-xs text-muted-foreground italic py-2">
-                Bölüm seçmek için checkbox'ları işaretleyin
+                Bölüm seçmek için checkbox&apos;ları işaretleyin
               </p>
             )}
             <div className="space-y-1.5 max-h-[200px] overflow-y-auto pr-1">
@@ -223,7 +225,7 @@ export default function BulkCoursesPage() {
                           className="h-7 text-xs w-[70px] text-center font-medium"
                           placeholder="0"
                         />
-                        <span className="text-xs text-muted-foreground min-w-[40px]">öğrenci</span>
+                        <span className="text-xs text-muted-foreground min-w-10">öğrenci</span>
                       </div>
                     )}
                   </div>
@@ -273,10 +275,12 @@ export default function BulkCoursesPage() {
       },
     },
     {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       key: 'sessions' as any,
       header: 'Oturumlar (Toplam saat otomatik hesaplanır)',
       type: 'custom' as const,
       width: '350px',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       customRender: (row: CourseRow, rowIndex: number, updateCell: (key: any, value: any) => void) => {
         const sessions = row.sessions || [];
         const totalHours = sessions.reduce((sum, s) => sum + s.hours, 0);
@@ -291,6 +295,7 @@ export default function BulkCoursesPage() {
           updateCell('sessions', newSessions);
         };
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const updateSession = (index: number, field: 'type' | 'hours', value: any) => {
           const newSessions = [...sessions];
           newSessions[index] = { ...newSessions[index], [field]: value };
@@ -322,7 +327,7 @@ export default function BulkCoursesPage() {
               </Button>
             </div>
             {sessions.length === 0 && (
-              <p className="text-xs text-muted-foreground italic py-2">Henüz oturum eklenmemiş. "Ekle" butonuna tıklayın.</p>
+              <p className="text-xs text-muted-foreground italic py-2">Henüz oturum eklenmemiş. &quot;Ekle&quot; butonuna tıklayın.</p>
             )}
             <div className="space-y-1.5 max-h-[200px] overflow-y-auto pr-1">
               {sessions.map((session, sessIndex) => (
@@ -539,6 +544,7 @@ export default function BulkCoursesPage() {
           await coursesApi.create(courseData);
         }
         successCount++;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         const message = error?.response?.data?.detail || error?.message || 'Bilinmeyen hata';
         errors.push({ row: i, error: message });
@@ -585,7 +591,7 @@ export default function BulkCoursesPage() {
             <br />
             <strong>Otomatik Doldurma:</strong> Mevcut bir ders kodunu girdiğinizde, diğer tüm alanlar otomatik olarak doldurulur ve satır düzenleme moduna geçer.
             <br />
-            <strong>Oturumlar:</strong> Her satırda "Ekle" butonuyla yeni oturum ekleyebilirsiniz. Toplam saat otomatik olarak oturumların saatlerinin toplamından hesaplanır.
+            <strong>Oturumlar:</strong> Her satırda &quot;Ekle&quot; butonuyla yeni oturum ekleyebilirsiniz. Toplam saat otomatik olarak oturumların saatlerinin toplamından hesaplanır.
             <br />
             <strong>Bölümler:</strong> Fakülte seçtikten sonra, o fakültenin bölümlerinden istediğiniz kadar seçip her bölüm için öğrenci sayısını girebilirsiniz.
           </p>

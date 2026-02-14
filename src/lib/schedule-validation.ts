@@ -165,7 +165,7 @@ export function validateTeacherAvailability(
           })
         );
       }
-    } catch (e) {
+    } catch {
       // Invalid JSON, skip validation
     }
   }

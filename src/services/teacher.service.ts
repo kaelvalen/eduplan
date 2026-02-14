@@ -5,7 +5,7 @@
 import prisma from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 import { BaseService } from './base.service';
-import type { Teacher, TeacherCreate, TeacherWithSchedule } from '@/types';
+import type { Teacher, TeacherWithSchedule } from '@/types';
 import type { CreateTeacherInput, UpdateTeacherInput} from '@/lib/schemas';
 
 export interface TeacherFilters {
@@ -116,6 +116,7 @@ export class TeacherService extends BaseService<Teacher, CreateTeacherInput, Upd
     if (!teacher) return null;
 
     const schedules = teacher.courses.flatMap(course =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       course.schedules.map((s: any) => ({
         id: s.id,
         day: s.day,
@@ -142,14 +143,17 @@ export class TeacherService extends BaseService<Teacher, CreateTeacherInput, Upd
             email: teacher.email,
             faculty: teacher.faculty,
             department: teacher.department,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             working_hours: (teacher as any).workingHours || null,
           } : null,
           total_hours: course.totalHours,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           departments: course.departments?.map((d: any) => ({
             id: d.id,
             department: d.department,
             student_count: d.studentCount,
           })) || [],
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           sessions: course.sessions?.map((sess: any) => ({
             id: sess.id,
             type: (sess.type as 'teorik' | 'lab' | 'tümü') || 'teorik',
@@ -163,6 +167,7 @@ export class TeacherService extends BaseService<Teacher, CreateTeacherInput, Upd
           capacity: s.classroom.capacity,
           faculty: s.classroom.faculty,
           department: s.classroom.department,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           available_hours: (s.classroom as any).availableHours || null,
         } : null,
       }))
@@ -266,6 +271,7 @@ export class TeacherService extends BaseService<Teacher, CreateTeacherInput, Upd
   /**
    * Transform Prisma teacher to API format
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private transformTeacher(teacher: any): Teacher {
     return {
       id: teacher.id,

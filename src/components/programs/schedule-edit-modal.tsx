@@ -81,7 +81,7 @@ export function ScheduleEditModal({
         classroom_id: schedule.classroom_id || 0,
       });
     }
-  }, [scheduleId]);
+  }, [scheduleId, schedule]);
 
   // Validate on form change
   useEffect(() => {
@@ -156,6 +156,7 @@ export function ScheduleEditModal({
       toast.success('Ders saati güncellendi');
       onSuccess();
       onOpenChange(false);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('❌ Modal: Update failed', error);
       const message = error?.response?.data?.error || error?.message || 'Güncelleme başarısız';

@@ -62,7 +62,7 @@ export function CourseForm({ courseId: initialCourseId }: CourseFormProps) {
       try {
         const data = await teachersApi.getAll();
         setTeachers(data);
-      } catch (error) {
+      } catch {
         toast.error('Öğretim elemanları yüklenirken bir hata oluştu');
       }
     };
@@ -70,7 +70,7 @@ export function CourseForm({ courseId: initialCourseId }: CourseFormProps) {
       try {
         const data = await classroomsApi.getAll();
         setClassrooms(data);
-      } catch (error) {
+      } catch {
         toast.error('Derslikler yüklenirken bir hata oluştu');
       }
     };
@@ -127,7 +127,7 @@ export function CourseForm({ courseId: initialCourseId }: CourseFormProps) {
               setHardcodedSchedules([]);
             }
           }
-        } catch (error) {
+        } catch {
           toast.error('Ders bilgileri yüklenirken bir hata oluştu');
           router.push('/courses');
         } finally {
@@ -143,9 +143,6 @@ export function CourseForm({ courseId: initialCourseId }: CourseFormProps) {
     setIsLoading(true);
 
     try {
-      // Calculate total_hours from sessions
-      const totalHours = sessions.reduce((sum, session) => sum + session.hours, 0);
-
       const data: CourseCreate = {
         ...formData,
         sessions,

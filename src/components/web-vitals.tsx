@@ -13,8 +13,10 @@ export function WebVitals() {
   useReportWebVitals((metric) => {
     // Report Core Web Vitals
     reportWebVitals({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       name: metric.name as any,
       value: metric.value,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       rating: metric.rating as any,
       delta: metric.delta,
       id: metric.id,
@@ -40,7 +42,9 @@ export function WebVitals() {
         }
 
         // Log memory usage if available
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if ((performance as any).memory) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const memory = (performance as any).memory;
           console.log('[Performance] Memory Usage:', {
             'Used': `${Math.round(memory.usedJSHeapSize / 1048576)}MB`,

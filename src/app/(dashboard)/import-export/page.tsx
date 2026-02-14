@@ -320,6 +320,7 @@ export default function ImportExportPage() {
     try {
       for (let i = 0; i < toAdd.length; i++) {
         try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const d = toAdd[i].data as any;
           if (importType === 'teachers') {
             const emailLower = (d.email ?? '').trim().toLowerCase();

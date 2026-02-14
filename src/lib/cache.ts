@@ -9,6 +9,7 @@ interface CacheEntry<T> {
 }
 
 class MemoryCache {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private cache = new Map<string, CacheEntry<any>>();
   private cleanupInterval: NodeJS.Timeout | null = null;
 

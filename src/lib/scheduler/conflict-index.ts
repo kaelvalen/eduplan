@@ -222,7 +222,7 @@ export class ConflictIndex {
         })
         .map(id => {
           const c = this.courseMap.get(id);
-          return { id, code: c?.code, name: c?.name };
+          return { id, code: c?.code || 'Unknown', name: c?.name || 'Unknown Course' };
         });
 
       const result = {
@@ -249,7 +249,7 @@ export class ConflictIndex {
       const conflictingCourses = conflictingCourseId
         ? [conflictingCourseId].map(id => {
             const c = this.courseMap.get(id);
-            return { id, code: c?.code, name: c?.name };
+            return { id, code: c?.code || 'Unknown', name: c?.name || 'Unknown Course' };
           })
         : [];
 
@@ -283,7 +283,7 @@ export class ConflictIndex {
         })
         .map(id => {
           const c = this.courseMap.get(id);
-          return { id, code: c?.code, name: c?.name, departments: c?.departments.map(d => d.department) };
+          return { id, code: c?.code || 'Unknown', name: c?.name || 'Unknown Course' };
         });
 
       const deptNames = course.departments.map(d => d.department).join(', ');
@@ -291,9 +291,7 @@ export class ConflictIndex {
         type: 'department' as const,
         message: `Zorunlu ders çakışması: ${deptNames} bölümü ${course.level}. sınıf ${course.semester} döneminde ${normalizedDay} günü ${timeRange} saatinde başka zorunlu ders var`,
         details: {
-          departments: course.departments.map(d => d.department),
-          semester: course.semester,
-          level: course.level,
+          conflictingDepartments: course.departments.map(d => d.department),
           conflictingCourses,
           day: normalizedDay,
           timeRange,

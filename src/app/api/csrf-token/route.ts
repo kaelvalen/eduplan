@@ -5,7 +5,7 @@
  * The token is stored in an HTTP-only cookie and returned in the response.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { generateCsrfToken, setCsrfTokenCookie } from '@/middleware/csrf';
 
 /**
@@ -16,7 +16,7 @@ import { generateCsrfToken, setCsrfTokenCookie } from '@/middleware/csrf';
  *
  * @returns CSRF token in JSON response and cookie
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Generate a new CSRF token
     const token = generateCsrfToken();

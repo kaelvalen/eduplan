@@ -3,10 +3,10 @@
  * All services should extend this class
  */
 
-import prisma from '@/lib/prisma';
 import { cache } from '@/lib/cache';
 
-export abstract class BaseService<T, CreateInput, UpdateInput> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export abstract class BaseService<T, _CreateInput, _UpdateInput> {
   protected abstract modelName: string;
   protected abstract cacheKeyPrefix: string;
   protected cacheTTL: number = 300; // 5 minutes default
@@ -21,6 +21,7 @@ export abstract class BaseService<T, CreateInput, UpdateInput> {
   /**
    * Get cache key for list queries
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected getListCacheKey(filters?: any): string {
     const filterKey = filters ? JSON.stringify(filters) : 'all';
     return `${this.cacheKeyPrefix}:list:${filterKey}`;

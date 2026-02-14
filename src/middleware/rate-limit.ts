@@ -78,6 +78,7 @@ export function createRateLimiter(config: RateLimitConfig) {
     skipSuccessfulRequests = false,
   } = config;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return function rateLimitMiddleware<T extends any[]>(
     handler: (request: NextRequest, ...args: T) => Promise<NextResponse>
   ) {

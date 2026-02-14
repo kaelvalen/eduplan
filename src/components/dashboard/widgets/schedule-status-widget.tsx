@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Calendar, CheckCircle2, AlertCircle, Clock, Play } from 'lucide-react';
+import { Calendar, AlertCircle, Play } from 'lucide-react';
 import { WidgetContainer, WidgetHeader, WidgetBody, WidgetFooter } from './widget-container';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -146,7 +146,7 @@ const ScheduleStatusWidgetComponent = ({ schedulerStatus, isAdmin }: ScheduleSta
         {hasConflicts && (
           <div className="mt-4 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/50">
             <div className="flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 mt-0.5 flex-shrink-0" />
+              <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 mt-0.5 shrink-0" />
               <p className="text-xs text-rose-700 dark:text-rose-300">
                 Programda {conflicts} çakışma tespit edildi. İncelemeniz gerekiyor.
               </p>

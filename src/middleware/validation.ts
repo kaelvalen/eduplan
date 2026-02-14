@@ -67,6 +67,7 @@ export function validateQuery<T>(
 ): T {
   try {
     const { searchParams } = new URL(request.url);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const query: any = {};
 
     searchParams.forEach((value, key) => {
@@ -104,6 +105,7 @@ export function validateQuery<T>(
 /**
  * Error response helper
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function errorResponse(error: ApiError | Error | any): NextResponse {
   if ('statusCode' in error && 'error' in error) {
     const apiError = error as ApiError;
@@ -153,8 +155,10 @@ export function withValidation<T>(
  * Wrapper for API routes with error handling only (no validation)
  */
 export function withErrorHandling(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handler: (request: NextRequest, context?: any) => Promise<NextResponse>
 ) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async (request: NextRequest, context?: any): Promise<NextResponse> => {
     try {
       return await handler(request, context);

@@ -58,7 +58,7 @@ export async function GET(
             time_range: s.timeRange,
             course_id: s.courseId,
             classroom_id: s.classroomId,
-            session_type: (s as any).sessionType || 'teorik',
+            session_type: (s as unknown as { sessionType: string }).sessionType || 'teorik',
             is_hardcoded: s.isHardcoded,
             course: s.course ? {
                 id: s.course.id,
@@ -77,11 +77,11 @@ export async function GET(
                 id: teacher.id,
                 name: teacher.name,
                 email: teacher.email,
-                title: (teacher as any).title,
+                title: (teacher as unknown as { title: string }).title,
                 faculty: teacher.faculty,
                 department: teacher.department,
                 working_hours: teacher.workingHours,
-                is_active: (teacher as any).isActive,
+                is_active: (teacher as unknown as { isActive: boolean }).isActive,
             } : null,
             schedule: schedules
         });

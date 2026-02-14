@@ -7,7 +7,7 @@ import { withAuth, withAdminAndValidation, withAdmin } from '@/middleware';
  * GET /api/teachers/[id] - Get teacher by ID
  * Requires authentication
  */
-export const GET = withAuth(async (request: NextRequest, user, context: any) => {
+export const GET = withAuth(async (request: NextRequest, user, context: { params: Promise<{ id: string }> }) => {
   try {
     // Next.js 15+: params is a Promise
     const { params } = context;
@@ -46,7 +46,7 @@ export const GET = withAuth(async (request: NextRequest, user, context: any) => 
  */
 export const PUT = withAdminAndValidation<UpdateTeacherInput>(
   UpdateTeacherSchema,
-  async (request: NextRequest, user, validated: UpdateTeacherInput, context: any) => {
+  async (request: NextRequest, user, validated: UpdateTeacherInput, context: { params: Promise<{ id: string }> }) => {
     try {
       // Next.js 15+: params is a Promise
       const { params } = context;
@@ -76,7 +76,7 @@ export const PUT = withAdminAndValidation<UpdateTeacherInput>(
  * DELETE /api/teachers/[id] - Delete teacher
  * Requires admin authentication
  */
-export const DELETE = withAdmin(async (request: NextRequest, user, context: any) => {
+export const DELETE = withAdmin(async (request: NextRequest, user, context: { params: Promise<{ id: string }> }) => {
   try {
     // Next.js 15+: params is a Promise
     const { params } = context;

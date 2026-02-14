@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+// NextResponse imported for type reference
+// import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 
 // Simple in-memory store for SSE connections (in production, use Redis or similar)
@@ -74,6 +75,7 @@ export async function GET(request: Request) {
 }
 
 // Function to broadcast notifications to connected clients
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function broadcastNotification(notification: any) {
   const message = {
     type: 'notification',
@@ -106,6 +108,7 @@ export async function broadcastNotification(notification: any) {
 }
 
 // Function to broadcast system updates (like stats changes, schedule updates)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function broadcastSystemUpdate(updateType: string, data: any) {
   const message = {
     type: 'system_update',

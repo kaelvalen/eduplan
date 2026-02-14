@@ -9,6 +9,7 @@ export const debug = {
   /**
    * Log general debug information (only in development)
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   log: (...args: any[]) => {
     if (IS_DEV) {
       console.log(...args);
@@ -18,6 +19,7 @@ export const debug = {
   /**
    * Log warnings (only in development)
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   warn: (...args: any[]) => {
     if (IS_DEV) {
       console.warn(...args);
@@ -27,6 +29,7 @@ export const debug = {
   /**
    * Log errors (always logs, even in production)
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   error: (...args: any[]) => {
     // Always log errors
     console.error(...args);
@@ -35,6 +38,7 @@ export const debug = {
   /**
    * Log informational messages (only in development)
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   info: (...args: any[]) => {
     if (IS_DEV) {
       console.info(...args);
@@ -62,6 +66,7 @@ export const debug = {
   /**
    * Log a table (only in development)
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   table: (data: any) => {
     if (IS_DEV) {
       console.table(data);
@@ -74,7 +79,10 @@ export const debug = {
  * Use this for critical user-facing messages
  */
 export const alwaysLog = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   info: (...args: any[]) => console.info(...args),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   warn: (...args: any[]) => console.warn(...args),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   error: (...args: any[]) => console.error(...args),
 };

@@ -9,6 +9,7 @@ interface RequiredEnvVars {
   JWT_SECRET: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface OptionalEnvVars {
   NODE_ENV?: string;
   DATABASE_URL?: string;

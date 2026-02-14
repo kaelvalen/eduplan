@@ -49,6 +49,7 @@ export default prisma;
  * const results = await query<User>('SELECT * FROM User WHERE role = ?', ['admin']);
  * ```
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function query<T>(sql: string, params: any[] = []): Promise<T[]> {
   return prismaClient.$queryRawUnsafe<T[]>(sql, ...params);
 }
@@ -61,6 +62,7 @@ export async function query<T>(sql: string, params: any[] = []): Promise<T[]> {
  * await execute('UPDATE User SET isActive = ? WHERE id = ?', [true, 1]);
  * ```
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function execute(sql: string, params: any[] = []): Promise<any> {
   return prismaClient.$executeRawUnsafe(sql, ...params);
 }

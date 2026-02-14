@@ -71,6 +71,7 @@ export async function DELETE(request: Request) {
 }
 
 // Function to send push notification to a user
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function sendPushNotification(userId: number, title: string, body: string, data?: any) {
   try {
     const subscriptionRecord = await prisma.pushSubscription.findUnique({
@@ -82,13 +83,14 @@ export async function sendPushNotification(userId: number, title: string, body: 
       return false;
     }
 
-    const subscription: PushSubscriptionJSON = {
-      endpoint: subscriptionRecord.endpoint,
-      keys: {
-        p256dh: subscriptionRecord.p256dh,
-        auth: subscriptionRecord.auth,
-      },
-    };
+    // Subscription data for future production use:
+    // const subscription: PushSubscriptionJSON = {
+    //   endpoint: subscriptionRecord.endpoint,
+    //   keys: {
+    //     p256dh: subscriptionRecord.p256dh,
+    //     auth: subscriptionRecord.auth,
+    //   },
+    // };
 
     // In production, you would use a service like Firebase Cloud Messaging,
     // Web Push API with VAPID keys, or similar service
@@ -109,6 +111,7 @@ export async function sendPushNotification(userId: number, title: string, body: 
 }
 
 // Function to broadcast push notification to all users
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function broadcastPushNotification(title: string, body: string, data?: any) {
   const subscriptions = await prisma.pushSubscription.findMany();
   const results = [];

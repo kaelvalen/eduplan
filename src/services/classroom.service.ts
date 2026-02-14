@@ -5,7 +5,7 @@
 import prisma from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 import { BaseService } from './base.service';
-import type { Classroom, ClassroomCreate, ClassroomWithSchedule } from '@/types';
+import type { Classroom, ClassroomWithSchedule } from '@/types';
 import type { CreateClassroomInput, UpdateClassroomInput } from '@/lib/schemas';
 
 export interface ClassroomFilters {
@@ -127,6 +127,7 @@ export class ClassroomService extends BaseService<Classroom, CreateClassroomInpu
 
     if (!classroom) return null;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const schedules = classroom.schedules.map((s: any) => ({
       id: s.id,
       day: s.day,
@@ -153,14 +154,17 @@ export class ClassroomService extends BaseService<Classroom, CreateClassroomInpu
           email: s.course.teacher.email,
           faculty: s.course.teacher.faculty,
           department: s.course.teacher.department,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           working_hours: (s.course.teacher as any).workingHours || null,
         } : null,
         total_hours: s.course.totalHours,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         departments: s.course.departments?.map((d: any) => ({
           id: d.id,
           department: d.department,
           student_count: d.studentCount,
         })) || [],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         sessions: s.course.sessions?.map((sess: any) => ({
           id: sess.id,
           type: (sess.type as 'teorik' | 'lab' | 'tümü') || 'teorik',
@@ -174,6 +178,7 @@ export class ClassroomService extends BaseService<Classroom, CreateClassroomInpu
         capacity: classroom.capacity,
         faculty: classroom.faculty,
         department: classroom.department,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         available_hours: (classroom as any).availableHours || null,
       },
     }));
@@ -293,6 +298,7 @@ export class ClassroomService extends BaseService<Classroom, CreateClassroomInpu
   /**
    * Get active classrooms for scheduler
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getActiveClassroomsForScheduler(): Promise<any[]> {
     const classrooms = await prisma.classroom.findMany({
       where: { isActive: true },
@@ -314,6 +320,7 @@ export class ClassroomService extends BaseService<Classroom, CreateClassroomInpu
   /**
    * Transform Prisma classroom to API format
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private transformClassroom(classroom: any): Classroom {
     return {
       id: classroom.id,

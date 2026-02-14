@@ -38,7 +38,7 @@ export async function GET(
       time_range: s.timeRange,
       course_id: s.courseId,
       classroom_id: s.classroomId,
-      session_type: (s as any).sessionType,
+      session_type: (s as unknown as { sessionType: string }).sessionType,
       is_hardcoded: s.isHardcoded,
       course: s.course ? {
         id: s.course.id,
@@ -57,9 +57,11 @@ export async function GET(
           name: s.course.teacher.name,
           working_hours: s.course.teacher.workingHours,
         } : null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         departments: s.course.departments.map((d: any) => ({
           id: d.id, department: d.department, student_count: d.studentCount,
         })),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         sessions: s.course.sessions.map((sess: any) => ({
           id: sess.id, type: sess.type, hours: sess.hours,
         })),
@@ -139,7 +141,7 @@ export async function PUT(
       time_range: updated.timeRange,
       course_id: updated.courseId,
       classroom_id: updated.classroomId,
-      session_type: (updated as any).sessionType,
+      session_type: (updated as unknown as { sessionType: string }).sessionType,
       is_hardcoded: updated.isHardcoded,
       course: updated.course ? {
         id: updated.course.id,
@@ -158,9 +160,11 @@ export async function PUT(
           name: updated.course.teacher.name,
           working_hours: updated.course.teacher.workingHours,
         } : null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         departments: updated.course.departments.map((d: any) => ({
           id: d.id, department: d.department, student_count: d.studentCount,
         })),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         sessions: updated.course.sessions.map((sess: any) => ({
           id: sess.id, type: sess.type, hours: sess.hours,
         })),

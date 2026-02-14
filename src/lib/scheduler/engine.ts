@@ -888,7 +888,7 @@ export async function* generateSchedule(
                   message: conflictReason.message,
                   details: {
                     conflictingCourses: conflictReason.details?.conflictingCourses,
-                    conflictingDepartments: conflictReason.details?.departments,
+                    conflictingDepartments: conflictReason.details?.conflictingDepartments,
                   },
                 };
               }

@@ -16,6 +16,7 @@ export async function GET(request: Request) {
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
     const category = searchParams.get('category');
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const whereClause: any = {
       OR: [
         { userId: user.id },

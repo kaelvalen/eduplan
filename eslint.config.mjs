@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Standalone Node.js scripts using CommonJS
+    "check-db.js",
+    "check-db-detailed.js",
+    "debug-schedule.js",
+    "migrate-turso.js",
+    "scripts/**",
   ]),
 ]);
 
