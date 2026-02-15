@@ -3,13 +3,40 @@
  * Şablonlar, export, sütun eşleme, import doğrulama.
  */
 
-import * as XLSX from 'xlsx';
+// xlsx-js-style: xlsx ile uyumlu, stil desteği eklenmiş versiyon
+import * as XLSX from 'xlsx-js-style';
 import { FACULTIES, DEPARTMENTS } from '@/constants/faculties';
 import { getEmptyHours, stringifyAvailableHours } from '@/lib/time-utils';
 import type { Teacher, Course, Classroom, Schedule } from '@/types';
 
 const TITLES = ['Prof. Dr.', 'Doç. Dr.', 'Dr. Öğr. Üyesi', 'Öğr. Gör.', 'Öğr. Gör. Dr.', 'Arş. Gör.', 'Arş. Gör. Dr.'] as const;
 const FACULTY_IDS = new Set(FACULTIES.map((f) => f.id));
+
+// Başlık stili - koyu mavi arka plan, beyaz kalın yazı
+const HEADER_STYLE = {
+  fill: { fgColor: { rgb: '4472C4' } },
+  font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
+  alignment: { horizontal: 'center', vertical: 'center' },
+  border: {
+    top: { style: 'thin', color: { rgb: '2F5496' } },
+    bottom: { style: 'thin', color: { rgb: '2F5496' } },
+    left: { style: 'thin', color: { rgb: '2F5496' } },
+    right: { style: 'thin', color: { rgb: '2F5496' } },
+  },
+};
+
+// Referans sayfa başlık stili - yeşil
+const REF_HEADER_STYLE = {
+  fill: { fgColor: { rgb: '70AD47' } },
+  font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
+  alignment: { horizontal: 'center', vertical: 'center' },
+  border: {
+    top: { style: 'thin', color: { rgb: '507E32' } },
+    bottom: { style: 'thin', color: { rgb: '507E32' } },
+    left: { style: 'thin', color: { rgb: '507E32' } },
+    right: { style: 'thin', color: { rgb: '507E32' } },
+  },
+};
 
 function departmentExists(facultyId: string, deptId: string): boolean {
   const list = DEPARTMENTS[facultyId];
@@ -39,6 +66,23 @@ export function exportToExcel(
       wch: Math.min(50, Math.max(k.length, ...data.map((r) => String((r as any)[k] ?? '').length)) + 2),
     }));
     ws['!cols'] = colWidths;
+    
+    // Başlık satırını dondur
+    ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft' };
+    
+    // Auto filter ekle
+    const numCols = Object.keys(data[0]).length;
+    if (numCols > 0) {
+      const endCol = XLSX.utils.encode_col(numCols - 1);
+      ws['!autofilter'] = { ref: `A1:${endCol}1` };
+      
+      // Başlık stillerini uygula
+      for (let C = 0; C < numCols; C++) {
+        const addr = XLSX.utils.encode_cell({ r: 0, c: C });
+        if (ws[addr]) ws[addr].s = HEADER_STYLE;
+      }
+    }
+    
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   }
   XLSX.writeFile(wb, `${filename}_${dateSuffix()}.xlsx`);
@@ -60,6 +104,7 @@ export function mapCoursesForExport(rows: Course[]): Record<string, unknown>[] {
   return rows.map((c) => {
     const totalHours = c.total_hours ?? c.sessions?.reduce((s, x) => s + x.hours, 0) ?? 0;
     const dept = c.departments?.[0];
+    const sessions = c.sessions || [];
     return {
       'ID': c.id,
       'Ders Kodu': c.code,
@@ -72,6 +117,13 @@ export function mapCoursesForExport(rows: Course[]): Record<string, unknown>[] {
       'Dönem': c.semester,
       'AKTS': c.ects,
       'Haftalık Saat': totalHours,
+      'Kapasite Marjı (%)': c.capacity_margin ?? 0,
+      'Oturum 1 Tür': sessions[0]?.type === 'lab' ? 'Laboratuvar' : sessions[0] ? 'Teorik' : '',
+      'Oturum 1 Süre': sessions[0]?.hours ?? '',
+      'Oturum 2 Tür': sessions[1]?.type === 'lab' ? 'Laboratuvar' : sessions[1] ? 'Teorik' : '',
+      'Oturum 2 Süre': sessions[1]?.hours ?? '',
+      'Oturum 3 Tür': sessions[2]?.type === 'lab' ? 'Laboratuvar' : sessions[2] ? 'Teorik' : '',
+      'Oturum 3 Süre': sessions[2]?.hours ?? '',
       'Bölüm': dept?.department ?? '',
       'Öğrenci Sayısı': dept?.student_count ?? 0,
       'Aktif': c.is_active ? 'Evet' : 'Hayır',
@@ -125,6 +177,7 @@ const COURSE_HEADERS = [
   'Dönem',
   'AKTS',
   'Haftalık Saat',
+  'Kapasite Marjı (%)',
   'Oturum 1 Tür',
   'Oturum 1 Süre',
   'Oturum 2 Tür',
@@ -145,63 +198,336 @@ const CLASSROOM_HEADERS = [
   'Aktif',
 ];
 
+// Fakülte ve bölüm referans listesi oluştur
+function buildFacultyReferenceSheet(): string[][] {
+  const rows: string[][] = [['Fakülte ID', 'Fakülte Adı', 'Bölüm ID', 'Bölüm Adı']];
+  for (const faculty of FACULTIES) {
+    const depts = DEPARTMENTS[faculty.id] || [];
+    if (depts.length === 0) {
+      rows.push([faculty.id, faculty.name, '-', '-']);
+    } else {
+      for (const dept of depts) {
+        rows.push([faculty.id, faculty.name, dept.id, dept.name]);
+      }
+    }
+  }
+  return rows;
+}
+
+// Ünvanlar ve diğer referans değerleri
+function buildReferenceValuesSheet(): string[][] {
+  return [
+    ['Referans Değerler', '', '', ''],
+    ['', '', '', ''],
+    ['Ünvanlar', 'Seviye', 'Kategori', 'Dönem'],
+    ['Prof. Dr.', '1', 'zorunlu', 'güz'],
+    ['Doç. Dr.', '2', 'secmeli', 'bahar'],
+    ['Dr. Öğr. Üyesi', '3', '', ''],
+    ['Öğr. Gör.', '4', '', ''],
+    ['Öğr. Gör. Dr.', '', '', ''],
+    ['Arş. Gör.', '', '', ''],
+    ['Arş. Gör. Dr.', '', '', ''],
+    ['', '', '', ''],
+    ['Derslik Türleri', 'Aktif Durumu', '', ''],
+    ['Teorik', 'Evet', '', ''],
+    ['Laboratuvar', 'Hayır', '', ''],
+  ];
+}
+
+// Hücre stillerini ayarla (başlık satırı için)
+function applyHeaderStyles(ws: XLSX.WorkSheet, numCols: number, headerStyle = HEADER_STYLE): void {
+  // Başlık satırını dondur (freeze)
+  ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft' };
+  
+  // Auto filter ekle
+  if (numCols > 0) {
+    const endCol = XLSX.utils.encode_col(numCols - 1);
+    ws['!autofilter'] = { ref: `A1:${endCol}1` };
+  }
+  
+  // Başlık hücrelerine stil uygula (koruma yok - veri girişi serbest)
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+  for (let C = range.s.c; C <= range.e.c; C++) {
+    const headerAddr = XLSX.utils.encode_cell({ r: 0, c: C });
+    if (ws[headerAddr]) {
+      ws[headerAddr].s = headerStyle;
+    }
+  }
+}
+
+// Data validation (dropdown) listesi oluştur
+function addDataValidation(
+  ws: XLSX.WorkSheet, 
+  col: number, 
+  startRow: number, 
+  endRow: number, 
+  options: string[]
+): void {
+  if (!ws['!dataValidation']) ws['!dataValidation'] = [];
+  
+  const startCell = XLSX.utils.encode_cell({ r: startRow, c: col });
+  const endCell = XLSX.utils.encode_cell({ r: endRow, c: col });
+  
+  (ws['!dataValidation'] as unknown[]).push({
+    type: 'list',
+    allowBlank: true,
+    sqref: `${startCell}:${endCell}`,
+    formula1: `"${options.join(',')}"`,
+    showDropDown: true,
+    showErrorMessage: true,
+    errorTitle: 'Geçersiz Değer',
+    error: `Lütfen listeden bir değer seçin: ${options.slice(0, 3).join(', ')}...`,
+  });
+}
+
 function workbookWithDataAndDescription(
   dataRows: unknown[][],
   descLines: string[],
-  baseName: string
+  baseName: string,
+  includeReferences = true,
+  validations?: { col: number; options: string[] }[]
 ): void {
   const wb = XLSX.utils.book_new();
+  
+  // Ana veri sayfası
   const ws = XLSX.utils.aoa_to_sheet(dataRows);
   const numCols = Array.isArray(dataRows[0]) ? dataRows[0].length : 0;
-  ws['!cols'] = Array.from({ length: Math.max(numCols, 1) }, () => ({ wch: 18 }));
+  ws['!cols'] = Array.from({ length: Math.max(numCols, 1) }, () => ({ wch: 20 }));
+  
+  // Başlık stilleri ve koruma
+  applyHeaderStyles(ws, numCols);
+  
+  // Data validation ekle
+  if (validations && dataRows.length > 1) {
+    const maxRow = Math.max(dataRows.length + 100, 500); // Yeni satırlar için alan bırak
+    for (const v of validations) {
+      addDataValidation(ws, v.col, 1, maxRow, v.options);
+    }
+  }
+  
   XLSX.utils.book_append_sheet(wb, ws, 'Veri');
-  const desc = [['Açıklama'], [''], ...descLines.map((l) => [l])];
+  
+  // Açıklama sayfası
+  const desc = [['AÇIKLAMA'], [''], ...descLines.map((l) => [l])];
   const wsDesc = XLSX.utils.aoa_to_sheet(desc);
-  wsDesc['!cols'] = [{ wch: 72 }];
+  wsDesc['!cols'] = [{ wch: 80 }];
+  // Başlık hücresine turuncu stil uygula
+  if (wsDesc['A1']) {
+    wsDesc['A1'].s = {
+      fill: { fgColor: { rgb: 'ED7D31' } },
+      font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 14 },
+      alignment: { horizontal: 'center', vertical: 'center' },
+    };
+  }
   XLSX.utils.book_append_sheet(wb, wsDesc, 'Açıklama');
+  
+  // Referans listeleri
+  if (includeReferences) {
+    const refRows = buildFacultyReferenceSheet();
+    const wsRef = XLSX.utils.aoa_to_sheet(refRows);
+    wsRef['!cols'] = [{ wch: 15 }, { wch: 40 }, { wch: 25 }, { wch: 45 }];
+    wsRef['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft' };
+    // Başlık satırına yeşil stil uygula
+    for (let C = 0; C < 4; C++) {
+      const addr = XLSX.utils.encode_cell({ r: 0, c: C });
+      if (wsRef[addr]) wsRef[addr].s = REF_HEADER_STYLE;
+    }
+    XLSX.utils.book_append_sheet(wb, wsRef, 'Fakülte-Bölüm Listesi');
+    
+    const valRows = buildReferenceValuesSheet();
+    const wsVal = XLSX.utils.aoa_to_sheet(valRows);
+    wsVal['!cols'] = [{ wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
+    // Başlık satırına (satır 2) stil uygula
+    for (let C = 0; C < 4; C++) {
+      const addr = XLSX.utils.encode_cell({ r: 2, c: C });
+      if (wsVal[addr]) wsVal[addr].s = REF_HEADER_STYLE;
+    }
+    XLSX.utils.book_append_sheet(wb, wsVal, 'Referans Değerler');
+  }
+  
   XLSX.writeFile(wb, `${baseName}.xlsx`);
 }
 
 export function downloadTeacherTemplate(): void {
   const rows = [
     TEACHER_HEADERS,
-    ['Örnek Öğretim Elemanı', 'ornek@ankara.edu.tr', 'Öğr. Gör.', 'muhendislik', 'bilgisayar', 'Evet'],
+    ['Dr. Ahmet Yılmaz', 'ahmet.yilmaz@ankara.edu.tr', 'Dr. Öğr. Üyesi', 'muhendislik', 'bilgisayar', 'Evet'],
+    ['Prof. Dr. Ayşe Demir', 'ayse.demir@ankara.edu.tr', 'Prof. Dr.', 'fen', 'matematik', 'Evet'],
+    ['', '', '', '', '', ''],
+    ['↓ Yukarıdaki örnekleri silin ve kendi verilerinizi girin ↓', '', '', '', '', ''],
   ];
   const desc = [
-    'Fakülte: muhendislik, fen, dil-tarih, ... (sistemdeki ID)',
-    'Bölüm: ilgili fakülteye ait bölüm ID (örn. bilgisayar, matematik)',
-    'Ünvan: Prof. Dr., Doç. Dr., Dr. Öğr. Üyesi, Öğr. Gör., Öğr. Gör. Dr., Arş. Gör., Arş. Gör. Dr.',
-    'Aktif: Evet / Hayır',
+    '═══════════════════════════════════════════════════════════════════════════════',
+    '                      ÖĞRETİM ELEMANI AKTARMA ŞABLONU',
+    '═══════════════════════════════════════════════════════════════════════════════',
+    '',
+    '📋 ZORUNLU ALANLAR:',
+    '   • Ad Soyad: En az 2 karakter (örn: "Dr. Mehmet Kaya")',
+    '   • E-posta: Geçerli e-posta adresi (örn: "mkaya@ankara.edu.tr")',
+    '   • Fakülte: Fakülte ID (örn: "muhendislik", "fen", "tip")',
+    '   • Bölüm: İlgili fakülteye ait bölüm ID (örn: "bilgisayar", "matematik")',
+    '',
+    '📋 OPSİYONEL ALANLAR:',
+    '   • Ünvan: Akademik ünvan (örn: "Prof. Dr.", "Doç. Dr.", "Dr. Öğr. Üyesi")',
+    '     Boş bırakılırsa "Öğr. Gör." atanır.',
+    '   • Aktif: "Evet" veya "Hayır". Boş bırakılırsa "Evet" kabul edilir.',
+    '',
+    '⚠️  ÖNEMLİ NOTLAR:',
+    '   • Fakülte ve bölüm ID\'lerini "Fakülte-Bölüm Listesi" sayfasından kontrol edin.',
+    '   • Ünvanları "Referans Değerler" sayfasından seçin.',
+    '   • E-posta adresleri benzersiz olmalıdır.',
+    '   • Örnek satırları silmeyi unutmayın.',
+    '',
+    '✅ GEÇERLİ ÜNVANLAR:',
+    '   Prof. Dr. | Doç. Dr. | Dr. Öğr. Üyesi | Öğr. Gör. | Öğr. Gör. Dr. | Arş. Gör. | Arş. Gör. Dr.',
+    '',
+    '🔹 Başlık satırı korumalıdır ve değiştirilemez.',
+    '🔹 Dropdown listelerden değer seçebilirsiniz (Ünvan, Aktif).',
+    '🔹 Fakülte ve Bölüm için "Fakülte-Bölüm Listesi" sayfasına bakın.',
+    '',
+    '═══════════════════════════════════════════════════════════════════════════════',
   ];
-  workbookWithDataAndDescription(rows, desc, 'ogretmen_sablonu');
+  
+  // Fakülte ID listesi
+  const facultyIds = FACULTIES.map(f => f.id);
+  
+  // Validations: col index -> options
+  const validations = [
+    { col: 2, options: [...TITLES] }, // Ünvan
+    { col: 3, options: facultyIds }, // Fakülte
+    { col: 5, options: ['Evet', 'Hayır'] }, // Aktif
+  ];
+  
+  workbookWithDataAndDescription(rows, desc, 'ogretim_elemani_sablonu', true, validations);
 }
 
 export function downloadCourseTemplate(): void {
   const rows = [
     COURSE_HEADERS,
-    ['BIL101', 'Programlamaya Giriş', 'muhendislik', 1, 'ornek@ankara.edu.tr', '1', 'zorunlu', 'güz', 5, 4, 'Teorik', 3, 'Laboratuvar', 2, '', '', 'bilgisayar', 80, 'Evet'],
+    ['BIL101', 'Programlamaya Giriş', 'muhendislik', '', 'ornek@ankara.edu.tr', '1', 'zorunlu', 'güz', 5, 4, 10, 'Teorik', 2, 'Laboratuvar', 2, '', '', 'bilgisayar', 80, 'Evet'],
+    ['MAT102', 'Matematik II', 'fen', '', 'ornek@ankara.edu.tr', '1', 'zorunlu', 'bahar', 6, 3, 0, 'Teorik', 3, '', '', '', '', 'matematik', 60, 'Evet'],
+    ['YMH301', 'Yazılım Mimarisi', 'muhendislik', '', 'ornek@ankara.edu.tr', '3', 'secmeli', 'güz', 5, 5, 15, 'Teorik', 3, 'Laboratuvar', 2, '', '', 'yazilim', 45, 'Evet'],
+    ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+    ['↓ Yukarıdaki örnekleri silin ve kendi verilerinizi girin ↓', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
   ];
   const desc = [
-    'Ders Kodu: BIL101, CENG1001 gibi (büyük harf + rakam)',
-    'Öğretim Elemanı ID veya Öğretim Elemanı E-posta: ID geçerliyse kullanılır; yoksa e-posta ile sistemdeki öğretim elemanı eşlenir.',
-    'Oturum 1–3 Tür / Süre: Her oturum için Tür (Teorik / Laboratuvar) ve Süre (saat). Toplam = Haftalık Saat. Oturum yoksa yalnızca Haftalık Saat kullanılır.',
-    'Seviye: 1, 2, 3 veya 4. Kategori: zorunlu / secmeli. Dönem: güz / bahar.',
-    'Bölüm + Öğrenci Sayısı: dersin verildiği bölüm ve öğrenci sayısı.',
+    '═══════════════════════════════════════════════════════════════════════════════',
+    '                           DERS AKTARMA ŞABLONU',
+    '═══════════════════════════════════════════════════════════════════════════════',
+    '',
+    '📋 ZORUNLU ALANLAR:',
+    '   • Ders Kodu: 2-4 harf + 3-4 rakam (örn: "BIL101", "CENG1001", "YMH302")',
+    '   • Ders Adı: En az 2 karakter',
+    '   • Fakülte: Fakülte ID (örn: "muhendislik", "fen")',
+    '   • Öğretim Elemanı: ID veya E-posta kullanın (sistemde kayıtlı olmalı)',
+    '   • Bölüm: Dersin verildiği bölüm ID',
+    '',
+    '📋 OPSİYONEL ALANLAR:',
+    '   • Seviye: 1, 2, 3 veya 4 (varsayılan: 1)',
+    '   • Kategori: "zorunlu" veya "secmeli" (varsayılan: zorunlu)',
+    '   • Dönem: "güz" veya "bahar" (varsayılan: güz)',
+    '   • AKTS: 1-30 arası (varsayılan: 5)',
+    '   • Haftalık Saat: Toplam ders saati (oturum belirtilmezse kullanılır)',
+    '   • Kapasite Marjı (%): Dersliğin öğrenci kapasitesine eklenecek tolerans',
+    '     (0-30 arası, varsayılan: 0). Örn: %10 marj = 50 öğrenci için 55 kapasiteli derslik uygun.',
+    '   • Öğrenci Sayısı: Tahmini öğrenci sayısı (derslik ataması için önemli)',
+    '   • Aktif: "Evet" veya "Hayır" (varsayılan: Evet)',
+    '',
+    '📋 OTURUM ALANLARI (İSTEĞE BAĞLI):',
+    '   Bir ders birden fazla oturumdan oluşabilir (örn: 2 saat Teorik + 2 saat Lab)',
+    '   • Oturum 1 Tür: "Teorik" veya "Laboratuvar"',
+    '   • Oturum 1 Süre: Saat cinsinden süre',
+    '   • Oturum 2 Tür/Süre ve Oturum 3 Tür/Süre: İsteğe bağlı ek oturumlar',
+    '   Oturum belirtmezseniz, "Haftalık Saat" değeri tek bir Teorik oturum olarak alınır.',
+    '',
+    '⚠️  ÖNEMLİ NOTLAR:',
+    '   • Önce öğretim elemanlarını içe aktarın. Ders için öğretmen gereklidir.',
+    '   • Öğretim Elemanı E-posta: Sistemde kayıtlı e-posta ile eşleştirilir.',
+    '   • Fakülte ve bölüm ID\'lerini "Fakülte-Bölüm Listesi" sayfasından kontrol edin.',
+    '   • Ders kodu benzersiz olmalıdır.',
+    '',
+    '💡 ÖRNEK OTURUM YAPILARI:',
+    '   • Sadece Teorik: Oturum 1 = Teorik/3, diğerleri boş',
+    '   • Teorik + Lab: Oturum 1 = Teorik/2, Oturum 2 = Laboratuvar/2',
+    '   • Çoklu Lab: Oturum 1 = Teorik/2, Oturum 2 = Lab/2, Oturum 3 = Lab/2',
+    '',
+    '🔹 Başlık satırı korumalıdır ve değiştirilemez.',
+    '🔹 Dropdown listelerden değer seçebilirsiniz (Fakülte, Seviye, Kategori, Dönem, Oturum Türleri, Aktif).',
+    '',
+    '═══════════════════════════════════════════════════════════════════════════════',
   ];
-  workbookWithDataAndDescription(rows, desc, 'ders_sablonu');
+  
+  // Fakülte ID listesi
+  const facultyIds = FACULTIES.map(f => f.id);
+  const sessionTypes = ['Teorik', 'Laboratuvar'];
+  
+  // Validations: col index -> options (COURSE_HEADERS sırasına göre)
+  const validations = [
+    { col: 2, options: facultyIds }, // Fakülte
+    { col: 5, options: ['1', '2', '3', '4'] }, // Seviye
+    { col: 6, options: ['zorunlu', 'secmeli'] }, // Kategori
+    { col: 7, options: ['güz', 'bahar'] }, // Dönem
+    { col: 11, options: sessionTypes }, // Oturum 1 Tür
+    { col: 13, options: sessionTypes }, // Oturum 2 Tür
+    { col: 15, options: sessionTypes }, // Oturum 3 Tür
+    { col: 19, options: ['Evet', 'Hayır'] }, // Aktif
+  ];
+  
+  workbookWithDataAndDescription(rows, desc, 'ders_sablonu', true, validations);
 }
 
 export function downloadClassroomTemplate(): void {
   const rows = [
     CLASSROOM_HEADERS,
-    ['R101', 60, 'Teorik', 'muhendislik', 'bilgisayar', '', 'Evet'],
+    ['D-101', 60, 'Teorik', 'muhendislik', 'bilgisayar', '', 'Evet'],
+    ['Lab-A', 30, 'Laboratuvar', 'muhendislik', 'bilgisayar', 'bilgisayar', 'Evet'],
+    ['Amfi-1', 150, 'Teorik', 'fen', 'matematik', '', 'Evet'],
+    ['', '', '', '', '', '', ''],
+    ['↓ Yukarıdaki örnekleri silin ve kendi verilerinizi girin ↓', '', '', '', '', '', ''],
   ];
   const desc = [
-    'Tür: Teorik / Laboratuvar',
-    'Öncelikli Bölüm: boş bırakılabilir',
-    'Aktif: Evet / Hayır',
+    '═══════════════════════════════════════════════════════════════════════════════',
+    '                         DERSLİK AKTARMA ŞABLONU',
+    '═══════════════════════════════════════════════════════════════════════════════',
+    '',
+    '📋 ZORUNLU ALANLAR:',
+    '   • Derslik Adı: Dersliğin adı (örn: "D-101", "Lab-A", "Amfi-1")',
+    '   • Fakülte: Dersliğin bulunduğu fakülte ID',
+    '   • Bölüm: Dersliğin ait olduğu bölüm ID',
+    '',
+    '📋 OPSİYONEL ALANLAR:',
+    '   • Kapasite: Öğrenci kapasitesi, 1-1000 arası (varsayılan: 30)',
+    '   • Tür: "Teorik" veya "Laboratuvar" (varsayılan: Teorik)',
+    '   • Öncelikli Bölüm: Bu dersliğe öncelikli erişimi olan bölüm ID (boş olabilir)',
+    '   • Aktif: "Evet" veya "Hayır" (varsayılan: Evet)',
+    '',
+    '⚠️  ÖNEMLİ NOTLAR:',
+    '   • Aynı bölümde aynı isimli derslik benzersiz olmalıdır.',
+    '   • Laboratuvar türündeki derslikler sadece Lab oturumlarına atanır.',
+    '   • Öncelikli bölüm belirtilirse, o bölümün derslerine öncelik verilir.',
+    '   • Fakülte ve bölüm ID\'lerini "Fakülte-Bölüm Listesi" sayfasından kontrol edin.',
+    '',
+    '💡 DERSLİK TÜRLERİ:',
+    '   • Teorik: Normal derslik, amfi, konferans salonu',
+    '   • Laboratuvar: Bilgisayar lab, fizik lab, kimya lab vb.',
+    '',
+    '🔹 Başlık satırı korumalıdır ve değiştirilemez.',
+    '🔹 Dropdown listelerden değer seçebilirsiniz (Tür, Fakülte, Aktif).',
+    '',
+    '═══════════════════════════════════════════════════════════════════════════════',
   ];
-  workbookWithDataAndDescription(rows, desc, 'derslik_sablonu');
+  
+  // Fakülte ID listesi
+  const facultyIds = FACULTIES.map(f => f.id);
+  
+  // Validations: col index -> options (CLASSROOM_HEADERS sırasına göre)
+  const validations = [
+    { col: 2, options: ['Teorik', 'Laboratuvar'] }, // Tür
+    { col: 3, options: facultyIds }, // Fakülte
+    { col: 6, options: ['Evet', 'Hayır'] }, // Aktif
+  ];
+  
+  workbookWithDataAndDescription(rows, desc, 'derslik_sablonu', true, validations);
 }
 
 // ---------- Read Excel ----------
@@ -267,6 +593,11 @@ const COURSE_MAP: Record<string, string> = {
   'akts': 'AKTS',
   'haftalık saat': 'Haftalık Saat',
   'haftalik saat': 'Haftalık Saat',
+  'kapasite marjı': 'Kapasite Marjı (%)',
+  'kapasite marji': 'Kapasite Marjı (%)',
+  'kapasite marjı (%)': 'Kapasite Marjı (%)',
+  'kapasite marji (%)': 'Kapasite Marjı (%)',
+  'capacity margin': 'Kapasite Marjı (%)',
   'oturum 1 tür': 'Oturum 1 Tür',
   'oturum 1 tur': 'Oturum 1 Tür',
   'oturum 1 süre': 'Oturum 1 Süre',
@@ -321,7 +652,34 @@ export interface RowResult<T = unknown> {
   ok: boolean;
   data?: T;
   error?: string;
+  hint?: string;
   rowIndex: number;
+}
+
+// Yardımcı fonksiyon: Fakülte önerileri 
+function getSimilarFaculties(input: string): string {
+  const normalized = input.toLowerCase();
+  const matches = FACULTIES.filter(f => 
+    f.id.includes(normalized) || f.name.toLowerCase().includes(normalized)
+  ).slice(0, 3);
+  if (matches.length > 0) {
+    return `Belki şunlardan birini mi kastedtiniz: ${matches.map(f => `"${f.id}" (${f.name})`).join(', ')}`;
+  }
+  return `Geçerli fakülteler: ${FACULTIES.slice(0, 5).map(f => f.id).join(', ')}...`;
+}
+
+// Yardımcı fonksiyon: Bölüm önerileri
+function getSimilarDepartments(facultyId: string, input: string): string {
+  const depts = DEPARTMENTS[facultyId] || [];
+  if (depts.length === 0) return '';
+  const normalized = input.toLowerCase();
+  const matches = depts.filter(d => 
+    d.id.includes(normalized) || d.name.toLowerCase().includes(normalized)
+  ).slice(0, 3);
+  if (matches.length > 0) {
+    return `Belki şunlardan birini mi kastedtiniz: ${matches.map(d => `"${d.id}"`).join(', ')}`;
+  }
+  return `Bu fakültedeki bölümler: ${depts.slice(0, 5).map(d => d.id).join(', ')}${depts.length > 5 ? '...' : ''}`;
 }
 
 export function validateAndMapTeachers(
@@ -338,15 +696,32 @@ export function validateAndMapTeachers(
     const active = (r['Aktif'] ?? 'Evet');
     const is_active = String(active).toLowerCase() !== 'hayır' && String(active).toLowerCase() !== 'hayir';
 
-    if (!name || name.length < 2) return { ok: false, error: 'Ad Soyad gerekli (en az 2 karakter)', rowIndex: i + 1 };
-    if (!email) return { ok: false, error: 'E-posta gerekli', rowIndex: i + 1 };
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Geçersiz e-posta', rowIndex: i + 1 };
+    if (!name || name.length < 2) {
+      return { ok: false, error: '❌ "Ad Soyad" alanı boş veya çok kısa', hint: 'En az 2 karakter giriniz (örn: "Dr. Ahmet Yılmaz")', rowIndex: i + 1 };
+    }
+    if (!email) {
+      return { ok: false, error: '❌ "E-posta" alanı boş', hint: 'Geçerli bir e-posta adresi giriniz (örn: "ahmet@ankara.edu.tr")', rowIndex: i + 1 };
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { ok: false, error: `❌ Geçersiz e-posta formatı: "${email}"`, hint: 'Doğru format: kullanici@domain.com', rowIndex: i + 1 };
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (!TITLES.includes(title as any)) return { ok: false, error: `Ünvan geçersiz. Örnek: ${TITLES.slice(0, 3).join(', ')}`, rowIndex: i + 1 };
-    if (!faculty) return { ok: false, error: 'Fakülte gerekli', rowIndex: i + 1 };
-    if (!FACULTY_IDS.has(faculty)) return { ok: false, error: `Bilinmeyen fakülte: ${faculty}`, rowIndex: i + 1 };
-    if (!department) return { ok: false, error: 'Bölüm gerekli', rowIndex: i + 1 };
-    if (!departmentExists(faculty, department)) return { ok: false, error: `Bölüm "${department}" bu fakültede yok`, rowIndex: i + 1 };
+    if (!TITLES.includes(title as any)) {
+      return { ok: false, error: `❌ Geçersiz ünvan: "${title}"`, hint: `Geçerli ünvanlar: ${TITLES.join(', ')}`, rowIndex: i + 1 };
+    }
+    if (!faculty) {
+      return { ok: false, error: '❌ "Fakülte" alanı boş', hint: 'Şablondaki "Fakülte-Bölüm Listesi" sayfasından fakülte ID seçiniz', rowIndex: i + 1 };
+    }
+    if (!FACULTY_IDS.has(faculty)) {
+      return { ok: false, error: `❌ Bilinmeyen fakülte: "${faculty}"`, hint: getSimilarFaculties(faculty), rowIndex: i + 1 };
+    }
+    if (!department) {
+      return { ok: false, error: '❌ "Bölüm" alanı boş', hint: 'Şablondaki "Fakülte-Bölüm Listesi" sayfasından bölüm ID seçiniz', rowIndex: i + 1 };
+    }
+    if (!departmentExists(faculty, department)) {
+      const hint = getSimilarDepartments(faculty, department);
+      return { ok: false, error: `❌ "${faculty}" fakültesinde "${department}" bölümü yok`, hint, rowIndex: i + 1 };
+    }
 
     return {
       ok: true,
@@ -378,6 +753,7 @@ export function validateAndMapCourses(
   semester: string;
   ects: number;
   total_hours: number;
+  capacity_margin: number;
   departments: { department: string; student_count: number }[];
   is_active: boolean;
   sessions: { type: 'teorik' | 'lab'; hours: number }[];
@@ -395,7 +771,10 @@ export function validateAndMapCourses(
       if (emailRaw && teacherEmailToId?.has(emailRaw)) {
         teacher_id = teacherEmailToId.get(emailRaw)!;
       } else {
-        return { ok: false, error: 'Geçerli Öğretim Elemanı ID veya Öğretim Elemanı E-posta gerekli (e-posta sistemde kayıtlı olmalı)', rowIndex: i + 1 };
+        const hint = emailRaw 
+          ? `"${emailRaw}" sistemde kayıtlı değil. Önce öğretim elemanlarını içe aktarın.`
+          : 'ID veya E-posta alanlarından birini doldurunuz.';
+        return { ok: false, error: '❌ Öğretim elemanı bulunamadı', hint, rowIndex: i + 1 };
       }
     }
 
@@ -405,18 +784,34 @@ export function validateAndMapCourses(
     const semester = String(row['Dönem'] ?? 'güz').trim().toLowerCase();
     const ects = parseInt(String(row['AKTS'] ?? '5'), 10) || 5;
     const weeklyHoursFallback = parseInt(String(row['Haftalık Saat'] ?? '3'), 10) || 3;
+    const capacityMarginRaw = parseInt(String(row['Kapasite Marjı (%)'] ?? '0'), 10);
+    const capacity_margin = isNaN(capacityMarginRaw) ? 0 : Math.max(0, Math.min(30, capacityMarginRaw));
     const department = String(row['Bölüm'] ?? '').trim();
     const student_count = parseInt(String(row['Öğrenci Sayısı'] ?? '0'), 10) || 0;
     const active = row['Aktif'];
     const is_active = String(active ?? 'Evet').toLowerCase() !== 'hayır' && String(active ?? 'Evet').toLowerCase() !== 'hayir';
 
-    if (!code || !/^[A-Z]{2,4}\d{3,4}$/.test(code)) return { ok: false, error: 'Ders Kodu gerekli (örn. BIL101, CENG1001)', rowIndex: i + 1 };
-    if (!name || name.length < 2) return { ok: false, error: 'Ders Adı gerekli', rowIndex: i + 1 };
-    if (!faculty) return { ok: false, error: 'Fakülte gerekli', rowIndex: i + 1 };
-    if (!FACULTY_IDS.has(faculty)) return { ok: false, error: `Bilinmeyen fakülte: ${faculty}`, rowIndex: i + 1 };
-    if (!['1', '2', '3', '4'].includes(level)) return { ok: false, error: 'Seviye 1, 2, 3 veya 4 olmalı', rowIndex: i + 1 };
-    if (!department) return { ok: false, error: 'Bölüm gerekli', rowIndex: i + 1 };
-    if (!departmentExists(faculty, department)) return { ok: false, error: `Bölüm "${department}" bu fakültede yok`, rowIndex: i + 1 };
+    if (!code || !/^[A-Z]{2,4}\d{3,4}$/.test(code)) {
+      return { ok: false, error: `❌ Geçersiz ders kodu: "${code || '(boş)'}"`, hint: 'Format: 2-4 harf + 3-4 rakam (örn: BIL101, CENG1001, YMH302)', rowIndex: i + 1 };
+    }
+    if (!name || name.length < 2) {
+      return { ok: false, error: '❌ "Ders Adı" alanı boş veya çok kısa', hint: 'En az 2 karakter giriniz', rowIndex: i + 1 };
+    }
+    if (!faculty) {
+      return { ok: false, error: '❌ "Fakülte" alanı boş', hint: 'Şablondaki "Fakülte-Bölüm Listesi" sayfasından fakülte ID seçiniz', rowIndex: i + 1 };
+    }
+    if (!FACULTY_IDS.has(faculty)) {
+      return { ok: false, error: `❌ Bilinmeyen fakülte: "${faculty}"`, hint: getSimilarFaculties(faculty), rowIndex: i + 1 };
+    }
+    if (!['1', '2', '3', '4'].includes(level)) {
+      return { ok: false, error: `❌ Geçersiz seviye: "${level}"`, hint: 'Seviye 1, 2, 3 veya 4 olmalı', rowIndex: i + 1 };
+    }
+    if (!department) {
+      return { ok: false, error: '❌ "Bölüm" alanı boş', hint: 'Dersin verildiği bölümü belirtiniz', rowIndex: i + 1 };
+    }
+    if (!departmentExists(faculty, department)) {
+      return { ok: false, error: `❌ "${faculty}" fakültesinde "${department}" bölümü yok`, hint: getSimilarDepartments(faculty, department), rowIndex: i + 1 };
+    }
 
     const departments = [{ department, student_count }];
     let sessions: { type: 'teorik' | 'lab'; hours: number }[] = [];
@@ -449,6 +844,7 @@ export function validateAndMapCourses(
         semester: semester || 'güz',
         ects: Math.max(0, Math.min(30, ects)),
         total_hours,
+        capacity_margin,
         departments,
         is_active,
         sessions,
@@ -481,11 +877,21 @@ export function validateAndMapClassrooms(
     const active = row['Aktif'];
     const is_active = String(active ?? 'Evet').toLowerCase() !== 'hayır' && String(active ?? 'Evet').toLowerCase() !== 'hayir';
 
-    if (!name) return { ok: false, error: 'Derslik Adı gerekli', rowIndex: i + 1 };
-    if (!faculty) return { ok: false, error: 'Fakülte gerekli', rowIndex: i + 1 };
-    if (!FACULTY_IDS.has(faculty)) return { ok: false, error: `Bilinmeyen fakülte: ${faculty}`, rowIndex: i + 1 };
-    if (!department) return { ok: false, error: 'Bölüm gerekli', rowIndex: i + 1 };
-    if (!departmentExists(faculty, department)) return { ok: false, error: `Bölüm "${department}" bu fakültede yok`, rowIndex: i + 1 };
+    if (!name) {
+      return { ok: false, error: '❌ "Derslik Adı" alanı boş', hint: 'Derslik adı giriniz (örn: "D-101", "Lab-A")', rowIndex: i + 1 };
+    }
+    if (!faculty) {
+      return { ok: false, error: '❌ "Fakülte" alanı boş', hint: 'Şablondaki "Fakülte-Bölüm Listesi" sayfasından fakülte ID seçiniz', rowIndex: i + 1 };
+    }
+    if (!FACULTY_IDS.has(faculty)) {
+      return { ok: false, error: `❌ Bilinmeyen fakülte: "${faculty}"`, hint: getSimilarFaculties(faculty), rowIndex: i + 1 };
+    }
+    if (!department) {
+      return { ok: false, error: '❌ "Bölüm" alanı boş', hint: 'Dersliğin ait olduğu bölümü belirtiniz', rowIndex: i + 1 };
+    }
+    if (!departmentExists(faculty, department)) {
+      return { ok: false, error: `❌ "${faculty}" fakültesinde "${department}" bölümü yok`, hint: getSimilarDepartments(faculty, department), rowIndex: i + 1 };
+    }
 
     return {
       ok: true,

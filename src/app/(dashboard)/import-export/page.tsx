@@ -608,7 +608,14 @@ export default function ImportExportPage() {
                       </td>
                     ))}
                     {errCount > 0 && (
-                      <td className="p-2 text-destructive text-xs">{!res.ok ? res.error : ''}</td>
+                      <td className="p-2 text-destructive text-xs">
+                        {!res.ok && (
+                          <div className="space-y-0.5">
+                            <div className="font-medium">{res.error}</div>
+                            {res.hint && <div className="text-muted-foreground text-[10px]">{res.hint}</div>}
+                          </div>
+                        )}
+                      </td>
                     )}
                   </tr>
                 ))}
