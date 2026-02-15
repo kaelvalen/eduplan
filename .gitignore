@@ -57,3 +57,5 @@ logs/
 # test
 coverage/
 .vitest/
+# Electron
+/dist/

@@ -18,6 +18,8 @@ const eslintConfig = defineConfig([
     "debug-schedule.js",
     "migrate-turso.js",
     "scripts/**",
+    // Electron main process files (CommonJS)
+    "electron/**",
   ]),
 ]);
 

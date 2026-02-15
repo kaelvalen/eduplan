@@ -1,0 +1,79 @@
+{
+  "appId": "com.eduplan.app",
+  "productName": "EduPlan",
+  "copyright": "Copyright © 2026 EduPlan",
+  "directories": {
+    "output": "dist",
+    "buildResources": "build"
+  },
+  "files": [
+    "electron/**/*",
+    ".next/**/*",
+    "public/**/*",
+    "package.json",
+    "next.config.ts",
+    "prisma/**/*",
+    "!prisma/migrations/**/*",
+    "node_modules/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "prisma",
+      "to": "prisma",
+      "filter": ["schema.prisma", "*.db"]
+    }
+  ],
+  "asar": true,
+  "asarUnpack": [
+    "node_modules/@prisma/**/*",
+    "node_modules/prisma/**/*",
+    "node_modules/.prisma/**/*"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "public/icon.ico",
+    "artifactName": "${productName}-${version}-Windows.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "installerIcon": "public/icon.ico",
+    "uninstallerIcon": "public/icon.ico",
+    "installerHeaderIcon": "public/icon.ico",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "EduPlan"
+  },
+  "mac": {
+    "target": [
+      {
+        "target": "dmg",
+        "arch": ["x64", "arm64"]
+      }
+    ],
+    "icon": "public/icon.icns",
+    "category": "public.app-category.education",
+    "artifactName": "${productName}-${version}-macOS.${ext}"
+  },
+  "linux": {
+    "target": [
+      {
+        "target": "AppImage",
+        "arch": ["x64"]
+      },
+      {
+        "target": "deb",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "public/icon.png",
+    "category": "Education",
+    "artifactName": "${productName}-${version}-Linux.${ext}"
+  },
+  "publish": null
+}
