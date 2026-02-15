@@ -57,6 +57,8 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/cli": "^2.10.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
     "@types/bcryptjs": "^2.4.6",

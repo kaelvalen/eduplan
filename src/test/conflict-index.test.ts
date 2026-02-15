@@ -216,7 +216,7 @@ describe('ConflictIndex', () => {
         category: 'zorunlu',
         semester: 'Güz',
         level: '1',
-        departments: [{ department: 'elektrik', studentCount: 40 }],
+        departments: [{ department: 'elektrik-elektronik', studentCount: 40 }],
       });
 
       const index = new ConflictIndex([course1, course2]);

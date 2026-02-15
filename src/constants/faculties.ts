@@ -59,7 +59,7 @@ export const DEPARTMENTS: Record<string, Department[]> = {
     { id: 'bilgisayar', name: 'Bilgisayar Mühendisliği' },
     { id: 'bilgisayar-ing', name: 'Bilgisayar Mühendisliği (İngilizce)' },
     { id: 'biyomedikal', name: 'Biyomedikal Mühendisliği (İngilizce)' },
-    { id: 'elektrik', name: 'Elektrik-Elektronik Mühendisliği (İngilizce)' },
+    { id: 'elektrik-elektronik', name: 'Elektrik-Elektronik Mühendisliği (İngilizce)' },
     { id: 'fizik-muh', name: 'Fizik Mühendisliği (İngilizce)' },
     { id: 'gida', name: 'Gıda Mühendisliği (İngilizce)' },
     { id: 'insaat', name: 'İnşaat Mühendisliği' },
